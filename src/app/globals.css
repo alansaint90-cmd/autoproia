@@ -64,6 +64,16 @@ body {
   background-size: 32px 32px;
 }
 
+.whatsapp-chat-bg {
+  background-color: #0b0b0b;
+  background-image:
+    linear-gradient(rgba(8, 8, 8, 0.08), rgba(8, 8, 8, 0.08)),
+    url("/brand/whatsapp-chat-reference.jpeg");
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+}
+
 .scrollbar-thin::-webkit-scrollbar {
   height: 8px;
   width: 8px;
@@ -72,4 +82,37 @@ body {
 .scrollbar-thin::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 8px;
+}
+
+.kanban-input {
+  min-height: 2.75rem;
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: color-mix(in oklch, var(--input) 58%, transparent);
+  padding: 0.75rem 0.875rem;
+  color: var(--foreground);
+  font-size: 0.875rem;
+  outline: none;
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    background-color 220ms ease;
+}
+
+.kanban-input:focus {
+  border-color: color-mix(in oklch, var(--primary) 62%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 24%, transparent);
+}
+
+@keyframes leadFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

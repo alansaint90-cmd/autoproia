@@ -1,36 +1,448 @@
-import { Bell, Plus, Search } from "lucide-react";
+"use client";
 
-export function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { Bell, Bot, CheckCircle2, LogOut, MessageCircle, Plus, Search, TrendingUp, UserRound, X } from "lucide-react";
+
+const KANBAN_STORAGE_KEY = "auto-pro-ia:kanban-leads";
+const COMPANY_PROFILE_STORAGE_KEY = "auto-pro-ia:company-profile";
+
+const notifications = [
+  {
+    id: "n1",
+    title: "Novo lead qualificado",
+    description: "Ana Beatriz respondeu sobre CNH B e esta pronta para atendimento.",
+    time: "2 min",
+    icon: Bot,
+    tone: "text-cyan-300"
+  },
+  {
+    id: "n2",
+    title: "Conversa aguardando humano",
+    description: "Pedro H. pediu negociacao de parcelas no WhatsApp.",
+    time: "8 min",
+    icon: MessageCircle,
+    tone: "text-primary"
+  },
+  {
+    id: "n3",
+    title: "Matricula fechada",
+    description: "Carla Vendas confirmou uma matricula CNH B.",
+    time: "14 min",
+    icon: CheckCircle2,
+    tone: "text-emerald-300"
+  },
+  {
+    id: "n4",
+    title: "Campanha acima da media",
+    description: "Meta Ads subiu 18% em conversao na ultima hora.",
+    time: "32 min",
+    icon: TrendingUp,
+    tone: "text-violet-300"
+  }
+];
+
+const emptyLead = {
+  name: "",
+  phone: "",
+  origin: "WhatsApp",
+  status: "novo",
+  temperature: "quente",
+  sentiment: "positivo",
+  lastMessage: "",
+  responsible: "Carla Vendas",
+  notes: ""
+};
+
+type CompanyProfile = {
+  name: string;
+  logo?: string;
+};
+
+const defaultCompanyProfile: CompanyProfile = {
+  name: "AutoEscola Pro"
+};
+
+function initialsFromName(name: string) {
+  return name
+    .trim()
+    .split(" ")
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+type TopbarProps = {
+  title: string;
+  subtitle?: string;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  onNewLead?: () => void;
+};
+
+export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead }: TopbarProps) {
+  const hasInteractiveSearch = typeof onSearchChange === "function";
+  const [showFallbackModal, setShowFallbackModal] = useState(false);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile>(defaultCompanyProfile);
+  const [leadDraft, setLeadDraft] = useState(emptyLead);
+
+  useEffect(() => {
+    function loadCompanyProfile() {
+      try {
+        const stored = window.localStorage.getItem(COMPANY_PROFILE_STORAGE_KEY);
+        if (stored) {
+          setCompanyProfile({ ...defaultCompanyProfile, ...(JSON.parse(stored) as CompanyProfile) });
+        }
+      } catch {
+        setCompanyProfile(defaultCompanyProfile);
+      }
+    }
+
+    loadCompanyProfile();
+    window.addEventListener("auto-pro-ia:company-profile-updated", loadCompanyProfile);
+    window.addEventListener("storage", loadCompanyProfile);
+
+    return () => {
+      window.removeEventListener("auto-pro-ia:company-profile-updated", loadCompanyProfile);
+      window.removeEventListener("storage", loadCompanyProfile);
+    };
+  }, []);
+
+  function openNewLead() {
+    if (onNewLead) {
+      onNewLead();
+      return;
+    }
+
+    setLeadDraft(emptyLead);
+    setShowFallbackModal(true);
+  }
+
+  function saveFallbackLead() {
+    if (!leadDraft.name.trim()) {
+      return;
+    }
+
+    const newLead = {
+      id: `lead-${Date.now()}`,
+      name: leadDraft.name.trim(),
+      phone: leadDraft.phone.trim() || "+55 00 90000-0000",
+      origin: leadDraft.origin,
+      status: leadDraft.status,
+      temperature: leadDraft.temperature,
+      sentiment: leadDraft.sentiment,
+      lastMessage: leadDraft.lastMessage.trim() || "Novo lead cadastrado manualmente.",
+      lastInteraction: "agora",
+      responsible: leadDraft.responsible.trim() || "Carla Vendas",
+      initials: initialsFromName(leadDraft.name),
+      notes: leadDraft.notes.trim() || "Lead criado pelo botao Novo Lead."
+    };
+
+    const stored = window.localStorage.getItem(KANBAN_STORAGE_KEY);
+    const current = stored ? JSON.parse(stored) : [];
+    window.localStorage.setItem(KANBAN_STORAGE_KEY, JSON.stringify([newLead, ...current]));
+    window.dispatchEvent(new Event("auto-pro-ia:kanban-leads-updated"));
+    setShowFallbackModal(false);
+    setLeadDraft(emptyLead);
+  }
+
+  function exitApp() {
+    window.location.href = "/";
+  }
+
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-border bg-card/80 px-6 backdrop-blur">
-      <div className="min-w-0">
-        <h1 className="text-lg font-bold leading-none">{title}</h1>
-        {subtitle ? <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p> : null}
-      </div>
-
-      <div className="ml-6 hidden max-w-md flex-1 lg:block">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            placeholder="Buscar leads, conversas, clientes..."
-            className="h-9 w-full rounded-lg border border-border bg-input/40 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-ring/50"
-          />
+    <>
+      <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-white/[0.08] bg-card/75 px-6 backdrop-blur-xl">
+        <div className="min-w-0">
+          <h1 className="text-lg font-bold leading-none">{title}</h1>
+          {subtitle ? <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p> : null}
         </div>
-      </div>
 
-      <div className="ml-auto flex items-center gap-2">
-        <button className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground">
-          <Plus className="size-4" />
-          Novo Lead
-        </button>
-        <button className="relative grid size-9 place-items-center rounded-lg border border-border hover:bg-accent">
-          <Bell className="size-4" />
-          <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-danger" />
-        </button>
-        <div className="grid size-9 place-items-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
-          AP
+        <div className="ml-6 hidden max-w-md flex-1 lg:block">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            {hasInteractiveSearch ? (
+              <input
+                value={searchValue ?? ""}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Buscar leads, conversas, clientes..."
+                className="h-10 w-full rounded-2xl border border-white/10 bg-white/[0.045] pl-10 pr-4 text-sm outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-white/[0.16] focus:border-primary/55 focus:bg-white/[0.065] focus:ring-4 focus:ring-primary/10"
+              />
+            ) : (
+              <input
+                placeholder="Buscar leads, conversas, clientes..."
+                className="h-10 w-full rounded-2xl border border-white/10 bg-white/[0.045] pl-10 pr-4 text-sm outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-white/[0.16] focus:border-primary/55 focus:bg-white/[0.065] focus:ring-4 focus:ring-primary/10"
+              />
+            )}
+          </div>
         </div>
-      </div>
-    </header>
+
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={openNewLead}
+            type="button"
+            className="inline-flex h-10 items-center gap-1.5 rounded-2xl bg-primary px-4 text-sm font-bold text-primary-foreground shadow-glow transition duration-200 hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0"
+          >
+            <Plus className="size-4" />
+            Novo Lead
+          </button>
+          <div className="group/notifications relative">
+            <button
+              type="button"
+              onClick={() => setShowNotificationsModal(true)}
+              aria-label="Abrir notificacoes"
+              className="relative grid size-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.035] transition duration-200 hover:-translate-y-0.5 hover:border-white/[0.18] hover:bg-white/[0.06] active:translate-y-0"
+            >
+              <Bell className="size-4" />
+              <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-danger" />
+            </button>
+
+            <div className="pointer-events-none absolute right-0 top-10 z-30 w-80 translate-y-2 pt-2 opacity-0 transition-all duration-200 group-hover/notifications:pointer-events-auto group-hover/notifications:translate-y-0 group-hover/notifications:opacity-100">
+              <div className="rounded-2xl border border-white/10 bg-[#0b1422]/95 p-3 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <p className="text-sm font-bold">Notificacoes</p>
+                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">
+                    {notifications.length} novas
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {notifications.slice(0, 3).map((notification) => {
+                    const Icon = notification.icon;
+
+                    return (
+                      <button
+                        key={notification.id}
+                        type="button"
+                        onClick={() => setShowNotificationsModal(true)}
+                        className="flex w-full items-start gap-3 rounded-xl p-2 text-left transition hover:bg-white/[0.055]"
+                      >
+                        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-white/[0.055]">
+                          <Icon className={`size-4 ${notification.tone}`} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-xs font-bold">{notification.title}</span>
+                          <span className="mt-0.5 line-clamp-2 block text-[11px] leading-4 text-muted-foreground">
+                            {notification.description}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">{notification.time}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="group/profile relative">
+            <button
+              type="button"
+              className="grid size-10 place-items-center overflow-hidden rounded-2xl bg-primary text-xs font-bold text-primary-foreground shadow-glow transition duration-200 hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0"
+              aria-label="Abrir perfil"
+            >
+              {companyProfile.logo ? (
+                <img src={companyProfile.logo} alt="" className="h-full w-full object-cover" />
+              ) : (
+                initialsFromName(companyProfile.name || "Auto Pro").slice(0, 2)
+              )}
+            </button>
+
+            <div className="pointer-events-none absolute right-0 top-10 z-30 w-64 translate-y-2 pt-2 opacity-0 transition-all duration-200 group-hover/profile:pointer-events-auto group-hover/profile:translate-y-0 group-hover/profile:opacity-100">
+              <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0b1422]/95 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+                <div className="flex items-center gap-3 border-b border-white/10 px-3 py-3">
+                  <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-2xl bg-primary text-xs font-bold text-primary-foreground">
+                    {companyProfile.logo ? (
+                      <img src={companyProfile.logo} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      initialsFromName(companyProfile.name || "Auto Pro").slice(0, 2)
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold">{companyProfile.name}</p>
+                    <p className="text-xs text-muted-foreground">Perfil da empresa</p>
+                  </div>
+                </div>
+
+                <Link
+                  href="/configuracoes"
+                  className="mt-2 flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-white/[0.055] hover:text-foreground"
+                >
+                  <UserRound className="size-4 text-primary" />
+                  Visitar perfil
+                </Link>
+                <button
+                  type="button"
+                  onClick={exitApp}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-red-500/10 hover:text-red-300"
+                >
+                  <LogOut className="size-4" />
+                  Sair
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {showFallbackModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+          <section className="w-full max-w-xl rounded-2xl border border-border bg-card shadow-panel">
+            <div className="border-b border-border p-5">
+              <h2 className="text-lg font-bold">Novo lead</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Salve o lead para criar um card no Kanban.</p>
+            </div>
+
+            <div className="grid gap-4 p-5 sm:grid-cols-2">
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Nome</span>
+                <input
+                  value={leadDraft.name}
+                  onChange={(event) => setLeadDraft((current) => ({ ...current, name: event.target.value }))}
+                  className="kanban-input [&_option]:bg-[#0b1422] [&_option]:text-white"
+                  placeholder="Nome do lead"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">WhatsApp</span>
+                <input
+                  value={leadDraft.phone}
+                  onChange={(event) => setLeadDraft((current) => ({ ...current, phone: event.target.value }))}
+                  className="kanban-input [&_option]:bg-[#0b1422] [&_option]:text-white"
+                  placeholder="+55 75 99999-0000"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Origem</span>
+                <select
+                  value={leadDraft.origin}
+                  onChange={(event) => setLeadDraft((current) => ({ ...current, origin: event.target.value }))}
+                  className="kanban-input [&_option]:bg-[#0b1422] [&_option]:text-white"
+                >
+                  <option>WhatsApp</option>
+                  <option>Meta Ads</option>
+                  <option>Google Ads</option>
+                  <option>Instagram</option>
+                  <option>Indicacao</option>
+                  <option>Site</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Etapa</span>
+                <select
+                  value={leadDraft.status}
+                  onChange={(event) => setLeadDraft((current) => ({ ...current, status: event.target.value }))}
+                  className="kanban-input"
+                >
+                  <optgroup label="Entrada">
+                    <option value="novo">Novo Lead</option>
+                    <option value="ia">IA Atendendo</option>
+                    <option value="qualificado">Qualificado</option>
+                  </optgroup>
+                  <optgroup label="Conversao">
+                    <option value="atendimento">Em Atendimento</option>
+                    <option value="orcamento">Orcamento Enviado</option>
+                    <option value="negociacao">Negociacao</option>
+                    <option value="interessado">Interessado</option>
+                    <option value="followup">Follow up</option>
+                    <option value="perdido">Leads Perdidos</option>
+                  </optgroup>
+                  <optgroup label="Fechamento">
+                    <option value="matricula_pendente">Matricula Pendente</option>
+                    <option value="matricula_realizada">Matricula Realizada</option>
+                  </optgroup>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Sentimento</span>
+                <select
+                  value={leadDraft.sentiment}
+                  onChange={(event) => setLeadDraft((current) => ({ ...current, sentiment: event.target.value }))}
+                  className="kanban-input"
+                >
+                  <option value="positivo">Positivo</option>
+                  <option value="neutro">Neutro</option>
+                  <option value="duvida">Duvida</option>
+                  <option value="negativo">Negativo</option>
+                </select>
+              </label>
+              <label className="space-y-2 sm:col-span-2">
+                <span className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">Observacao</span>
+                <textarea
+                  value={leadDraft.lastMessage}
+                  onChange={(event) => setLeadDraft((current) => ({ ...current, lastMessage: event.target.value }))}
+                  className="kanban-input min-h-24 resize-none"
+                  placeholder="Resumo da conversa ou interesse do lead"
+                />
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-2 border-t border-border p-5">
+              <button
+                type="button"
+                onClick={() => setShowFallbackModal(false)}
+                className="h-10 rounded-lg border border-border px-4 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-foreground"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={saveFallbackLead}
+                className="h-10 rounded-lg bg-primary px-4 text-sm font-bold text-primary-foreground shadow-glow transition hover:-translate-y-0.5"
+              >
+                Salvar lead
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {showNotificationsModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <section className="w-full max-w-2xl overflow-hidden rounded-3xl border border-white/10 bg-card shadow-[0_28px_90px_rgba(0,0,0,0.48)]">
+            <div className="flex items-start gap-4 border-b border-white/10 p-5">
+              <div>
+                <h2 className="text-lg font-bold">Notificacoes</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Atualizacoes recentes do atendimento e vendas.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNotificationsModal(false)}
+                className="ml-auto grid size-9 place-items-center rounded-xl text-muted-foreground transition hover:bg-white/[0.06] hover:text-foreground"
+                aria-label="Fechar notificacoes"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="max-h-[62vh] space-y-2 overflow-y-auto p-4 scrollbar-thin">
+              {notifications.map((notification) => {
+                const Icon = notification.icon;
+
+                return (
+                  <article
+                    key={notification.id}
+                    className="flex items-start gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 transition duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-white/[0.055]"
+                  >
+                    <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-white/[0.055]">
+                      <Icon className={`size-5 ${notification.tone}`} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <h3 className="font-bold leading-5">{notification.title}</h3>
+                        <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-1 text-xs font-bold text-muted-foreground">
+                          {notification.time}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm leading-6 text-muted-foreground">{notification.description}</p>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </>
   );
 }

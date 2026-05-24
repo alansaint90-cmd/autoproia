@@ -1,9 +1,9 @@
 "use client";
 
-import { Building2, Plus, Plug, Settings, ShieldCheck, Users } from "lucide-react";
+import { Building2, ImagePlus, Plus, Plug, Settings, ShieldCheck, Trash2, Users } from "lucide-react";
 import { Topbar } from "@/components/topbar";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type TabId = "empresa" | "usuarios" | "permissoes" | "integracoes" | "preferencias";
 
@@ -15,13 +15,34 @@ const tabs: Array<{ id: TabId; label: string; icon: React.ComponentType<{ size?:
   { id: "preferencias", label: "Preferencias", icon: Settings }
 ];
 
-const fields = [
-  { label: "Nome", value: "AutoEscola Pro" },
-  { label: "CNPJ", value: "00.000.000/0001-00" },
-  { label: "Email comercial", value: "contato@autoescolapro.com.br" },
-  { label: "Telefone", value: "+55 11 99999-0000" },
-  { label: "Endereco", value: "Av. Paulista, 1000" },
-  { label: "Cidade", value: "Sao Paulo, SP" }
+type CompanyProfile = {
+  name: string;
+  cnpj: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  logo?: string;
+};
+
+const COMPANY_PROFILE_STORAGE_KEY = "auto-pro-ia:company-profile";
+
+const defaultCompanyProfile: CompanyProfile = {
+  name: "AutoEscola Pro",
+  cnpj: "00.000.000/0001-00",
+  email: "contato@autoescolapro.com.br",
+  phone: "+55 11 99999-0000",
+  address: "Av. Paulista, 1000",
+  city: "Sao Paulo, SP"
+};
+
+const fields: Array<{ key: keyof Omit<CompanyProfile, "logo">; label: string }> = [
+  { key: "name", label: "Nome" },
+  { key: "cnpj", label: "CNPJ" },
+  { key: "email", label: "Email comercial" },
+  { key: "phone", label: "Telefone" },
+  { key: "address", label: "Endereco" },
+  { key: "city", label: "Cidade" }
 ];
 
 const users = [
@@ -115,11 +136,108 @@ export default function ConfiguracoesPage() {
 }
 
 function EmpresaPanel() {
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile>(defaultCompanyProfile);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(COMPANY_PROFILE_STORAGE_KEY);
+      if (stored) {
+        setCompanyProfile({ ...defaultCompanyProfile, ...(JSON.parse(stored) as CompanyProfile) });
+      }
+    } catch {
+      setCompanyProfile(defaultCompanyProfile);
+    }
+  }, []);
+
+  function updateField(key: keyof Omit<CompanyProfile, "logo">, value: string) {
+    setCompanyProfile((current) => ({ ...current, [key]: value }));
+    setSaved(false);
+  }
+
+  function uploadLogo(file?: File) {
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCompanyProfile((current) => ({ ...current, logo: String(reader.result) }));
+      setSaved(false);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeLogo() {
+    setCompanyProfile((current) => {
+      const { logo, ...profileWithoutLogo } = current;
+      return profileWithoutLogo;
+    });
+    setSaved(false);
+  }
+
+  function saveCompanyProfile() {
+    window.localStorage.setItem(COMPANY_PROFILE_STORAGE_KEY, JSON.stringify(companyProfile));
+    window.dispatchEvent(new Event("auto-pro-ia:company-profile-updated"));
+    setSaved(true);
+  }
+
   return (
     <section className="rounded-[22px] border border-border bg-card/72 p-6 shadow-panel">
       <h2 className="text-lg font-extrabold tracking-normal">Perfil da empresa</h2>
 
-      <form className="mt-6 space-y-6">
+      <form
+        className="mt-6 space-y-6"
+        onSubmit={(event) => {
+          event.preventDefault();
+          saveCompanyProfile();
+        }}
+      >
+        <div className="rounded-[20px] border border-white/[0.08] bg-white/[0.035] p-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center">
+            <div className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-[22px] border border-white/10 bg-primary text-lg font-black text-primary-foreground shadow-glow">
+              {companyProfile.logo ? (
+                <img src={companyProfile.logo} alt="" className="h-full w-full object-cover" />
+              ) : (
+                companyProfile.name
+                  .split(" ")
+                  .slice(0, 2)
+                  .map((part) => part[0])
+                  .join("")
+                  .toUpperCase()
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-extrabold">Logo da empresa</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Envie a logo que deve aparecer no topo do sistema no lugar do avatar atual.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-[14px] bg-primary px-4 text-sm font-extrabold text-primary-foreground shadow-glow transition hover:-translate-y-0.5">
+                <ImagePlus size={16} />
+                Fazer upload
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  onChange={(event) => uploadLogo(event.target.files?.[0])}
+                  className="sr-only"
+                />
+              </label>
+              {companyProfile.logo ? (
+                <button
+                  type="button"
+                  onClick={removeLogo}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-[14px] border border-red-500/30 px-4 text-sm font-bold text-red-300 transition hover:bg-red-500/10"
+                >
+                  <Trash2 size={16} />
+                  Remover
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
         <div className="grid gap-x-5 gap-y-6 xl:grid-cols-2">
           {fields.map((field) => (
             <label key={field.label} className="block">
@@ -127,16 +245,20 @@ function EmpresaPanel() {
                 {field.label}
               </span>
               <input
-                defaultValue={field.value}
+                value={companyProfile[field.key]}
+                onChange={(event) => updateField(field.key, event.target.value)}
                 className="h-10 w-full rounded-[14px] border border-border bg-input/65 px-4 text-sm font-semibold text-foreground outline-none transition focus:border-primary/60 focus:ring-4 focus:ring-primary/10"
               />
             </label>
           ))}
         </div>
 
-        <button className="inline-flex h-10 items-center justify-center rounded-[14px] bg-primary px-5 text-sm font-extrabold text-primary-foreground shadow-glow">
-          Salvar alteracoes
-        </button>
+        <div className="flex items-center gap-3">
+          <button className="inline-flex h-10 items-center justify-center rounded-[14px] bg-primary px-5 text-sm font-extrabold text-primary-foreground shadow-glow">
+            Salvar alteracoes
+          </button>
+          {saved ? <span className="text-sm font-semibold text-success">Perfil atualizado</span> : null}
+        </div>
       </form>
     </section>
   );

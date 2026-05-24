@@ -5,15 +5,14 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Bot,
-  Car,
   KanbanSquare,
   LayoutDashboard,
-  LogOut,
   MessageSquareText,
   Settings,
   Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/brand-logo";
 
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -24,6 +23,12 @@ const items = [
   { href: "/configuracoes", label: "Configuracoes", icon: Settings }
 ];
 
+const aiStatus = {
+  label: "Ativo",
+  dot: "bg-success",
+  description: "18 conversas em atendimento automatico."
+};
+
 export function AppSidebar() {
   const pathname = usePathname();
 
@@ -31,10 +36,7 @@ export function AppSidebar() {
     <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
       <div className="border-b border-sidebar-border px-5 py-5">
         <Link href="/dashboard" className="flex items-center gap-3">
-          <div className="relative grid size-10 place-items-center rounded-lg bg-primary text-primary-foreground shadow-glow">
-            <Car size={21} strokeWidth={2.5} />
-            <span className="absolute -right-1 -top-1 size-3 rounded-full bg-success ring-2 ring-sidebar" />
-          </div>
+          <BrandLogo size={52} showStatus />
           <div>
             <div className="text-sm font-bold">AUTO PRO IA</div>
             <div className="font-mono text-[10px] text-muted-foreground">v1.1 CRM</div>
@@ -71,16 +73,18 @@ export function AppSidebar() {
 
       <div className="space-y-3 border-t border-sidebar-border p-3">
         <div className="rounded-lg border border-primary/20 bg-primary/10 p-3">
-          <div className="flex items-center gap-2 text-xs font-semibold">
+          <div className="flex items-center justify-between gap-2 text-xs font-semibold">
+            <span className="flex items-center gap-2">
             <Bot className="size-3.5 text-primary" />
-            IA Ativa
+              Status da IA
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.045] px-2 py-0.5 text-[10px] font-bold">
+              <span className={cn("size-2 rounded-full", aiStatus.dot)} />
+              {aiStatus.label}
+            </span>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">18 conversas em atendimento automatico.</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">{aiStatus.description}</p>
         </div>
-        <Link href="/" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent">
-          <LogOut className="size-4" />
-          Sair
-        </Link>
       </div>
     </aside>
   );
