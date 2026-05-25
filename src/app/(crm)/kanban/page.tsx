@@ -5,12 +5,17 @@ import { useEffect, useMemo, useState, type ReactNode, type WheelEvent } from "r
 import {
   Archive,
   CalendarClock,
+  ChevronDown,
   Filter,
+  Gauge,
   MessageCircle,
   MoreHorizontal,
   Phone,
   Plus,
   Search,
+  Smile,
+  Bot,
+  Workflow,
   Trash2,
   X
 } from "lucide-react";
@@ -84,6 +89,8 @@ const pipelineStages: Array<{
 ];
 
 const origins = ["Todos", "Meta Ads", "Google Ads", "WhatsApp", "Instagram", "Indicacao", "Site"];
+const temperatureFilters: Array<LeadCard["temperature"] | "todos"> = ["todos", "urgente", "quente", "morno", "frio"];
+const sentimentFilters: Array<LeadCard["sentiment"] | "todos"> = ["todos", "positivo", "neutro", "duvida", "negativo"];
 
 const stageFromMock = {
   novo: "novo",
@@ -222,6 +229,8 @@ export default function KanbanPage() {
   const [query, setQuery] = useState("");
   const [originFilter, setOriginFilter] = useState("Todos");
   const [statusFilter, setStatusFilter] = useState<PipelineStage | "todos">("todos");
+  const [temperatureFilter, setTemperatureFilter] = useState<LeadCard["temperature"] | "todos">("todos");
+  const [sentimentFilter, setSentimentFilter] = useState<LeadCard["sentiment"] | "todos">("todos");
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
   const [draft, setDraft] = useState<LeadDraft>(emptyDraft);
@@ -229,6 +238,8 @@ export default function KanbanPage() {
   const [hasHydrated, setHasHydrated] = useState(false);
   const [movedLeadId, setMovedLeadId] = useState<string | null>(null);
   const [collapsedStages, setCollapsedStages] = useState<PipelineStage[]>([]);
+  const [expandedLeadIds, setExpandedLeadIds] = useState<string[]>([]);
+  const [openFilter, setOpenFilter] = useState<"origin" | "stage" | "temperature" | "sentiment" | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -282,15 +293,59 @@ export default function KanbanPage() {
         );
       const matchesOrigin = originFilter === "Todos" || lead.origin === originFilter;
       const matchesStatus = statusFilter === "todos" || lead.status === statusFilter;
+      const matchesTemperature = temperatureFilter === "todos" || lead.temperature === temperatureFilter;
+      const matchesSentiment = sentimentFilter === "todos" || lead.sentiment === sentimentFilter;
 
-      return matchesQuery && matchesOrigin && matchesStatus;
+      return matchesQuery && matchesOrigin && matchesStatus && matchesTemperature && matchesSentiment;
     });
-  }, [leads, originFilter, query, statusFilter]);
+  }, [leads, originFilter, query, sentimentFilter, statusFilter, temperatureFilter]);
 
   const visibleStages = useMemo(
     () => pipelineStages.filter((stage) => statusFilter === "todos" || stage.id === statusFilter),
     [statusFilter]
   );
+
+  const aiSuggestion = useMemo(() => {
+    const hotClosingLeads = visibleLeads.filter(
+      (lead) =>
+        ["orcamento", "negociacao", "interessado", "followup"].includes(lead.status) &&
+        ["quente", "urgente", "morno"].includes(lead.temperature)
+    );
+    const followUpLeads = visibleLeads.filter((lead) => lead.status === "followup");
+    const quoteLeads = visibleLeads.filter((lead) => lead.status === "orcamento");
+    const negotiationLeads = visibleLeads.filter((lead) => lead.status === "negociacao");
+
+    if (hotClosingLeads.length > 0) {
+      const bestStage =
+        negotiationLeads.length >= quoteLeads.length && negotiationLeads.length >= followUpLeads.length
+          ? "Negociacao"
+          : quoteLeads.length >= followUpLeads.length
+            ? "Orcamento enviado"
+            : "Follow up";
+
+      return {
+        title: `Foque em ${bestStage}`,
+        description: `${hotClosingLeads.length} leads com alta chance de matricula. Priorize proposta objetiva e chamada para fechamento.`,
+        score: Math.min(96, 72 + hotClosingLeads.length * 4)
+      };
+    }
+
+    const iaLeads = visibleLeads.filter((lead) => lead.status === "ia" || lead.status === "qualificado");
+
+    return {
+      title: "Qualifique novos leads",
+      description: `${iaLeads.length} conversas podem virar atendimento humano. Assuma as que citarem valor, horario ou matricula.`,
+      score: Math.min(88, 58 + iaLeads.length * 5)
+    };
+  }, [visibleLeads]);
+
+  const selectedStageLabel =
+    statusFilter === "todos"
+      ? "Etapas"
+      : pipelineStages.find((stage) => stage.id === statusFilter)?.title ?? "Etapas";
+  const selectedOriginLabel = originFilter === "Todos" ? "Origens" : originFilter;
+  const selectedTemperatureLabel = temperatureFilter === "todos" ? "Temperatura" : temperatureFilter;
+  const selectedSentimentLabel = sentimentFilter === "todos" ? "Sentimento" : sentimentFilter;
 
   function moveLead(leadId: string, status: PipelineStage) {
     setMovedLeadId(leadId);
@@ -354,6 +409,8 @@ export default function KanbanPage() {
       setQuery("");
       setOriginFilter("Todos");
       setStatusFilter("todos");
+      setTemperatureFilter("todos");
+      setSentimentFilter("todos");
       closeModal();
       return;
     }
@@ -390,6 +447,12 @@ export default function KanbanPage() {
   function toggleStageCollapse(stageId: PipelineStage) {
     setCollapsedStages((current) =>
       current.includes(stageId) ? current.filter((id) => id !== stageId) : [...current, stageId]
+    );
+  }
+
+  function toggleLeadExpanded(leadId: string) {
+    setExpandedLeadIds((current) =>
+      current.includes(leadId) ? current.filter((id) => id !== leadId) : [...current, leadId]
     );
   }
 
@@ -445,7 +508,7 @@ export default function KanbanPage() {
         onNewLead={openCreateModal}
       />
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[radial-gradient(circle_at_28%_0%,rgba(82,39,255,0.12),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.018),transparent_30%),var(--background)]">
-        <section className="border-b border-white/[0.08] bg-background/72 px-4 py-5 backdrop-blur-xl xl:px-7">
+        <section className="relative z-30 border-b border-white/[0.08] bg-background/72 px-4 py-5 backdrop-blur-xl xl:px-7">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
             <div className="relative min-w-0 flex-1 lg:hidden">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -458,42 +521,258 @@ export default function KanbanPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:flex">
-              <label className="group relative">
-                <Filter className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition group-focus-within:text-primary" />
-                <select
-                  value={originFilter}
-                  onChange={(event) => setOriginFilter(event.target.value)}
-                  className="h-12 w-full appearance-none rounded-2xl border border-white/10 bg-[#121c2b] pl-10 pr-9 text-sm font-semibold text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.16)] outline-none transition duration-200 hover:border-white/[0.18] hover:bg-[#162235] focus:border-primary/55 focus:bg-[#162235] focus:ring-4 focus:ring-primary/10 sm:w-48 [&_option]:bg-[#0b1422] [&_option]:text-white"
+              <div className="relative" onMouseLeave={() => setOpenFilter((current) => (current === "origin" ? null : current))}>
+                <button
+                  type="button"
+                  onClick={() => setOpenFilter((current) => (current === "origin" ? null : "origin"))}
+                  className={cn(
+                    "grid h-12 w-full grid-cols-[20px_1fr_18px] items-center gap-2 rounded-2xl border border-white/10 bg-[#121c2b] px-3 text-left text-sm font-semibold text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.16)] outline-none transition duration-200 hover:border-white/[0.18] hover:bg-[#162235] focus:border-primary/55 focus:ring-4 focus:ring-primary/10 sm:w-48",
+                    openFilter === "origin" && "border-primary/45 bg-[#162235] ring-4 ring-primary/10"
+                  )}
                 >
-                  {origins.map((origin) => (
-                    <option key={origin} value={origin}>
-                      {origin}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  <Filter className="size-4 justify-self-center text-muted-foreground" />
+                  <span className="truncate">{selectedOriginLabel}</span>
+                  <ChevronDown className={cn("size-4 justify-self-center text-muted-foreground transition-transform duration-200", openFilter === "origin" && "rotate-180 text-primary")} />
+                </button>
 
-              <label className="group relative">
-                <select
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value as PipelineStage | "todos")}
-                  className="h-12 w-full appearance-none rounded-2xl border border-white/10 bg-[#121c2b] px-4 pr-10 text-sm font-semibold text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.16)] outline-none transition duration-200 hover:border-white/[0.18] hover:bg-[#162235] focus:border-primary/55 focus:bg-[#162235] focus:ring-4 focus:ring-primary/10 sm:w-56 [&_option]:bg-[#0b1422] [&_option]:text-white"
+                {openFilter === "origin" ? (
+                  <div className="absolute left-0 top-14 z-[80] w-64 overflow-hidden rounded-2xl border border-white/10 bg-[#0b1422]/98 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                    <p className="px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Origem do lead</p>
+                    <div className="grid gap-1">
+                      {origins.map((origin) => {
+                        const label = origin === "Todos" ? "Origens" : origin;
+                        const isActive = originFilter === origin;
+
+                        return (
+                          <button
+                            key={origin}
+                            type="button"
+                            onClick={() => {
+                              setOriginFilter(origin);
+                              setOpenFilter(null);
+                            }}
+                            className={cn(
+                              "flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-white/[0.055]",
+                              isActive ? "bg-primary/12 text-primary" : "text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <span>{label}</span>
+                            {isActive ? <span className="size-1.5 rounded-full bg-primary shadow-glow" /> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="relative" onMouseLeave={() => setOpenFilter((current) => (current === "stage" ? null : current))}>
+                <button
+                  type="button"
+                  onClick={() => setOpenFilter((current) => (current === "stage" ? null : "stage"))}
+                  className={cn(
+                    "grid h-12 w-full grid-cols-[20px_1fr_18px] items-center gap-2 rounded-2xl border border-white/10 bg-[#121c2b] px-3 text-left text-sm font-semibold text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.16)] outline-none transition duration-200 hover:border-white/[0.18] hover:bg-[#162235] focus:border-primary/55 focus:ring-4 focus:ring-primary/10 sm:w-56",
+                    openFilter === "stage" && "border-primary/45 bg-[#162235] ring-4 ring-primary/10"
+                  )}
                 >
-                <option value="todos">Todas as etapas</option>
-                {(["Entrada", "Conversao", "Fechamento"] as const).map((group) => (
-                  <optgroup key={group} label={group}>
-                    {pipelineStages
-                      .filter((stage) => stage.group === group)
-                      .map((stage) => (
-                        <option key={stage.id} value={stage.id}>
-                          {stage.title}
-                        </option>
-                      ))}
-                  </optgroup>
-                ))}
-                </select>
-                <span className="pointer-events-none absolute right-3.5 top-1/2 size-2 -translate-y-1/2 rotate-45 border-b-2 border-r-2 border-muted-foreground transition group-focus-within:border-primary" />
-              </label>
+                  <Workflow className="size-4 justify-self-center text-muted-foreground" />
+                  <span className="truncate">{selectedStageLabel}</span>
+                  <ChevronDown className={cn("size-4 justify-self-center text-muted-foreground transition-transform duration-200", openFilter === "stage" && "rotate-180 text-primary")} />
+                </button>
+
+                {openFilter === "stage" ? (
+                  <div className="absolute left-0 top-14 z-[80] w-72 overflow-hidden rounded-2xl border border-white/10 bg-[#0b1422]/98 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStatusFilter("todos");
+                        setCollapsedStages([]);
+                        setOpenFilter(null);
+                      }}
+                      className={cn(
+                        "mb-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-white/[0.055]",
+                        statusFilter === "todos" ? "bg-primary/12 text-primary" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Etapas
+                      {statusFilter === "todos" ? <span className="size-1.5 rounded-full bg-primary shadow-glow" /> : null}
+                    </button>
+                    {(["Entrada", "Conversao", "Fechamento"] as const).map((group) => (
+                      <div key={group} className="border-t border-white/[0.06] pt-2 first:border-t-0">
+                        <p className="px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{group}</p>
+                        <div className="grid gap-1 pb-1">
+                          {pipelineStages
+                            .filter((stage) => stage.group === group)
+                            .map((stage) => {
+                              const isActive = statusFilter === stage.id;
+
+                              return (
+                                <button
+                                  key={stage.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setStatusFilter(stage.id);
+                                    setOpenFilter(null);
+                                  }}
+                                  className={cn(
+                                    "flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold transition hover:bg-white/[0.055]",
+                                    isActive ? "bg-primary/12 text-primary" : "text-muted-foreground hover:text-foreground"
+                                  )}
+                                >
+                                  {stage.title}
+                                  {isActive ? <span className="size-1.5 rounded-full bg-primary shadow-glow" /> : null}
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="relative" onMouseLeave={() => setOpenFilter((current) => (current === "temperature" ? null : current))}>
+                <button
+                  type="button"
+                  onClick={() => setOpenFilter((current) => (current === "temperature" ? null : "temperature"))}
+                  className={cn(
+                    "grid h-12 w-full grid-cols-[20px_1fr_18px] items-center gap-2 rounded-2xl border border-white/10 bg-[#121c2b] px-3 text-left text-sm font-semibold capitalize text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.16)] outline-none transition duration-200 hover:border-white/[0.18] hover:bg-[#162235] focus:border-primary/55 focus:ring-4 focus:ring-primary/10 sm:w-40",
+                    openFilter === "temperature" && "border-primary/45 bg-[#162235] ring-4 ring-primary/10"
+                  )}
+                >
+                  <Gauge className="size-4 justify-self-center text-muted-foreground" />
+                  <span className="truncate">{selectedTemperatureLabel}</span>
+                  <ChevronDown className={cn("size-4 justify-self-center text-muted-foreground transition-transform duration-200", openFilter === "temperature" && "rotate-180 text-primary")} />
+                </button>
+
+                {openFilter === "temperature" ? (
+                  <div className="absolute left-0 top-14 z-[80] w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#0b1422]/98 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                    <p className="px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Temperatura</p>
+                    <div className="grid gap-1">
+                      {temperatureFilters.map((temperature) => {
+                        const isActive = temperatureFilter === temperature;
+
+                        return (
+                          <button
+                            key={temperature}
+                            type="button"
+                            onClick={() => {
+                              setTemperatureFilter(temperature);
+                              setOpenFilter(null);
+                            }}
+                            className={cn(
+                              "flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold capitalize transition hover:bg-white/[0.055]",
+                              isActive ? "bg-primary/12 text-primary" : "text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <span>{temperature === "todos" ? "Todas" : temperature}</span>
+                            {isActive ? <span className="size-1.5 rounded-full bg-primary shadow-glow" /> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="relative" onMouseLeave={() => setOpenFilter((current) => (current === "sentiment" ? null : current))}>
+                <button
+                  type="button"
+                  onClick={() => setOpenFilter((current) => (current === "sentiment" ? null : "sentiment"))}
+                  className={cn(
+                    "grid h-12 w-full grid-cols-[20px_1fr_18px] items-center gap-2 rounded-2xl border border-white/10 bg-[#121c2b] px-3 text-left text-sm font-semibold capitalize text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_10px_28px_rgba(0,0,0,0.16)] outline-none transition duration-200 hover:border-white/[0.18] hover:bg-[#162235] focus:border-primary/55 focus:ring-4 focus:ring-primary/10 sm:w-40",
+                    openFilter === "sentiment" && "border-primary/45 bg-[#162235] ring-4 ring-primary/10"
+                  )}
+                >
+                  <Smile className="size-4 justify-self-center text-muted-foreground" />
+                  <span className="truncate">{selectedSentimentLabel}</span>
+                  <ChevronDown className={cn("size-4 justify-self-center text-muted-foreground transition-transform duration-200", openFilter === "sentiment" && "rotate-180 text-primary")} />
+                </button>
+
+                {openFilter === "sentiment" ? (
+                  <div className="absolute left-0 top-14 z-[80] w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#0b1422]/98 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                    <p className="px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Sentimento</p>
+                    <div className="grid gap-1">
+                      {sentimentFilters.map((sentiment) => {
+                        const isActive = sentimentFilter === sentiment;
+
+                        return (
+                          <button
+                            key={sentiment}
+                            type="button"
+                            onClick={() => {
+                              setSentimentFilter(sentiment);
+                              setOpenFilter(null);
+                            }}
+                            className={cn(
+                              "flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold capitalize transition hover:bg-white/[0.055]",
+                              isActive ? "bg-primary/12 text-primary" : "text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <span>{sentiment === "todos" ? "Todos" : sentiment}</span>
+                            {isActive ? <span className="size-1.5 rounded-full bg-primary shadow-glow" /> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOriginFilter("Todos");
+                  setStatusFilter("todos");
+                  setTemperatureFilter("todos");
+                  setSentimentFilter("todos");
+                  setCollapsedStages([]);
+                  setOpenFilter(null);
+                }}
+                className="grid h-12 w-full grid-cols-[18px_1fr] items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-3 text-left text-xs font-black uppercase tracking-[0.08em] text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_10px_28px_rgba(0,0,0,0.12)] transition duration-200 hover:border-sky-300/25 hover:bg-sky-300/[0.055] hover:text-foreground focus:border-sky-300/45 focus:outline-none focus:ring-4 focus:ring-sky-400/10 sm:w-40"
+              >
+                <X className="size-4 justify-self-center" />
+                <span className="truncate">Limpar filtros</span>
+              </button>
+
+              <div className="group/ai-suggestion relative col-span-2 sm:col-span-1">
+                <div className="ai-blue-shine relative grid h-14 grid-cols-[42px_1fr_auto] items-center gap-3 overflow-hidden rounded-2xl border border-sky-300/22 bg-sky-400/[0.07] px-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_16px_40px_rgba(14,165,233,0.12)] ring-1 ring-sky-300/10 sm:min-w-[360px] xl:min-w-[500px]">
+                  <span className="ai-bot-orbit relative z-10 grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-sky-300/10 text-sky-200 shadow-[0_0_20px_rgba(56,189,248,0.16)]">
+                    <Bot className="relative z-10 size-4" />
+                  </span>
+                  <div className="relative z-10 min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-sky-200">Sugestao de IA</p>
+                    <p className="truncate text-sm font-black text-foreground">{aiSuggestion.title}</p>
+                    <p className="hidden truncate text-[11px] font-semibold text-sky-100/65 xl:block">Passe o mouse para ver a acao recomendada</p>
+                  </div>
+                  <span className="relative z-10 shrink-0 rounded-full border border-sky-300/22 bg-sky-300/10 px-2.5 py-1 font-mono text-[10px] font-black text-sky-100 shadow-[0_0_18px_rgba(56,189,248,0.12)]">
+                    {aiSuggestion.score}%
+                  </span>
+                </div>
+
+                <div className="pointer-events-none absolute left-0 top-16 z-[85] w-[min(500px,calc(100vw-2rem))] translate-y-2 rounded-2xl border border-sky-300/18 bg-[#07111f]/98 p-4 opacity-0 shadow-[0_24px_70px_rgba(0,0,0,0.48),0_0_34px_rgba(14,165,233,0.1)] backdrop-blur-xl transition-all duration-200 group-hover/ai-suggestion:pointer-events-auto group-hover/ai-suggestion:translate-y-0 group-hover/ai-suggestion:opacity-100">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-200">IA recomenda agora</p>
+                      <h3 className="mt-1 text-sm font-black text-foreground">{aiSuggestion.title}</h3>
+                    </div>
+                    <span className="rounded-full border border-sky-300/20 bg-sky-300/10 px-2 py-1 font-mono text-xs font-black text-sky-200">
+                      {aiSuggestion.score}%
+                    </span>
+                  </div>
+                  <p className="text-xs leading-5 text-muted-foreground">{aiSuggestion.description}</p>
+                  <div className="mt-4 grid gap-2">
+                    <div className="rounded-xl border border-sky-300/[0.08] bg-sky-300/[0.035] px-3 py-2">
+                      <p className="text-xs font-black text-sky-200">1. Prioridade</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">Abra os leads quentes desta etapa e responda primeiro quem pediu valor, horario ou matricula.</p>
+                    </div>
+                    <div className="rounded-xl border border-sky-300/[0.08] bg-sky-300/[0.035] px-3 py-2">
+                      <p className="text-xs font-black text-sky-200">2. Acao sugerida</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">Envie proposta objetiva e convide para fechar a matricula ainda hoje.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               <button
                 onClick={openCreateModal}
@@ -508,7 +787,7 @@ export default function KanbanPage() {
 
         <section
           onWheel={handleBoardWheel}
-          className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden p-4 scrollbar-thin xl:p-7"
+          className="relative z-10 min-h-0 flex-1 overflow-x-auto overflow-y-hidden p-4 scrollbar-thin xl:p-7"
         >
           <div className="flex h-full min-h-0 gap-5 pb-4">
             {(hasHydrated ? visibleStages : pipelineStages.slice(0, 5)).map((stage, index, stagesToRender) => {
@@ -578,10 +857,16 @@ export default function KanbanPage() {
                     <h2
                       className={cn(
                         "flex-1 text-[15px] font-bold tracking-normal",
-                        isCollapsed && "flex-none [writing-mode:vertical-rl] rotate-180 whitespace-nowrap text-[13px] tracking-wide"
+                        isCollapsed && "flex-none whitespace-normal text-center text-[12px] leading-4 tracking-normal"
                       )}
                     >
-                      {stage.title}
+                      {isCollapsed
+                        ? stage.title.split(" ").map((word) => (
+                            <span key={word} className="block">
+                              {word}
+                            </span>
+                          ))
+                        : stage.title}
                     </h2>
                     <span className="rounded-full border border-white/[0.08] bg-white/[0.055] px-2.5 py-1 font-mono text-[11px] font-bold text-muted-foreground">
                       {stageLeads.length}
@@ -600,7 +885,10 @@ export default function KanbanPage() {
                         Nenhum lead nesta etapa
                       </div>
                     ) : (
-                      stageLeads.map((lead) => (
+                      stageLeads.map((lead) => {
+                        const isExpanded = expandedLeadIds.includes(lead.id);
+
+                        return (
                         <article
                           key={lead.id}
                           draggable
@@ -624,9 +912,22 @@ export default function KanbanPage() {
                               <div className="flex items-start gap-2">
                                 <h3 className="truncate text-[15px] font-bold leading-5">{lead.name}</h3>
                                 <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    toggleLeadExpanded(lead.id);
+                                  }}
+                                  aria-label={isExpanded ? `Recolher ${lead.name}` : `Expandir ${lead.name}`}
+                                  title={isExpanded ? "Recolher card" : "Expandir card"}
+                                  className="ml-auto grid size-8 shrink-0 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.035] text-muted-foreground transition hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+                                >
+                                  <ChevronDown className={cn("size-4 transition-transform duration-300", isExpanded && "rotate-180")} />
+                                </button>
+                                <button
                                   onClick={() => openEditModal(lead)}
                                   aria-label={`Abrir ${lead.name}`}
-                                  className="peer ml-auto grid size-8 shrink-0 place-items-center rounded-xl text-muted-foreground opacity-0 transition-all duration-200 hover:bg-white/[0.08] hover:text-foreground group-hover:opacity-100"
+                                  className="peer grid size-8 shrink-0 place-items-center rounded-xl text-muted-foreground opacity-0 transition-all duration-200 hover:bg-white/[0.08] hover:text-foreground group-hover:opacity-100"
                                 >
                                   <MoreHorizontal className="size-4" />
                                 </button>
@@ -641,9 +942,30 @@ export default function KanbanPage() {
                             </div>
                           </div>
 
-                          <p className="mt-4 line-clamp-2 text-[13px] leading-5 text-muted-foreground">{lead.lastMessage}</p>
+                          {!isExpanded ? (
+                            <div className="mt-3 grid grid-cols-3 gap-1.5 text-[10px]">
+                              <span className={cn("inline-flex min-w-0 items-center justify-center gap-1 rounded-full border px-1.5 py-1 font-semibold capitalize", temperatureClasses[lead.temperature])}>
+                                <span aria-hidden="true">{temperatureEmoji[lead.temperature]}</span>
+                                <span className="truncate">{lead.temperature}</span>
+                              </span>
+                              <span className="inline-flex min-w-0 items-center justify-center gap-1 rounded-full border border-sky-400/20 bg-sky-500/[0.12] px-1.5 py-1 font-semibold text-sky-200">
+                                {lead.origin === "WhatsApp" ? (
+                                  <WhatsAppLogoIcon />
+                                ) : (
+                                  <span aria-hidden="true">{originEmoji[lead.origin] ?? "ðŸ“"}</span>
+                                )}
+                                <span className="truncate">{lead.origin}</span>
+                              </span>
+                              <span className={cn("inline-flex min-w-0 items-center justify-center gap-1 rounded-full border px-1.5 py-1 font-semibold capitalize", sentimentClasses[lead.sentiment])}>
+                                <span aria-hidden="true">{sentimentEmoji[lead.sentiment]}</span>
+                                <span className="truncate">{lead.sentiment}</span>
+                              </span>
+                            </div>
+                          ) : null}
 
-                          <div className="mt-4 flex flex-wrap gap-2">
+                          <p className={cn("mt-4 line-clamp-2 text-[13px] leading-5 text-muted-foreground", !isExpanded && "hidden")}>{lead.lastMessage}</p>
+
+                          <div className={cn("mt-4 flex flex-wrap gap-2", !isExpanded && "hidden")}>
                             <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold capitalize", temperatureClasses[lead.temperature])}>
                               <span aria-hidden="true">{temperatureEmoji[lead.temperature]}</span>
                               {lead.temperature}
@@ -662,7 +984,7 @@ export default function KanbanPage() {
                             </span>
                           </div>
 
-                          <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-3 text-[11px] text-muted-foreground">
+                          <div className={cn("mt-4 flex items-center justify-between border-t border-white/[0.06] pt-3 text-[11px] text-muted-foreground", !isExpanded && "hidden")}>
                             <span className="flex items-center gap-1">
                               <CalendarClock className="size-3" />
                               {lead.lastInteraction}
@@ -672,13 +994,14 @@ export default function KanbanPage() {
 
                           <Link
                             href={`/conversas?lead=${lead.id}`}
-                            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-background/[0.28] px-3 py-2.5 text-xs font-semibold text-muted-foreground transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/10 hover:text-primary active:translate-y-0"
+                            className={cn("mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-background/[0.28] px-3 py-2.5 text-xs font-semibold text-muted-foreground transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/10 hover:text-primary active:translate-y-0", !isExpanded && "hidden")}
                           >
                             <MessageCircle className="size-3.5" />
                             Abrir chat
                           </Link>
                         </article>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                   ) : null}

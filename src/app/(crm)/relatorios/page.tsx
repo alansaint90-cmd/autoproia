@@ -1,5 +1,714 @@
-import { PlaceholderPage } from "@/components/placeholder-page";
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  Activity,
+  BarChart3,
+  Bot,
+  CalendarDays,
+  Download,
+  FileText,
+  Filter,
+  LineChart,
+  MessageCircle,
+  Target,
+  TrendingUp,
+  Trophy,
+  Users,
+  X
+} from "lucide-react";
+import { Topbar } from "@/components/topbar";
+import {
+  aiPerformance,
+  campaignConversion,
+  funnelData,
+  leads,
+  leadsByOrigin,
+  sellerClosing
+} from "@/lib/mock-data";
+import { cn } from "@/lib/utils";
+
+const sellers = ["Todos", ...sellerClosing.map((seller) => seller.seller)];
+const origins = ["Todas", ...leadsByOrigin.map((origin) => origin.label)];
+
+const monthlyReport = [
+  { month: "Jan", leads: 186, enrollments: 39, revenue: 84200 },
+  { month: "Fev", leads: 214, enrollments: 48, revenue: 103600 },
+  { month: "Mar", leads: 251, enrollments: 57, revenue: 124300 },
+  { month: "Abr", leads: 236, enrollments: 52, revenue: 112900 },
+  { month: "Mai", leads: 309, enrollments: 74, revenue: 164400 },
+  { month: "Jun", leads: 352, enrollments: 86, revenue: 189700 },
+  { month: "Jul", leads: 337, enrollments: 79, revenue: 176200 },
+  { month: "Ago", leads: 371, enrollments: 93, revenue: 204600 },
+  { month: "Set", leads: 402, enrollments: 104, revenue: 229300 },
+  { month: "Out", leads: 431, enrollments: 118, revenue: 261800 },
+  { month: "Nov", leads: 416, enrollments: 107, revenue: 238900 },
+  { month: "Dez", leads: 448, enrollments: 126, revenue: 279600 }
+];
+
+const lossReasons = [
+  { label: "Preco", value: 31, color: "bg-rose-400" },
+  { label: "Sem resposta", value: 24, color: "bg-yellow-300" },
+  { label: "Horario", value: 18, color: "bg-sky-400" },
+  { label: "Concorrente", value: 15, color: "bg-violet-400" },
+  { label: "Documentacao", value: 12, color: "bg-emerald-400" }
+];
+
+const periodMultiplier: Record<string, number> = {
+  "7d": 0.28,
+  "30d": 1,
+  "90d": 2.65,
+  year: 8.4,
+  custom: 1.4
+};
+
+type ReportFilters = {
+  period: string;
+  seller: string;
+  origin: string;
+  dateStart: string;
+  dateEnd: string;
+};
+
+const initialFilters: ReportFilters = {
+  period: "30d",
+  seller: "Todos",
+  origin: "Todas",
+  dateStart: "2026-05-01",
+  dateEnd: "2026-05-25"
+};
 
 export default function RelatoriosPage() {
-  return <PlaceholderPage title="Relatorios" subtitle="Performance da IA, vendedores e motivos de perda" />;
+  const [filters, setFilters] = useState<ReportFilters>(initialFilters);
+  const [appliedFilters, setAppliedFilters] = useState<ReportFilters>(initialFilters);
+  const [generatedAt, setGeneratedAt] = useState("gerado agora");
+  const [isReportOpen, setIsReportOpen] = useState(false);
+
+  const report = useMemo(() => {
+    const { origin, period, seller } = appliedFilters;
+    const multiplier = periodMultiplier[period] ?? 1;
+    const sellerWeight = seller === "Todos" ? 1 : 0.32 + sellers.indexOf(seller) * 0.08;
+    const originWeight = origin === "Todas" ? 1 : 0.38 + origins.indexOf(origin) * 0.07;
+    const factor = multiplier * sellerWeight * originWeight;
+    const totalLeads = Math.round(438 * factor);
+    const enrollments = Math.round(126 * factor);
+    const revenue = Math.round(279600 * factor);
+    const conversion = totalLeads > 0 ? Number(((enrollments / totalLeads) * 100).toFixed(1)) : 0;
+    const averageTicket = enrollments > 0 ? Math.round(revenue / enrollments) : 0;
+
+    return {
+      totalLeads,
+      enrollments,
+      revenue,
+      conversion,
+      averageTicket,
+      aiHandled: Math.round(312 * factor),
+      responseTime: period === "7d" ? "31s" : "38s"
+    };
+  }, [appliedFilters]);
+
+  const sellerRows = useMemo(() => {
+    const seller = appliedFilters.seller;
+    const max = Math.max(...sellerClosing.map((item) => item.closed));
+    return sellerClosing
+      .filter((item) => seller === "Todos" || item.seller === seller)
+      .sort((a, b) => b.closed - a.closed)
+      .map((item, index) => ({
+        ...item,
+        position: index + 1,
+        progress: Math.round((item.closed / max) * 100)
+      }));
+  }, [appliedFilters.seller]);
+
+  const filteredOrigins = useMemo(
+    () => leadsByOrigin.filter((item) => appliedFilters.origin === "Todas" || item.label === appliedFilters.origin),
+    [appliedFilters.origin]
+  );
+
+  function updateFilter<K extends keyof ReportFilters>(key: K, value: ReportFilters[K]) {
+    setFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  function generateReport() {
+    setAppliedFilters(filters);
+    setGeneratedAt(
+      new Intl.DateTimeFormat("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(new Date())
+    );
+    setIsReportOpen(true);
+  }
+
+  function generatePdf() {
+    window.print();
+  }
+
+  return (
+    <>
+      <Topbar title="Relatorios" subtitle="Performance comercial, IA e matriculas" />
+      <main className="flex-1 overflow-y-auto bg-[radial-gradient(circle_at_26%_0%,rgba(56,189,248,0.10),transparent_32%),linear-gradient(180deg,rgba(255,255,255,0.018),transparent_30%),var(--background)] p-4 xl:p-7">
+        <section className="mb-6 rounded-[24px] border border-white/[0.08] bg-card/70 p-4 shadow-panel backdrop-blur-xl">
+          <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-end">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-200/80">Central de analise</p>
+              <h1 className="mt-1 text-2xl font-black tracking-normal text-foreground">Relatorios comerciais</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Filtre por periodo, vendedor e origem para acompanhar resultado real de vendas.
+              </p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+              <SelectField icon={CalendarDays} value={filters.period} onChange={(value) => updateFilter("period", value)}>
+                <option value="7d">Ultimos 7 dias</option>
+                <option value="30d">Ultimos 30 dias</option>
+                <option value="90d">Ultimos 90 dias</option>
+                <option value="year">Ano atual</option>
+                <option value="custom">Personalizado</option>
+              </SelectField>
+              <SelectField icon={Users} value={filters.seller} onChange={(value) => updateFilter("seller", value)}>
+                {sellers.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </SelectField>
+              <SelectField icon={Filter} value={filters.origin} onChange={(value) => updateFilter("origin", value)}>
+                {origins.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </SelectField>
+              <input
+                type="date"
+                value={filters.dateStart}
+                onChange={(event) => {
+                  setFilters((current) => ({ ...current, dateStart: event.target.value, period: "custom" }));
+                }}
+                className="h-11 rounded-2xl border border-white/10 bg-white/[0.045] px-3 text-xs font-bold text-foreground outline-none transition hover:border-white/[0.18] focus:border-sky-300/45 focus:ring-4 focus:ring-sky-400/10"
+              />
+              <input
+                type="date"
+                value={filters.dateEnd}
+                onChange={(event) => {
+                  setFilters((current) => ({ ...current, dateEnd: event.target.value, period: "custom" }));
+                }}
+                className="h-11 rounded-2xl border border-white/10 bg-white/[0.045] px-3 text-xs font-bold text-foreground outline-none transition hover:border-white/[0.18] focus:border-sky-300/45 focus:ring-4 focus:ring-sky-400/10"
+              />
+              <button
+                type="button"
+                onClick={generateReport}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-sky-300/25 bg-sky-300/12 px-4 text-xs font-black text-sky-100 shadow-[0_0_24px_rgba(56,189,248,0.10)] transition hover:-translate-y-0.5 hover:border-sky-300/40 hover:bg-sky-300/18"
+              >
+                <BarChart3 className="size-4" />
+                Gerar relatorio
+              </button>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-bold text-muted-foreground">
+            <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1">
+              Dados aplicados: {appliedFilters.seller} / {appliedFilters.origin}
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/[0.035] px-3 py-1">
+              Periodo: {appliedFilters.dateStart} ate {appliedFilters.dateEnd}
+            </span>
+            <span className="rounded-full border border-sky-300/15 bg-sky-300/10 px-3 py-1 text-sky-100">
+              Relatorio {generatedAt}
+            </span>
+          </div>
+        </section>
+
+        <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <ReportKpi icon={Target} label="Matriculas" value={report.enrollments.toString()} detail={`${report.conversion}% de conversao`} tone="sky" />
+          <ReportKpi icon={TrendingUp} label="Receita estimada" value={formatCurrency(report.revenue)} detail={`Ticket medio ${formatCurrency(report.averageTicket)}`} tone="emerald" />
+          <ReportKpi icon={Bot} label="IA atendendo" value={report.aiHandled.toString()} detail={`Tempo medio ${report.responseTime}`} tone="violet" />
+          <ReportKpi icon={MessageCircle} label="Leads captados" value={report.totalLeads.toString()} detail={`${appliedFilters.dateStart} ate ${appliedFilters.dateEnd}`} tone="yellow" />
+        </section>
+
+        <section className="mb-6 grid gap-6 xl:grid-cols-[1.45fr_0.9fr]">
+          <ReportPanel title="Conversao mensal" subtitle="Leads, matriculas e receita por mes" icon={LineChart}>
+            <MonthlyReportChart />
+          </ReportPanel>
+
+          <ReportPanel title="Relatorio por vendedor" subtitle="Ranking de fechamentos e receita" icon={Trophy}>
+            <div className="grid max-h-[390px] gap-3 overflow-y-auto pr-1 [scrollbar-color:rgba(56,189,248,0.35)_transparent] [scrollbar-width:thin]">
+              {sellerRows.map((row) => (
+                <SellerReportRow key={row.seller} row={row} />
+              ))}
+            </div>
+          </ReportPanel>
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-3">
+          <ReportPanel title="Leads por origem" subtitle="Canais com melhor volume" icon={BarChart3}>
+            <OriginReport data={filteredOrigins} />
+          </ReportPanel>
+
+          <ReportPanel title="Funil operacional" subtitle="Avanco entre etapas" icon={Activity}>
+            <FunnelReport />
+          </ReportPanel>
+
+          <ReportPanel title="Motivos de perda" subtitle="Onde recuperar matriculas" icon={Target}>
+            <LossReport />
+          </ReportPanel>
+        </section>
+
+        <section className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+          <ReportPanel title="Campanhas que convertem" subtitle="Anuncios com melhor retorno" icon={TrendingUp}>
+            <div className="grid gap-3">
+              {campaignConversion.map((campaign) => (
+                <div key={campaign.campaign} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3">
+                  <div className="mb-2 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black text-foreground">{campaign.campaign}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {campaign.leads} leads - {campaign.enrollments} matriculas
+                      </p>
+                    </div>
+                    <span className="font-mono text-sm font-black text-primary">{campaign.conversion}%</span>
+                  </div>
+                  <Progress value={campaign.conversion} max={35} className="from-yellow-300 to-sky-300" />
+                </div>
+              ))}
+            </div>
+          </ReportPanel>
+
+          <ReportPanel title="Desempenho da IA" subtitle="Qualidade do atendimento automatico" icon={Bot}>
+            <div className="grid gap-3 md:grid-cols-2">
+              {aiPerformance.map((item) => (
+                <div key={item.metric} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black">{item.metric}</p>
+                      <p className="text-xs text-muted-foreground">{item.detail}</p>
+                    </div>
+                    <span className="font-mono text-xl font-black text-sky-200">{item.value}%</span>
+                  </div>
+                  <Progress value={item.value} className="from-sky-400 to-violet-400" />
+                </div>
+              ))}
+            </div>
+          </ReportPanel>
+        </section>
+      </main>
+      {isReportOpen ? (
+        <div className="fixed inset-0 z-[120] bg-background/82 p-4 backdrop-blur-xl">
+          <div className="mx-auto flex h-full max-w-6xl flex-col overflow-hidden rounded-[28px] border border-white/[0.10] bg-[#07111f] shadow-[0_40px_120px_rgba(0,0,0,0.55)]">
+            <div className="no-print flex items-center justify-between gap-4 border-b border-white/[0.08] px-5 py-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-200">Relatorio gerado</p>
+                <h2 className="mt-1 text-xl font-black text-foreground">Resumo comercial pronto para PDF</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={generatePdf}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-sky-300/25 bg-sky-300/12 px-4 text-xs font-black text-sky-100 transition hover:-translate-y-0.5 hover:bg-sky-300/18"
+                >
+                  <Download className="size-4" />
+                  Gerar PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsReportOpen(false)}
+                  className="grid size-10 place-items-center rounded-xl border border-white/10 bg-white/[0.045] text-muted-foreground transition hover:bg-white/[0.08] hover:text-foreground"
+                  aria-label="Fechar relatorio"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              <GeneratedReport
+                filters={appliedFilters}
+                generatedAt={generatedAt}
+                report={report}
+                sellerRows={sellerRows}
+                origins={filteredOrigins}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function SelectField({
+  icon: Icon,
+  value,
+  onChange,
+  children
+}: {
+  icon: React.ElementType;
+  value: string;
+  onChange: (value: string) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="relative block">
+      <Icon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 w-full appearance-none rounded-2xl border border-white/10 bg-white/[0.045] pl-9 pr-8 text-xs font-bold text-foreground outline-none transition hover:border-white/[0.18] focus:border-sky-300/45 focus:ring-4 focus:ring-sky-400/10"
+      >
+        {children}
+      </select>
+    </label>
+  );
+}
+
+function ReportKpi({
+  icon: Icon,
+  label,
+  value,
+  detail,
+  tone
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  detail: string;
+  tone: "sky" | "emerald" | "violet" | "yellow";
+}) {
+  const tones = {
+    sky: "from-sky-400/14 border-sky-300/15 text-sky-200",
+    emerald: "from-emerald-400/14 border-emerald-300/15 text-emerald-200",
+    violet: "from-violet-400/14 border-violet-300/15 text-violet-200",
+    yellow: "from-yellow-300/14 border-yellow-300/15 text-yellow-200"
+  };
+
+  return (
+    <article className={cn("rounded-[22px] border bg-gradient-to-br to-card/80 p-4 shadow-panel transition duration-300 hover:-translate-y-1 hover:scale-[1.01]", tones[tone])}>
+      <div className="mb-4 grid size-10 place-items-center rounded-xl border border-current/20 bg-current/10">
+        <Icon className="size-5" />
+      </div>
+      <p className="text-3xl font-black text-foreground">{value}</p>
+      <p className="mt-1 text-sm font-bold text-foreground">{label}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+    </article>
+  );
+}
+
+function ReportPanel({
+  title,
+  subtitle,
+  icon: Icon,
+  children
+}: {
+  title: string;
+  subtitle: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
+}) {
+  return (
+    <article className="rounded-[24px] border border-white/[0.08] bg-card/72 p-5 shadow-panel transition duration-300 hover:-translate-y-1 hover:shadow-[0_30px_80px_rgba(0,0,0,0.38)]">
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-black tracking-normal">{title}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+        </div>
+        <div className="grid size-10 place-items-center rounded-xl border border-sky-300/18 bg-sky-300/10 text-sky-200">
+          <Icon className="size-5" />
+        </div>
+      </div>
+      {children}
+    </article>
+  );
+}
+
+function GeneratedReport({
+  filters,
+  generatedAt,
+  report,
+  sellerRows,
+  origins
+}: {
+  filters: ReportFilters;
+  generatedAt: string;
+  report: {
+    totalLeads: number;
+    enrollments: number;
+    revenue: number;
+    conversion: number;
+    averageTicket: number;
+    aiHandled: number;
+    responseTime: string;
+  };
+  sellerRows: Array<{ seller: string; closed: number; revenue: string; conversion: number; position: number; progress: number }>;
+  origins: typeof leadsByOrigin;
+}) {
+  const bestSeller = sellerRows[0];
+  const bestOrigin = origins.slice().sort((a, b) => b.value - a.value)[0];
+
+  return (
+    <article className="print-report mx-auto max-w-5xl rounded-[24px] border border-slate-200 bg-white p-8 text-slate-950 shadow-[0_24px_90px_rgba(0,0,0,0.28)]">
+      <header className="mb-8 flex items-start justify-between gap-8 border-b border-slate-200 pb-6">
+        <div>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-sky-700">
+            <FileText className="size-3.5" />
+            Auto Pro IA 1.1
+          </div>
+          <h1 className="text-3xl font-black tracking-tight">Relatorio comercial</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            Analise de performance comercial, origem de leads, ranking de vendedores, conversao mensal e eficiencia da IA.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-right text-xs font-bold text-slate-600">
+          <p>Gerado em</p>
+          <p className="mt-1 text-lg font-black text-slate-950">{generatedAt}</p>
+          <p className="mt-3">Periodo</p>
+          <p className="mt-1 text-sm font-black text-slate-950">
+            {filters.dateStart} ate {filters.dateEnd}
+          </p>
+        </div>
+      </header>
+
+      <section className="mb-8 grid gap-3 md:grid-cols-4">
+        <PdfMetric label="Leads captados" value={report.totalLeads.toString()} detail={`${filters.origin}`} />
+        <PdfMetric label="Matriculas" value={report.enrollments.toString()} detail={`${report.conversion}% conversao`} />
+        <PdfMetric label="Receita estimada" value={formatCurrency(report.revenue)} detail={`Ticket ${formatCurrency(report.averageTicket)}`} />
+        <PdfMetric label="IA atendendo" value={report.aiHandled.toString()} detail={`SLA medio ${report.responseTime}`} />
+      </section>
+
+      <section className="mb-8 grid gap-5 md:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200 p-5">
+          <h2 className="text-lg font-black">Resumo executivo</h2>
+          <div className="mt-4 grid gap-3 text-sm text-slate-700">
+            <p>
+              Melhor vendedor: <strong className="text-slate-950">{bestSeller?.seller ?? "Sem dados"}</strong>.
+            </p>
+            <p>
+              Principal canal: <strong className="text-slate-950">{bestOrigin?.label ?? "Sem dados"}</strong>.
+            </p>
+            <p>
+              Filtro aplicado: <strong className="text-slate-950">{filters.seller}</strong> /{" "}
+              <strong className="text-slate-950">{filters.origin}</strong>.
+            </p>
+            <p>
+              Comentario IA: priorize leads quentes com origem em canais pagos e cobre follow-up dos contatos sem resposta.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 p-5">
+          <h2 className="text-lg font-black">Ranking por vendedor</h2>
+          <div className="mt-4 grid gap-3">
+            {sellerRows.map((row) => (
+              <div key={row.seller} className="grid grid-cols-[34px_1fr_auto] items-center gap-3">
+                <span className="grid size-8 place-items-center rounded-lg bg-sky-50 font-mono text-xs font-black text-sky-700">
+                  #{row.position}
+                </span>
+                <div>
+                  <p className="text-sm font-black">{row.seller}</p>
+                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div className="h-full rounded-full bg-gradient-to-r from-sky-500 to-violet-500" style={{ width: `${row.progress}%` }} />
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono text-sm font-black">{row.closed}</p>
+                  <p className="text-[10px] font-bold text-slate-500">{row.conversion}%</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-8 rounded-2xl border border-slate-200 p-5">
+        <h2 className="text-lg font-black">Conversao mensal</h2>
+        <div className="mt-5 grid h-56 grid-cols-12 items-end gap-2">
+          {monthlyReport.map((month) => {
+            const maxLeads = Math.max(...monthlyReport.map((item) => item.leads));
+            const height = Math.max(12, (month.leads / maxLeads) * 100);
+            return (
+              <div key={month.month} className="flex h-full flex-col justify-end gap-2">
+                <div className="rounded-t-lg bg-gradient-to-t from-sky-600 to-cyan-300" style={{ height: `${height}%` }} />
+                <p className="text-center text-[10px] font-black text-slate-500">{month.month}</p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="grid gap-5 md:grid-cols-3">
+        <PdfList title="Leads por origem" items={origins.map((item) => `${item.label}: ${item.value} leads (${item.percent}%)`)} />
+        <PdfList title="Funil operacional" items={funnelData.map((item) => `${item.etapa}: ${item.value} leads`)} />
+        <PdfList title="Motivos de perda" items={lossReasons.map((item) => `${item.label}: ${item.value}%`)} />
+      </section>
+    </article>
+  );
+}
+
+function PdfMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="mt-3 text-2xl font-black text-slate-950">{value}</p>
+      <p className="mt-1 text-xs font-bold text-slate-500">{detail}</p>
+    </div>
+  );
+}
+
+function PdfList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 p-5">
+      <h2 className="font-black">{title}</h2>
+      <ul className="mt-4 grid gap-2 text-sm text-slate-700">
+        {items.map((item) => (
+          <li key={item} className="flex gap-2">
+            <span className="mt-2 size-1.5 shrink-0 rounded-full bg-sky-500" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function MonthlyReportChart() {
+  const maxLeads = Math.max(...monthlyReport.map((item) => item.leads));
+  const maxEnrollments = Math.max(...monthlyReport.map((item) => item.enrollments));
+
+  return (
+    <div className="rounded-2xl border border-white/[0.07] bg-background/35 p-4">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-4 text-xs font-bold text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-sky-300" /> Leads</span>
+          <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-yellow-300" /> Matriculas</span>
+        </div>
+        <button className="inline-flex h-9 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.045] px-3 text-xs font-black text-foreground transition hover:border-sky-300/25 hover:bg-sky-300/10">
+          <Download className="size-3.5" />
+          Exportar
+        </button>
+      </div>
+      <div className="grid h-72 grid-cols-12 items-end gap-2">
+        {monthlyReport.map((item) => {
+          const leadsHeight = Math.max(16, (item.leads / maxLeads) * 100);
+          const enrollmentsHeight = Math.max(10, (item.enrollments / maxEnrollments) * 82);
+          const conversion = Math.round((item.enrollments / item.leads) * 1000) / 10;
+
+          return (
+            <div key={item.month} className="group relative flex h-full flex-col justify-end gap-2">
+              <div className="relative flex h-full items-end justify-center gap-1.5 rounded-xl bg-white/[0.025] px-1.5 py-2">
+                <div className="w-3 rounded-full bg-gradient-to-t from-sky-500 to-cyan-200 shadow-[0_0_18px_rgba(56,189,248,0.18)] transition group-hover:brightness-125" style={{ height: `${leadsHeight}%` }} />
+                <div className="w-3 rounded-full bg-gradient-to-t from-yellow-500 to-yellow-200 shadow-[0_0_18px_rgba(250,204,21,0.16)] transition group-hover:brightness-125" style={{ height: `${enrollmentsHeight}%` }} />
+              </div>
+              <p className="text-center text-xs font-black text-muted-foreground group-hover:text-foreground">{item.month}</p>
+              <div className="pointer-events-none absolute bottom-12 left-1/2 z-20 w-44 -translate-x-1/2 translate-y-2 rounded-xl border border-white/10 bg-background/95 p-3 text-xs opacity-0 shadow-panel backdrop-blur-xl transition group-hover:translate-y-0 group-hover:opacity-100">
+                <p className="font-black text-foreground">{item.month}</p>
+                <p className="mt-1 text-muted-foreground">{item.leads} leads</p>
+                <p className="text-muted-foreground">{item.enrollments} matriculas</p>
+                <p className="text-sky-200">{conversion}% conversao</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SellerReportRow({
+  row
+}: {
+  row: { seller: string; closed: number; revenue: string; conversion: number; position: number; progress: number };
+}) {
+  return (
+    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3 transition hover:-translate-y-0.5 hover:border-sky-300/18 hover:bg-white/[0.055]">
+      <div className="mb-3 flex items-center gap-3">
+        <div className="grid size-10 place-items-center rounded-xl border border-sky-300/20 bg-sky-300/10 font-mono text-sm font-black text-sky-200">
+          #{row.position}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-black">{row.seller}</p>
+          <p className="text-xs text-muted-foreground">{row.revenue} em vendas</p>
+        </div>
+        <div className="text-right">
+          <p className="font-mono text-xl font-black">{row.closed}</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-muted-foreground">fech.</p>
+        </div>
+      </div>
+      <Progress value={row.progress} className="from-sky-400 to-violet-400" />
+      <p className="mt-2 text-xs font-bold text-muted-foreground">{row.conversion}% de conversao</p>
+    </div>
+  );
+}
+
+function OriginReport({ data }: { data: typeof leadsByOrigin }) {
+  const max = Math.max(...data.map((item) => item.value), 1);
+
+  return (
+    <div className="grid gap-3">
+      {data.map((item) => (
+        <div key={item.label} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="font-black">{item.label}</span>
+            <span className="font-mono text-sm font-black text-sky-200">{item.value}</span>
+          </div>
+          <Progress value={(item.value / max) * 100} className="from-sky-400 to-cyan-300" />
+          <p className="mt-2 text-xs text-muted-foreground">{item.percent}% dos leads no periodo</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FunnelReport() {
+  const max = Math.max(...funnelData.map((item) => item.value));
+  const colors = ["from-sky-400 to-cyan-300", "from-violet-400 to-fuchsia-300", "from-emerald-400 to-teal-300", "from-yellow-300 to-amber-400", "from-rose-400 to-orange-400"];
+
+  return (
+    <div className="grid gap-3">
+      {funnelData.map((item, index) => (
+        <div key={item.etapa} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="font-black">{item.etapa}</span>
+            <span className="font-mono text-sm font-black text-foreground">{item.value}</span>
+          </div>
+          <Progress value={(item.value / max) * 100} className={colors[index % colors.length]} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LossReport() {
+  const total = lossReasons.reduce((sum, item) => sum + item.value, 0);
+
+  return (
+    <div className="grid gap-3">
+      {lossReasons.map((item) => (
+        <div key={item.label} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="flex items-center gap-2 font-black">
+              <span className={cn("size-2.5 rounded-full shadow-glow", item.color)} />
+              {item.label}
+            </span>
+            <span className="font-mono text-sm font-black">{item.value}%</span>
+          </div>
+          <Progress value={(item.value / total) * 100} className="from-rose-400 to-yellow-300" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Progress({ value, max = 100, className }: { value: number; max?: number; className?: string }) {
+  return (
+    <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.07]">
+      <div
+        className={cn("h-full rounded-full bg-gradient-to-r shadow-[0_0_18px_rgba(56,189,248,0.18)] transition-all duration-500", className)}
+        style={{ width: `${Math.min(100, Math.max(4, (value / max) * 100))}%` }}
+      />
+    </div>
+  );
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0
+  }).format(value);
 }

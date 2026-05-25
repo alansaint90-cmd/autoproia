@@ -25,6 +25,12 @@ import {
   sellerClosing
 } from "@/lib/mock-data";
 
+const sellerClosingExtended = [
+  ...sellerClosing,
+  { seller: "Ana Consultora", closed: 16, revenue: "R$ 38.400", conversion: 22 },
+  { seller: "Beatriz SDR", closed: 13, revenue: "R$ 31.200", conversion: 19 }
+];
+
 const cards = [
   {
     label: "Leads Hoje",
@@ -98,6 +104,9 @@ const cardToneClasses: Record<string, string> = {
 const interactivePanelClass =
   "rounded-[22px] border border-border bg-card/72 p-5 shadow-panel transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.01] hover:shadow-[0_30px_80px_oklch(0_0_0_/_0.42)]";
 
+const chartSurfaceClass =
+  "relative overflow-hidden rounded-[22px] border border-white/[0.08] bg-[radial-gradient(circle_at_78%_4%,oklch(0.72_0.18_210_/_0.14),transparent_32%),linear-gradient(145deg,oklch(0.19_0.035_250_/_0.74),oklch(0.15_0.025_250_/_0.88))] p-4";
+
 const commercialPulse = [
   { label: "Ana fechou matricula CNH B", time: "agora", icon: CarPulseIcon },
   { label: "IA qualificou 4 novos leads", time: "2 min", icon: BadgeDollarSign },
@@ -128,7 +137,7 @@ function formatCurrency(value: number) {
 }
 
 export default function DashboardPage() {
-  const bestSeller = sellerClosing.reduce((best, seller) => (seller.closed > best.closed ? seller : best));
+  const bestSeller = sellerClosingExtended.reduce((best, seller) => (seller.closed > best.closed ? seller : best));
 
   return (
     <>
@@ -162,8 +171,8 @@ export default function DashboardPage() {
           ))}
         </section>
 
-        <section className="grid items-start gap-6 xl:grid-cols-[1fr_340px]">
-          <article className={cn(interactivePanelClass, "h-fit self-start")}>
+        <section className="grid items-stretch gap-6 xl:grid-cols-[minmax(0,7fr)_minmax(280px,3fr)]">
+          <article className={cn(interactivePanelClass, "flex h-full flex-col self-stretch")}>
             <div className="mb-5">
               <h2 className="text-lg font-extrabold tracking-normal">Conversao Mensal</h2>
               <p className="mt-1 text-sm text-muted-foreground">Leads vs Matriculas</p>
@@ -171,7 +180,7 @@ export default function DashboardPage() {
             <MonthlyConversionChart />
           </article>
 
-          <article className={cn(interactivePanelClass, "h-fit self-start")}>
+          <article className={cn(interactivePanelClass, "flex h-full flex-col self-stretch")}>
             <div className="mb-5">
               <h2 className="text-lg font-extrabold tracking-normal">Leads por Origem</h2>
               <p className="mt-1 text-sm text-muted-foreground">Ultimos 30 dias</p>
@@ -181,39 +190,89 @@ export default function DashboardPage() {
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[400px_1fr]">
-          <article className="rounded-[22px] border border-border bg-card/72 p-5 shadow-panel">
-            <div className="mb-7">
-              <h2 className="text-lg font-extrabold tracking-normal">Pulso Comercial</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Ao vivo</p>
+          <article className="relative overflow-hidden rounded-[22px] border border-cyan-300/10 bg-[radial-gradient(circle_at_16%_0%,rgba(34,211,238,0.12),transparent_34%),linear-gradient(145deg,rgba(15,23,42,0.82),rgba(8,17,31,0.94))] p-5 shadow-panel">
+            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/55 to-transparent" />
+            <div className="pointer-events-none absolute -right-12 -top-16 size-44 rounded-full bg-violet-500/10 blur-3xl" />
+
+            <div className="relative mb-6 flex items-start justify-between gap-4">
+              <div>
+                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-200">
+                  <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.95)]" />
+                  Live feed
+                </div>
+                <h2 className="text-lg font-extrabold tracking-normal">Pulso Comercial</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Eventos comerciais em tempo real</p>
+              </div>
+              <div className="group/health relative grid size-12 place-items-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-200 shadow-[0_0_24px_rgba(34,211,238,0.12)]">
+                <PulseHealthIcon />
+                <div className="pointer-events-none absolute right-0 top-14 z-30 w-72 translate-y-2 rounded-2xl border border-cyan-300/15 bg-[#08111f]/96 p-4 text-left opacity-0 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl transition-all duration-200 group-hover/health:translate-y-0 group-hover/health:opacity-100">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-cyan-200">
+                      <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.95)]" />
+                      Saude comercial
+                    </span>
+                    <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200">
+                      87%
+                    </span>
+                  </div>
+                  <p className="text-sm font-black text-foreground">Operacao saudavel e em aceleracao</p>
+                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                    IA: matriculas e qualificacoes estao subindo agora. Priorize os leads quentes e mantenha o follow-up ativo para nao perder conversao.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-6">
-              {commercialPulse.map((event) => (
-                <div key={event.label} className="group relative grid grid-cols-[34px_1fr_auto] items-center gap-3 rounded-lg transition-colors hover:bg-background/35">
-                  <div className="grid size-8 place-items-center rounded-full bg-primary/12 text-primary">
-                    <event.icon size={16} />
+            <div className="relative space-y-3">
+              {commercialPulse.map((event, index) => (
+                <div
+                  key={event.label}
+                  className="group relative grid grid-cols-[34px_1fr_auto] items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.028] p-2.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-300/20 hover:bg-white/[0.055] hover:shadow-[0_18px_44px_rgba(34,211,238,0.10)]"
+                >
+                  <div className="relative z-10 grid size-8 place-items-center rounded-xl border border-cyan-300/15 bg-cyan-300/10 text-cyan-200 transition duration-300 group-hover:border-violet-300/25 group-hover:bg-violet-400/12 group-hover:text-violet-100">
+                    <event.icon size={15} />
+                    {index === 0 ? <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" /> : null}
                   </div>
-                  <p className="text-sm font-semibold">{event.label}</p>
-                  <span className="text-xs text-muted-foreground">{event.time}</span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-extrabold">{event.label}</p>
+                    <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
+                      {index === 0 ? "Evento confirmado no funil" : "Sincronizado com IA comercial"}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-background/40 px-2 py-1 text-[10px] font-black text-cyan-100">
+                    {event.time}
+                  </span>
                   <Tooltip>{event.time} - evento comercial em tempo real</Tooltip>
                 </div>
               ))}
             </div>
           </article>
 
-          <article className={interactivePanelClass}>
+          <article className="group relative overflow-hidden rounded-[22px] border border-sky-300/[0.10] bg-[radial-gradient(circle_at_90%_0%,rgba(56,189,248,0.12),transparent_34%),linear-gradient(145deg,rgba(15,23,42,0.88),rgba(8,15,28,0.96))] p-5 shadow-panel transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_30px_80px_rgba(0,0,0,0.42),0_0_34px_rgba(56,189,248,0.08)]">
+            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/45 to-transparent opacity-70" />
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
+                <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-sky-200/80">Ranking comercial</p>
                 <h2 className="text-lg font-extrabold tracking-normal">Vendedor com mais fechamento</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{bestSeller.seller} lidera o mes</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {bestSeller.seller} lidera com {bestSeller.closed} matriculas no mes
+                </p>
               </div>
-              <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
-                <Trophy size={20} />
+              <div className="flex shrink-0 items-center gap-2">
+                <Link
+                  href="/relatorios"
+                  className="inline-flex h-10 items-center justify-center rounded-xl border border-sky-300/20 bg-sky-300/10 px-3 text-xs font-black text-sky-100 shadow-[0_0_22px_rgba(56,189,248,0.10)] transition hover:-translate-y-0.5 hover:border-sky-300/35 hover:bg-sky-300/15"
+                >
+                  Abrir relatorio
+                </Link>
+                <div className="grid size-10 place-items-center rounded-xl border border-sky-300/20 bg-sky-300/10 text-sky-200 shadow-[0_0_24px_rgba(56,189,248,0.12)]">
+                  <Trophy size={20} />
+                </div>
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              {sellerClosing
+            <div className="grid max-h-[314px] gap-2.5 overflow-y-auto pr-1 [scrollbar-color:rgba(56,189,248,0.35)_transparent] [scrollbar-width:thin]">
+              {sellerClosingExtended
                 .slice()
                 .sort((a, b) => b.closed - a.closed)
                 .map((seller, index) => (
@@ -268,6 +327,46 @@ function CarPulseIcon({ size = 16, className }: { size?: number; className?: str
   return <UserPlus size={size} className={className} />;
 }
 
+function PulseHealthIcon() {
+  return (
+    <svg viewBox="0 0 44 44" className="size-9 overflow-visible" aria-hidden="true">
+      <defs>
+        <linearGradient id="businessPulseGradient" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.12" />
+          <stop offset="42%" stopColor="#22d3ee" />
+          <stop offset="100%" stopColor="#a78bfa" />
+        </linearGradient>
+        <filter id="businessPulseGlow" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="2.2" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <path
+        d="M5 23 H13 L17 14 L22 31 L27 20 L31 23 H39"
+        fill="none"
+        stroke="rgba(255,255,255,0.14)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5 23 H13 L17 14 L22 31 L27 20 L31 23 H39"
+        fill="none"
+        stroke="url(#businessPulseGradient)"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        filter="url(#businessPulseGlow)"
+        className="business-pulse-line"
+      />
+      <circle cx="31" cy="23" r="3.2" className="business-pulse-dot" fill="#22c55e" />
+    </svg>
+  );
+}
+
 function SellerRow({
   seller,
   position
@@ -275,22 +374,50 @@ function SellerRow({
   seller: { seller: string; closed: number; revenue: string; conversion: number };
   position: number;
 }) {
+  const maxClosed = Math.max(...sellerClosingExtended.map((item) => item.closed));
+  const progress = Math.round((seller.closed / maxClosed) * 100);
+  const rankTone =
+    position === 1
+      ? "border-yellow-300/35 bg-yellow-300/12 text-yellow-200 shadow-[0_0_22px_rgba(250,204,21,0.12)]"
+      : position === 2
+        ? "border-sky-300/25 bg-sky-300/10 text-sky-200"
+        : position === 3
+          ? "border-violet-300/25 bg-violet-300/10 text-violet-200"
+          : "border-white/10 bg-white/[0.04] text-muted-foreground";
+
   return (
-    <div className="group relative flex items-center gap-3 rounded-[18px] border border-border bg-background/35 p-3 transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.01] hover:bg-background/55 hover:shadow-[0_18px_44px_oklch(0_0_0_/_0.28)]">
-      <div className="grid size-9 place-items-center rounded-lg bg-primary/15 font-mono text-sm font-bold text-primary">
-        {position}
+    <div className="group relative overflow-hidden rounded-2xl border border-white/[0.075] bg-white/[0.032] p-3.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-300/18 hover:bg-white/[0.052] hover:shadow-[0_18px_50px_rgba(14,165,233,0.09)]">
+      <div className="pointer-events-none absolute inset-y-3 left-0 w-px bg-gradient-to-b from-transparent via-sky-300/45 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      <div className="flex items-center gap-3">
+        <div className={cn("grid size-10 place-items-center rounded-xl border font-mono text-sm font-black", rankTone)}>
+          #{position}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-black text-foreground">{seller.seller}</p>
+            {position === 1 ? (
+              <span className="rounded-full border border-yellow-300/20 bg-yellow-300/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-yellow-200">
+                lider
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-0.5 text-xs font-semibold text-muted-foreground">{seller.revenue} em receita</p>
+        </div>
+        <div className="text-right">
+          <p className="font-mono text-xl font-black text-sky-100">{seller.closed}</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">fech.</p>
+        </div>
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold">{seller.seller}</p>
-        <p className="text-xs text-muted-foreground">{seller.revenue}</p>
+
+      <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3">
+        <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-sky-400 via-cyan-300 to-violet-400 shadow-[0_0_18px_rgba(56,189,248,0.24)] transition-all duration-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <span className="font-mono text-xs font-black text-sky-200">{seller.conversion}%</span>
       </div>
-      <div className="text-right">
-        <p className="font-mono text-lg font-semibold">{seller.closed}</p>
-        <p className="text-xs text-muted-foreground">{seller.conversion}%</p>
-      </div>
-      <Tooltip>
-        {seller.closed} fechamentos - {seller.conversion}% de conversao - {seller.revenue}
-      </Tooltip>
     </div>
   );
 }
@@ -332,7 +459,7 @@ function MonthlyConversionChart() {
   const enrollmentArea = `${plotStart},${plotBottom} ${enrollmentLine} ${plotEnd},${plotBottom}`;
 
   return (
-    <div className="relative overflow-hidden rounded-[22px] border border-white/[0.08] bg-[radial-gradient(circle_at_16%_0%,oklch(0.86_0.17_95_/_0.14),transparent_30%),linear-gradient(145deg,oklch(0.19_0.035_250_/_0.74),oklch(0.15_0.025_250_/_0.88))] p-4">
+    <div className={chartSurfaceClass}>
       <div className="mb-4 grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
         <div className="grid gap-3 sm:grid-cols-3">
           <ChartStat label="Leads" value={String(totalLeads)} detail="12 meses" />
@@ -365,7 +492,7 @@ function MonthlyConversionChart() {
       <div className="relative">
         <svg
           viewBox="0 0 600 260"
-          className="h-[410px] w-full select-none"
+          className="h-[450px] w-full select-none"
           onMouseMove={(event) => {
             setIsHovering(true);
             const rect = event.currentTarget.getBoundingClientRect();
@@ -517,7 +644,7 @@ function MonthlyConversionChart() {
         </div>
       </div>
 
-      <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+      <div className="mt-3 grid grid-cols-6 gap-2 pb-1 sm:grid-cols-12">
         {points.map((point, index) => (
           <button
             key={point.month}
@@ -527,7 +654,7 @@ function MonthlyConversionChart() {
               setIsHovering(true);
             }}
             className={cn(
-              "shrink-0 rounded-xl border px-3 py-2 text-xs font-black transition duration-200 hover:-translate-y-0.5",
+              "min-w-0 rounded-xl border px-2 py-2 text-xs font-black transition duration-200 hover:-translate-y-0.5",
               activeIndex === index
                 ? "border-primary/45 bg-primary text-primary-foreground shadow-glow"
                 : "border-white/10 bg-white/[0.035] text-muted-foreground hover:bg-white/[0.065] hover:text-foreground"
@@ -596,80 +723,88 @@ function OriginDonut() {
   const [activeOrigin, setActiveOrigin] = useState<number | null>(null);
   const total = leadsByOrigin.reduce((sum, item) => sum + item.value, 0);
   const bestOrigin = leadsByOrigin.reduce((best, item) => (item.value > best.value ? item : best), leadsByOrigin[0]);
-  let offset = 25;
   const active = activeOrigin === null ? null : leadsByOrigin[activeOrigin];
+  const maxOrigin = Math.max(...leadsByOrigin.map((item) => item.value));
 
   return (
-    <div className="relative overflow-hidden rounded-[22px] border border-white/[0.08] bg-[radial-gradient(circle_at_78%_4%,oklch(0.72_0.18_210_/_0.14),transparent_32%),linear-gradient(145deg,oklch(0.19_0.035_250_/_0.74),oklch(0.15_0.025_250_/_0.88))] p-4">
-      <div className="mb-4 grid grid-cols-2 gap-3">
-        <ChartStat label="Total" value={String(total)} detail="leads captados" />
-        <ChartStat label="Melhor canal" value={bestOrigin.label} detail={`${bestOrigin.value} leads`} />
+    <div className={chartSurfaceClass}>
+      <div className="mb-3 grid grid-cols-[1fr_auto] items-center gap-3">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-muted-foreground">Total</p>
+          <p className="font-mono text-2xl font-black text-primary">{total}</p>
+        </div>
+        <div className="rounded-2xl border border-primary/20 bg-primary/10 px-3 py-2 text-right">
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-primary">Top canal</p>
+          <p className="text-sm font-black">{bestOrigin.label}</p>
+        </div>
       </div>
 
-      <div className="grid gap-4">
-        <div className="relative mx-auto">
-          <svg viewBox="0 0 240 240" className="size-56 drop-shadow-[0_22px_55px_rgba(0,0,0,0.28)]">
-            <defs>
-              <filter id="donutGlow" x="-35%" y="-35%" width="170%" height="170%">
-                <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-                <feMerge>
-                  <feMergeNode in="coloredBlur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
+      <div className="mb-3 rounded-2xl border border-white/[0.08] bg-background/30 p-3">
+        <svg viewBox="0 0 300 118" className="h-[118px] w-full">
+          <defs>
+            <filter id="originGlow" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+              <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          {[0, 1, 2].map((line) => (
+            <line
+              key={line}
+              x1="12"
+              x2="288"
+              y1={24 + line * 28}
+              y2={24 + line * 28}
+              stroke="oklch(1 0 0 / 0.06)"
+              strokeDasharray="4 6"
+            />
+          ))}
+          {leadsByOrigin.map((origin, index) => {
+            const height = Math.max(16, (origin.value / maxOrigin) * 78);
+            const x = 24 + index * 48;
+            const isActive = activeOrigin === index;
 
-            <circle cx="120" cy="120" r="86" fill="none" stroke="oklch(1 0 0 / 0.055)" strokeWidth="38" />
-            {leadsByOrigin.map((origin, index) => {
-              const dash = (origin.value / total) * 100;
-              const isActive = activeOrigin === index;
-              const circle = (
-                <circle
-                  key={origin.label}
+            return (
+              <g key={origin.label}>
+                <rect
+                  x={x}
+                  y={92 - height}
+                  width="22"
+                  height={height}
+                  rx="8"
+                  fill={originDonutColors[index]}
+                  opacity={isActive ? 1 : 0.72}
+                  filter={isActive ? "url(#originGlow)" : undefined}
+                  className="cursor-pointer transition-all duration-300"
                   onMouseEnter={() => setActiveOrigin(index)}
                   onMouseLeave={() => setActiveOrigin(null)}
                   onClick={() => setActiveOrigin((current) => (current === index ? null : index))}
-                  cx="120"
-                  cy="120"
-                  r={isActive ? "90" : "86"}
-                  fill="none"
-                  stroke={originDonutColors[index]}
-                  strokeWidth={isActive ? "42" : "34"}
-                  strokeDasharray={`${dash} ${100 - dash}`}
-                  strokeDashoffset={offset}
-                  pathLength="100"
-                  transform="rotate(-90 120 120)"
-                  filter={isActive ? "url(#donutGlow)" : undefined}
-                  className="cursor-pointer transition-all duration-300"
                 />
-              );
-              offset -= dash;
-              return circle;
-            })}
-            <circle cx="120" cy="120" r="58" fill="oklch(0.16 0.03 250)" stroke="oklch(1 0 0 / 0.08)" />
-            <text x="120" y="112" textAnchor="middle" fill="oklch(0.76 0.025 250)" fontSize="11" fontWeight="700">
-              {active?.label ?? "Total"}
-            </text>
-            <text x="120" y="136" textAnchor="middle" fill="#facc15" fontSize="26" fontWeight="900">
-              {active?.value ?? total}
-            </text>
-          </svg>
-
-          <div
-            className={cn(
-              "pointer-events-none absolute left-1/2 top-8 z-20 min-w-[176px] -translate-x-1/2 rounded-2xl border border-white/10 bg-[#08111f]/95 px-4 py-3 text-center shadow-[0_24px_70px_oklch(0_0_0_/_0.44)] backdrop-blur-xl transition-all duration-300 ease-out",
-              active ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
-            )}
-          >
-            <p className="font-black">{active?.label ?? "Origem"}</p>
-            <p className="mt-2 font-mono text-primary">{active?.value ?? 0} leads</p>
-            <p className="mt-1 font-mono text-success">
-              {active ? Math.round((active.value / total) * 1000) / 10 : 0}% do total
-            </p>
-          </div>
+                <circle
+                  cx={x + 11}
+                  cy={92 - height - 7}
+                  r={isActive ? "5" : "3"}
+                  fill={originDonutColors[index]}
+                  stroke="oklch(1 0 0 / 0.85)"
+                  strokeWidth={isActive ? "2" : "1"}
+                  className="transition-all duration-300"
+                />
+                <text x={x + 11} y="112" textAnchor="middle" fill={isActive ? "#facc15" : "oklch(0.76 0.025 250)"} fontSize="9" fontWeight="800">
+                  {origin.label.slice(0, 3)}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+        <div className="mt-1 flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
+          <span>Captacao por canal</span>
+          <span className="text-foreground">{active ? `${active.label}: ${active.value}` : "ranking ao vivo"}</span>
         </div>
+      </div>
 
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+      <div className="grid gap-2">
           {leadsByOrigin.map((origin, index) => {
             const percent = Math.round((origin.value / total) * 1000) / 10;
             const isActive = activeOrigin === index;
@@ -682,13 +817,13 @@ function OriginDonut() {
                 onMouseLeave={() => setActiveOrigin(null)}
                 onClick={() => setActiveOrigin((current) => (current === index ? null : index))}
                 className={cn(
-                  "w-full rounded-2xl border px-3 py-2.5 text-left transition duration-300 hover:-translate-y-0.5",
+                  "w-full rounded-xl border px-3 py-2 text-left transition duration-300 hover:-translate-y-0.5",
                   isActive
                     ? "border-primary/35 bg-white/[0.075] shadow-[0_18px_44px_oklch(0_0_0_/_0.26)]"
                     : "border-white/[0.08] bg-white/[0.025] hover:border-white/15 hover:bg-white/[0.055]"
                 )}
               >
-                <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="mb-1.5 flex items-center justify-between gap-3">
                   <span className="inline-flex min-w-0 items-center gap-2 text-sm font-black">
                     <span className="size-3 rounded-full shadow-[0_0_14px_currentColor]" style={{ backgroundColor: originDonutColors[index], color: originDonutColors[index] }} />
                     <span className="truncate">{origin.label}</span>
@@ -708,7 +843,6 @@ function OriginDonut() {
               </button>
             );
           })}
-        </div>
       </div>
     </div>
   );
@@ -746,11 +880,20 @@ function Meter({ percent }: { percent: number }) {
 
 function Funnel() {
   const max = Math.max(...funnelData.map((item) => item.value));
+  const funnelColors = [
+    "from-sky-400 to-cyan-300 shadow-[0_0_20px_rgba(56,189,248,0.18)]",
+    "from-violet-400 to-fuchsia-300 shadow-[0_0_20px_rgba(167,139,250,0.18)]",
+    "from-emerald-400 to-teal-300 shadow-[0_0_20px_rgba(52,211,153,0.18)]",
+    "from-yellow-300 to-amber-400 shadow-[0_0_20px_rgba(250,204,21,0.16)]",
+    "from-orange-400 to-rose-400 shadow-[0_0_20px_rgba(251,113,133,0.16)]",
+    "from-blue-400 to-indigo-400 shadow-[0_0_20px_rgba(96,165,250,0.16)]"
+  ];
 
   return (
     <div className="space-y-3">
       {funnelData.map((item, index) => {
         const width = Math.max((item.value / max) * 100, 26);
+        const color = funnelColors[index % funnelColors.length];
 
         return (
           <div key={item.etapa} className="group relative rounded-lg border border-border bg-background/35 p-3 transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.01] hover:bg-background/55">
@@ -760,8 +903,11 @@ function Funnel() {
             </div>
             <div className="flex justify-center">
               <div
-                className="h-9 rounded-md bg-primary/85 text-center text-sm font-semibold leading-9 text-primary-foreground transition-all duration-300 group-hover:shadow-glow"
-                style={{ width: `${width}%`, opacity: 1 - index * 0.08 }}
+                className={cn(
+                  "h-9 rounded-md bg-gradient-to-r text-center text-sm font-black leading-9 text-slate-950 transition-all duration-300 group-hover:brightness-110",
+                  color
+                )}
+                style={{ width: `${width}%`, opacity: Math.max(0.74, 1 - index * 0.045) }}
               >
                 {Math.round((item.value / max) * 100)}%
               </div>
