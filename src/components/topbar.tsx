@@ -83,6 +83,7 @@ type TopbarProps = {
 
 export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead }: TopbarProps) {
   const hasInteractiveSearch = typeof onSearchChange === "function";
+  const [globalSearch, setGlobalSearch] = useState("");
   const [showFallbackModal, setShowFallbackModal] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile>(defaultCompanyProfile);
@@ -152,6 +153,15 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
     window.location.href = "/";
   }
 
+  function submitGlobalSearch() {
+    const normalized = globalSearch.trim();
+    if (!normalized) {
+      return;
+    }
+
+    window.location.href = `/leads?search=${encodeURIComponent(normalized)}`;
+  }
+
   return (
     <>
       <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-white/[0.08] bg-card/75 px-6 backdrop-blur-xl">
@@ -172,6 +182,13 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
               />
             ) : (
               <input
+                value={globalSearch}
+                onChange={(event) => setGlobalSearch(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    submitGlobalSearch();
+                  }
+                }}
                 placeholder="Buscar leads, conversas, clientes..."
                 className="h-10 w-full rounded-2xl border border-white/10 bg-white/[0.045] pl-10 pr-4 text-sm outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-white/[0.16] focus:border-primary/55 focus:bg-white/[0.065] focus:ring-4 focus:ring-primary/10"
               />

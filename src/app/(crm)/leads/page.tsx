@@ -332,6 +332,11 @@ export default function LeadsPage() {
     } catch {
       setLeads(createInitialLeads());
     }
+
+    const search = new URLSearchParams(window.location.search).get("search");
+    if (search) {
+      setQuery(search);
+    }
   }, []);
 
   useEffect(() => {

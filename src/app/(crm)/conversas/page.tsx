@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import {
   Bot,
   Camera,
@@ -269,6 +269,7 @@ export default function ConversasPage() {
   const [availableConversations, setAvailableConversations] = useState<Conversation[]>(conversations);
   const [manualConversationIds, setManualConversationIds] = useState<string[]>([]);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>(defaultQuickReplies);
+  const [conversationQuery, setConversationQuery] = useState("");
   const [manageReplies, setManageReplies] = useState(false);
   const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
   const [replyName, setReplyName] = useState("");
@@ -280,6 +281,24 @@ export default function ConversasPage() {
   const [deleteReplyId, setDeleteReplyId] = useState<string | null>(null);
   const [replyFeedback, setReplyFeedback] = useState("");
   const draftTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const filteredConversations = useMemo(() => {
+    const normalized = conversationQuery.trim().toLowerCase();
+    if (!normalized) {
+      return availableConversations;
+    }
+
+    return availableConversations.filter((conversation) =>
+      [
+        conversation.lead.name,
+        conversation.lead.phone,
+        conversation.lead.origin,
+        conversation.lead.responsible,
+        conversation.preview,
+        conversation.lead.notes ?? "",
+        conversation.messages.map((message) => message.text).join(" ")
+      ].some((value) => value.toLowerCase().includes(normalized))
+    );
+  }, [availableConversations, conversationQuery]);
   const active = availableConversations.find((conversation) => conversation.lead.id === activeId) ?? availableConversations[0] ?? conversations[0];
   const editingReply = quickReplies.find((reply) => reply.id === editingReplyId);
   const canSendDraft = draftMessage.trim().length > 0 || Boolean(draftAttachment);
@@ -499,13 +518,15 @@ export default function ConversasPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <input
+                value={conversationQuery}
+                onChange={(event) => setConversationQuery(event.target.value)}
                 placeholder="Buscar conversa..."
                 className="h-10 w-full rounded-2xl border border-white/10 bg-white/[0.045] pl-10 pr-3 text-sm outline-none transition placeholder:text-muted-foreground/70 hover:border-white/[0.16] focus:border-primary/55 focus:ring-4 focus:ring-primary/10"
               />
             </div>
           </div>
           <div className="min-h-0 max-h-[calc(100vh-238px)] flex-1 space-y-1.5 overflow-y-auto overscroll-contain p-2.5 pr-3 scrollbar-thin">
-            {availableConversations.map((conversation) => {
+            {filteredConversations.map((conversation) => {
               const selected = conversation.lead.id === activeId;
               const chance = closingChanceByTemperature[conversation.lead.temperature];
 
@@ -552,6 +573,11 @@ export default function ConversasPage() {
                 </button>
               );
             })}
+            {filteredConversations.length === 0 ? (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 text-center text-xs font-semibold text-muted-foreground">
+                Nenhuma conversa encontrada.
+              </div>
+            ) : null}
           </div>
         </aside>
 
@@ -620,13 +646,13 @@ export default function ConversasPage() {
 
           <div className="whatsapp-chat-bg flex-1 overflow-y-auto p-4 scrollbar-thin">
             <div className="flex w-full flex-col space-y-4">
-            <div className="rounded-2xl border border-primary/20 bg-primary/[0.07] p-4 shadow-[0_18px_45px_rgba(250,204,21,0.05)]">
+            <div className="rounded-2xl border border-sky-300/25 bg-sky-300/[0.08] p-4 shadow-[0_18px_45px_rgba(56,189,248,0.10),0_0_36px_rgba(56,189,248,0.08)]">
               <div className="flex items-start gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-2xl bg-primary/15 text-primary">
+                <span className="grid size-9 shrink-0 place-items-center rounded-2xl border border-sky-300/25 bg-sky-300/12 text-sky-200 shadow-[0_0_22px_rgba(56,189,248,0.16)]">
                   <Bot className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-extrabold">Sugestao da IA para este atendimento</p>
+                  <p className="text-sm font-extrabold text-sky-100">Sugestao da IA para este atendimento</p>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">{aiSuggestion.hint}</p>
                 </div>
               </div>
@@ -665,11 +691,25 @@ export default function ConversasPage() {
           </div>
 
           <div className="border-t border-white/[0.06] bg-[#080808] p-4 backdrop-blur-xl">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/45">
-                <WandSparkles className="size-3.5 text-primary" />
-                Sugestao da IA
-              </div>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              {[aiSuggestion].map((suggestion) => (
+                <button
+                  key={suggestion.hint}
+                  onClick={() => setDraftMessage(suggestion.message)}
+                  className="group/ai-hint relative inline-flex shrink-0 items-center gap-2 overflow-visible rounded-full border border-sky-300/25 bg-sky-300/10 px-3 py-1.5 text-xs font-black text-sky-100 shadow-[0_0_20px_rgba(56,189,248,0.08)] transition hover:-translate-y-0.5 hover:border-sky-300/45 hover:bg-sky-300/15"
+                  title="Clique para inserir a mensagem sugerida no campo do chat."
+                >
+                  <WandSparkles className="size-3.5 text-sky-300" />
+                  Sugestao de IA
+                  <span className="pointer-events-none absolute bottom-full left-0 z-40 mb-2 w-[min(420px,calc(100vw-2rem))] translate-y-1 rounded-2xl border border-sky-300/18 bg-[#07111f]/98 p-3 text-left text-xs font-semibold leading-5 text-sky-50 opacity-0 shadow-[0_22px_60px_rgba(0,0,0,0.45),0_0_28px_rgba(56,189,248,0.10)] backdrop-blur-xl transition-all duration-200 group-hover/ai-hint:translate-y-0 group-hover/ai-hint:opacity-100">
+                    <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.16em] text-sky-300">
+                      Sugestao atual
+                    </span>
+                    {suggestion.hint}
+                  </span>
+                </button>
+              ))}
+
               <div className="flex items-center gap-2">
                 {replyFeedback ? (
                   <span className="rounded-full border border-success/25 bg-success/10 px-2.5 py-1 text-[10px] font-bold text-success">
@@ -677,7 +717,7 @@ export default function ConversasPage() {
                   </span>
                 ) : null}
                 <button
-                  onClick={() => setManageReplies((value) => !value)}
+                  onClick={startNewReply}
                   className={cn(
                     "shrink-0 rounded-full border border-white/10 px-2.5 py-1.5 text-xs font-semibold text-white/70 transition hover:bg-accent hover:text-white",
                     manageReplies && "border-primary/50 bg-primary/10 text-primary"
@@ -685,31 +725,11 @@ export default function ConversasPage() {
                 >
                   Gerenciar respostas rapidas
                 </button>
-                <button
-                  onClick={startNewReply}
-                  className="grid size-7 shrink-0 place-items-center rounded-full border border-white/10 text-primary transition hover:bg-accent"
-                  title="Nova resposta rapida"
-                >
-                  <Plus className="size-3.5" />
-                </button>
               </div>
-            </div>
-            <div className="mb-3 flex gap-2 overflow-x-auto scrollbar-thin">
-              {[aiSuggestion].map((suggestion) => (
-                <button
-                  key={suggestion.hint}
-                  onClick={() => setDraftMessage(suggestion.message)}
-                  className="inline-flex shrink-0 items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:-translate-y-0.5 hover:bg-primary/15"
-                  title="Sugestao unica gerada pela IA com base na intencao atual do lead."
-                >
-                  <WandSparkles className="size-3.5" />
-                  {suggestion.hint}
-                </button>
-              ))}
             </div>
             <div className="mb-2 flex items-center gap-2 overflow-x-auto scrollbar-thin">
               {quickReplies.map((quickReply) => (
-                <div key={quickReply.id} className="flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-white/[0.035]">
+                <div key={quickReply.id} className="flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-white/[0.035] pr-1">
                   <button
                     onClick={() => applyQuickReply(quickReply)}
                     className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold hover:text-primary"
@@ -718,103 +738,27 @@ export default function ConversasPage() {
                     {quickReply.attachment ? <AttachmentIcon type={quickReply.attachment.type} className="size-3" /> : null}
                     {quickReply.name}
                   </button>
-                  {manageReplies ? (
-                    <div className="flex items-center border-l border-border pr-1">
-                      <button
-                        onClick={() => startEditReply(quickReply)}
-                        className="grid size-6 place-items-center text-muted-foreground hover:text-primary"
-                        title="Editar resposta rapida"
-                      >
-                        <Pencil className="size-3" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteReplyId(quickReply.id)}
-                        className="grid size-6 place-items-center text-muted-foreground hover:text-danger"
-                        title="Excluir resposta rapida"
-                      >
-                        <Trash2 className="size-3" />
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-            {manageReplies ? (
-              <div className="mb-3 rounded-lg border border-border bg-card/70 p-3">
-                <div className="mb-2 flex items-start justify-between gap-3">
-                  <p className="text-xs font-semibold text-muted-foreground">
-                    {editingReply ? "Editar resposta rapida" : "Cadastrar resposta rapida"}
-                  </p>
-                  <div className="flex flex-col items-end gap-1">
+                  <div className="flex items-center border-l border-border pl-1">
                     <button
-                      onClick={closeReplyManager}
-                      className="grid size-6 place-items-center rounded-full text-muted-foreground transition hover:bg-white/[0.08] hover:text-foreground"
-                      title="Fechar gerenciamento"
-                      aria-label="Fechar gerenciamento"
+                      onClick={() => startEditReply(quickReply)}
+                      className="grid size-6 place-items-center rounded-full text-muted-foreground transition hover:bg-primary/10 hover:text-primary"
+                      title="Editar resposta rapida"
+                      aria-label={`Editar resposta rapida ${quickReply.name}`}
                     >
-                      <X className="size-3.5" />
+                      <Pencil className="size-3" />
                     </button>
                     <button
-                      onClick={() => {
-                    setEditingReplyId(null);
-                    setReplyName("");
-                    setReplyMessage("");
-                    setReplyAttachment(undefined);
-                  }}
-                      className="text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => setDeleteReplyId(quickReply.id)}
+                      className="grid size-6 place-items-center rounded-full text-muted-foreground transition hover:bg-danger/10 hover:text-danger"
+                      title="Excluir resposta rapida"
+                      aria-label={`Excluir resposta rapida ${quickReply.name}`}
                     >
-                      Limpar
+                      <Trash2 className="size-3" />
                     </button>
                   </div>
                 </div>
-                <div className="grid gap-2 md:grid-cols-[190px_1fr_auto]">
-                  <input
-                    value={replyName}
-                    onChange={(event) => setReplyName(event.target.value)}
-                    placeholder="Nome do botao"
-                    className="h-9 rounded-lg border border-border bg-input/40 px-3 text-xs outline-none focus:ring-2 focus:ring-ring/50"
-                  />
-                  <input
-                    value={replyMessage}
-                    onChange={(event) => setReplyMessage(event.target.value)}
-                    placeholder="Texto completo da mensagem"
-                    className="h-9 rounded-lg border border-border bg-input/40 px-3 text-xs outline-none focus:ring-2 focus:ring-ring/50"
-                  />
-                  <button
-                    onClick={saveQuickReply}
-                    className="h-9 rounded-lg bg-primary px-4 text-xs font-bold text-primary-foreground"
-                  >
-                    Salvar
-                  </button>
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <label className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-white/[0.035] px-3 text-xs font-semibold text-muted-foreground transition hover:bg-white/[0.06] hover:text-foreground">
-                    <ImageIcon className="size-3.5" />
-                    Anexar audio, imagem ou video
-                    <input
-                      type="file"
-                      accept="audio/*,image/*,video/*"
-                      onChange={(event) => uploadReplyAttachment(event.target.files?.[0])}
-                      className="sr-only"
-                    />
-                  </label>
-                  {replyAttachment ? (
-                    <div className="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
-                      <AttachmentIcon type={replyAttachment.type} className="size-3.5" />
-                      {attachmentLabel(replyAttachment.type)}: {replyAttachment.name}
-                      <button
-                        type="button"
-                        onClick={() => setReplyAttachment(undefined)}
-                        className="grid size-5 place-items-center rounded-full hover:bg-white/10"
-                        aria-label="Remover anexo"
-                      >
-                        <X className="size-3" />
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
+              ))}
+            </div>
             {draftAttachment ? (
               <div className="mb-2 flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">
                 <span className="inline-flex min-w-0 items-center gap-2">
@@ -969,7 +913,7 @@ export default function ConversasPage() {
       </div>
 
       {deleteReplyId ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
           <section className="w-full max-w-sm rounded-2xl border border-white/10 bg-card p-5 shadow-[0_24px_70px_rgba(0,0,0,0.42)]">
             <h2 className="text-base font-extrabold">Excluir resposta rapida?</h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -990,6 +934,123 @@ export default function ConversasPage() {
               >
                 Sim
               </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {manageReplies ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xl">
+          <section className="w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-[#08111f] shadow-[0_28px_90px_rgba(0,0,0,0.52)]">
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Respostas rapidas</p>
+                <h2 className="mt-1 text-xl font-extrabold">
+                  {editingReply ? "Editar resposta rapida" : "Cadastrar resposta rapida"}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Configure texto, audio, imagem ou video para usar durante o atendimento.
+                </p>
+              </div>
+              <button
+                onClick={closeReplyManager}
+                className="grid size-10 shrink-0 place-items-center rounded-2xl border border-white/10 text-muted-foreground transition hover:bg-white/[0.08] hover:text-foreground"
+                title="Fechar gerenciamento"
+                aria-label="Fechar gerenciamento"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="grid gap-4 p-5">
+              <div className="grid gap-4 md:grid-cols-[220px_1fr]">
+                <label className="grid gap-2">
+                  <span className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">Nome do botao</span>
+                  <input
+                    value={replyName}
+                    onChange={(event) => setReplyName(event.target.value)}
+                    placeholder="Ex: Valores"
+                    className="h-12 rounded-2xl border border-white/10 bg-white/[0.045] px-4 text-sm font-semibold outline-none transition placeholder:text-muted-foreground/70 hover:border-white/[0.16] focus:border-primary/55 focus:ring-4 focus:ring-primary/10"
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">Mensagem completa</span>
+                  <textarea
+                    value={replyMessage}
+                    onChange={(event) => setReplyMessage(event.target.value)}
+                    placeholder="Digite o texto completo que sera inserido no chat..."
+                    rows={4}
+                    className="min-h-28 resize-none rounded-2xl border border-white/10 bg-white/[0.045] px-4 py-3 text-sm font-semibold leading-6 outline-none transition placeholder:text-muted-foreground/70 hover:border-white/[0.16] focus:border-primary/55 focus:ring-4 focus:ring-primary/10"
+                  />
+                </label>
+              </div>
+
+              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-extrabold">Midia da resposta</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Opcional. A resposta pode ser salva mesmo sem texto se tiver anexo.
+                    </p>
+                  </div>
+                  <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-white/[0.045] px-4 text-xs font-bold text-muted-foreground transition hover:bg-white/[0.07] hover:text-foreground">
+                    <ImageIcon className="size-4" />
+                    Anexar audio, imagem ou video
+                    <input
+                      type="file"
+                      accept="audio/*,image/*,video/*"
+                      onChange={(event) => uploadReplyAttachment(event.target.files?.[0])}
+                      className="sr-only"
+                    />
+                  </label>
+                </div>
+
+                {replyAttachment ? (
+                  <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-2xl border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">
+                    <AttachmentIcon type={replyAttachment.type} className="size-4 shrink-0" />
+                    <span className="truncate">
+                      {attachmentLabel(replyAttachment.type)}: {replyAttachment.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setReplyAttachment(undefined)}
+                      className="grid size-6 shrink-0 place-items-center rounded-full hover:bg-white/10"
+                      aria-label="Remover anexo"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 p-5">
+              <button
+                onClick={() => {
+                  setEditingReplyId(null);
+                  setReplyName("");
+                  setReplyMessage("");
+                  setReplyAttachment(undefined);
+                }}
+                className="h-10 rounded-xl border border-white/10 px-4 text-sm font-bold text-muted-foreground transition hover:bg-white/[0.06] hover:text-foreground"
+              >
+                Limpar
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={closeReplyManager}
+                  className="h-10 rounded-xl border border-white/10 px-4 text-sm font-bold text-muted-foreground transition hover:bg-white/[0.06] hover:text-foreground"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={saveQuickReply}
+                  className="h-10 rounded-xl bg-primary px-5 text-sm font-extrabold text-primary-foreground shadow-glow transition hover:-translate-y-0.5"
+                >
+                  Salvar resposta
+                </button>
+              </div>
             </div>
           </section>
         </div>

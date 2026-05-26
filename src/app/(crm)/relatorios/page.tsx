@@ -143,7 +143,44 @@ export default function RelatoriosPage() {
   }
 
   function generatePdf() {
-    window.print();
+    const lines = [
+      "AUTO PRO IA 1.1",
+      "Relatorio comercial",
+      `Gerado em: ${generatedAt}`,
+      `Periodo: ${appliedFilters.dateStart} ate ${appliedFilters.dateEnd}`,
+      `Vendedor: ${appliedFilters.seller}`,
+      `Origem: ${appliedFilters.origin}`,
+      "",
+      "Resumo",
+      `Leads captados: ${report.totalLeads}`,
+      `Matriculas: ${report.enrollments}`,
+      `Conversao: ${report.conversion}%`,
+      `Receita estimada: ${formatCurrency(report.revenue)}`,
+      `Ticket medio: ${formatCurrency(report.averageTicket)}`,
+      `IA atendendo: ${report.aiHandled}`,
+      `Tempo medio de resposta: ${report.responseTime}`,
+      "",
+      "Ranking por vendedor",
+      ...sellerRows.map((row) => `${row.position}. ${row.seller} - ${row.closed} fechamentos - ${row.conversion}% - ${row.revenue}`),
+      "",
+      "Leads por origem",
+      ...filteredOrigins.map((item) => `${item.label}: ${item.value} leads (${item.percent}%)`),
+      "",
+      "Funil operacional",
+      ...funnelData.map((item) => `${item.etapa}: ${item.value} leads`),
+      "",
+      "Motivos de perda",
+      ...lossReasons.map((item) => `${item.label}: ${item.value}%`)
+    ];
+    const blob = createPdfBlob(lines);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `relatorio-auto-pro-ia-${appliedFilters.dateStart}-a-${appliedFilters.dateEnd}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -711,4 +748,82 @@ function formatCurrency(value: number) {
     currency: "BRL",
     maximumFractionDigits: 0
   }).format(value);
+}
+
+function createPdfBlob(lines: string[]) {
+  const pageWidth = 595;
+  const pageHeight = 842;
+  const marginX = 48;
+  const startY = 800;
+  const lineHeight = 16;
+  const maxLinesPerPage = Math.floor((startY - 54) / lineHeight);
+  const pages: string[][] = [];
+
+  for (let index = 0; index < lines.length; index += maxLinesPerPage) {
+    pages.push(lines.slice(index, index + maxLinesPerPage));
+  }
+
+  const objects: string[] = [];
+  objects.push("<< /Type /Catalog /Pages 2 0 R >>");
+
+  const pageObjectIds = pages.map((_, index) => 3 + index * 2);
+  const fontObjectId = 3 + pages.length * 2;
+  objects.push(`<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pages.length} >>`);
+
+  pages.forEach((pageLines, pageIndex) => {
+    const pageObjectId = 3 + pageIndex * 2;
+    const contentObjectId = pageObjectId + 1;
+    const content = [
+      "BT",
+      "/F1 11 Tf",
+      `1 0 0 1 ${marginX} ${startY} Tm`,
+      ...pageLines.flatMap((line, lineIndex) => {
+        const font = lineIndex === 0 && pageIndex === 0 ? "/F1 18 Tf" : line === "" ? "/F1 11 Tf" : "/F1 11 Tf";
+        const text = line === "" ? " " : line;
+        return [font, `(${escapePdfText(text)}) Tj`, `0 -${lineHeight} Td`];
+      }),
+      "ET"
+    ].join("\n");
+
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontObjectId} 0 R >> >> /Contents ${contentObjectId} 0 R >>`
+    );
+    objects.push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  });
+
+  objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+
+  const header = "%PDF-1.4\n";
+  let body = "";
+  const offsets = [0];
+
+  objects.forEach((object, index) => {
+    offsets.push(header.length + body.length);
+    body += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+
+  const xrefOffset = header.length + body.length;
+  const xref = [
+    `xref`,
+    `0 ${objects.length + 1}`,
+    "0000000000 65535 f ",
+    ...offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n `),
+    "trailer",
+    `<< /Size ${objects.length + 1} /Root 1 0 R >>`,
+    "startxref",
+    String(xrefOffset),
+    "%%EOF"
+  ].join("\n");
+
+  return new Blob([header, body, xref], { type: "application/pdf" });
+}
+
+function escapePdfText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7E]/g, "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)");
 }

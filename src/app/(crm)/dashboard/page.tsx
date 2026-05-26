@@ -198,7 +198,7 @@ export default function DashboardPage() {
               <div>
                 <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-200">
                   <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.95)]" />
-                  Live feed
+                  IA Ativa
                 </div>
                 <h2 className="text-lg font-extrabold tracking-normal">Pulso Comercial</h2>
                 <p className="mt-1 text-sm text-muted-foreground">Eventos comerciais em tempo real</p>
@@ -362,7 +362,6 @@ function PulseHealthIcon() {
         filter="url(#businessPulseGlow)"
         className="business-pulse-line"
       />
-      <circle cx="31" cy="23" r="3.2" className="business-pulse-dot" fill="#22c55e" />
     </svg>
   );
 }
