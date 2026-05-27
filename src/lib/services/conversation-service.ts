@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { conversations, handoffEvents, leads, messages } from "@/lib/db/schema";
+import { conversations, handoffEvents, leads, messages, users } from "@/lib/db/schema";
 import { SYSTEM_USER_ID } from "@/lib/constants";
 import { generateAiReply } from "@/lib/services/ai-agent";
 import { sendWhatsAppText } from "@/lib/services/evolution-api";
@@ -14,6 +14,8 @@ import { publishRealtimeEvent } from "@/lib/services/realtime";
 import type { NormalizedInboundMessage } from "@/lib/whatsapp/normalizer";
 
 export async function registerInboundMessage(input: NormalizedInboundMessage) {
+  await ensureSystemUser();
+
   const lead = await upsertLead(input);
   const conversation = await upsertConversation(lead.id, input.externalChatId);
 
@@ -55,6 +57,19 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
   }
 
   return { lead, conversation, message };
+}
+
+async function ensureSystemUser() {
+  await db
+    .insert(users)
+    .values({
+      id: SYSTEM_USER_ID,
+      name: "Auto Pro IA",
+      email: "sistema@autoproia.local",
+      role: "admin",
+      modified_by: SYSTEM_USER_ID
+    })
+    .onConflictDoNothing();
 }
 
 export async function processBufferedConversation(conversationId: string) {
