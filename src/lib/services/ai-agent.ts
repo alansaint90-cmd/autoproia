@@ -12,6 +12,8 @@ type GenerateAiReplyInput = {
 };
 
 export async function generateAiReply(input: GenerateAiReplyInput) {
+  console.info("[ai-agent] request started", { model: env.OPENAI_MODEL, messages: input.messages.length });
+
   const conversationText = input.messages
     .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
     .join("\n");
@@ -34,5 +36,6 @@ export async function generateAiReply(input: GenerateAiReplyInput) {
     ].filter(Boolean).join("\n")
   });
 
+  console.info("[ai-agent] response generated", { length: text.length });
   return text.trim();
 }

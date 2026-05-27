@@ -1,4 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 
 type RealtimeEvent = {
@@ -12,11 +11,30 @@ export async function publishRealtimeEvent(event: RealtimeEvent) {
     return;
   }
 
-  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+  try {
+    const url = new URL("/realtime/v1/api/broadcast", env.SUPABASE_URL);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            topic: env.SUPABASE_REALTIME_CHANNEL,
+            event: event.type,
+            payload: event
+          }
+        ]
+      })
+    });
 
-  await supabase.channel(env.SUPABASE_REALTIME_CHANNEL).send({
-    type: "broadcast",
-    event: event.type,
-    payload: event
-  });
+    if (!response.ok) {
+      console.warn("[realtime] broadcast failed", { status: response.status });
+    }
+  } catch (error) {
+    console.warn("[realtime] broadcast skipped", error);
+  }
 }

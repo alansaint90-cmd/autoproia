@@ -73,7 +73,10 @@ async function ensureSystemUser() {
 }
 
 export async function processBufferedConversation(conversationId: string) {
+  console.info("[conversation-service] processing buffer started", { conversationId });
+
   if (!(await shouldProcessBuffer(conversationId))) {
+    console.info("[conversation-service] processing skipped without pending buffer", { conversationId });
     return { skipped: true };
   }
 
@@ -84,11 +87,16 @@ export async function processBufferedConversation(conversationId: string) {
     .limit(1);
 
   if (!conversation || conversation.status !== "ai") {
+    console.info("[conversation-service] processing skipped by conversation status", {
+      conversationId,
+      status: conversation?.status
+    });
     return { skipped: true };
   }
 
   const buffered = await drainConversationBuffer(conversationId);
   if (buffered.length === 0) {
+    console.info("[conversation-service] processing skipped empty buffer", { conversationId });
     return { skipped: true };
   }
 
@@ -109,6 +117,12 @@ export async function processBufferedConversation(conversationId: string) {
     throw new Error("Lead da conversa nao encontrado.");
   }
 
+  console.info("[conversation-service] generating ai reply", {
+    conversationId,
+    leadId: lead.id,
+    bufferedMessages: buffered.length
+  });
+
   const reply = await generateAiReply({
     leadName: lead?.name,
     contextSummary: conversation.context_summary,
@@ -118,7 +132,9 @@ export async function processBufferedConversation(conversationId: string) {
     }))
   });
 
+  console.info("[conversation-service] sending whatsapp reply", { conversationId, phone: lead.phone });
   await sendWhatsAppText({ phone: lead.phone, text: reply });
+  console.info("[conversation-service] whatsapp reply sent", { conversationId });
 
   const [aiMessage] = await db
     .insert(messages)
