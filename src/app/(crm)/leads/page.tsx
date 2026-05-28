@@ -447,9 +447,19 @@ export default function LeadsPage() {
                 Atividade ao vivo
               </div>
               <h2 className="mt-3 text-2xl font-black tracking-tight">Central de fechamento</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {filteredLeads.length} leads visiveis de {activeLeads.length} cadastrados. IA priorizando conversas com maior chance de matricula.
-              </p>
+              <div className="mt-3 rounded-2xl border border-primary/18 bg-primary/10 p-3">
+                <div className="flex items-start gap-3">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground">
+                    <Target className="size-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-black">Plano de ataque agora</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      Priorize leads quentes sem resposta, depois follow-ups atrasados. Abra detalhes somente quando precisar negociar ou registrar contexto.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex w-full flex-col gap-3 xl:w-[620px]">
@@ -492,14 +502,29 @@ export default function LeadsPage() {
           </div>
         </section>
 
-        <section className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-          <KpiCard icon={Flame} label="Leads quentes" value={String(kpis.hot)} trend="+12%" detail="prioridade alta" tone="from-emerald-400/18" />
-          <KpiCard icon={AlertCircle} label="Sem resposta" value={String(kpis.unanswered)} trend="-8%" detail="precisam retorno" tone="from-red-400/18" />
-          <KpiCard icon={Bot} label="IA atendendo" value={String(kpis.aiNow)} trend="ao vivo" detail="fluxo automatico" tone="from-cyan-400/18" />
-          <KpiCard icon={TrendingUp} label="Receita potencial" value={formatCurrency(kpis.potential)} trend="+21%" detail="pipeline aberto" tone="from-primary/20" compact />
-          <KpiCard icon={Gauge} label="Conversao mes" value={`${kpis.conversion}%`} trend="+3.4%" detail="matriculas" tone="from-blue-400/18" />
-          <KpiCard icon={Clock3} label="Follow-ups atrasados" value={String(kpis.followups)} trend="hoje" detail="acao comercial" tone="from-yellow-400/18" />
-        </section>
+        <details className="group mb-5 overflow-hidden rounded-[24px] border border-white/10 bg-card/52 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+          <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+            <span className="grid size-9 shrink-0 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+              <Gauge className="size-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-black">Indicadores de apoio</span>
+              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                {filteredLeads.length} leads visiveis, {kpis.hot} quentes, {kpis.followups} follow-ups atrasados
+              </span>
+            </span>
+            <ChevronDown className="size-4 text-muted-foreground transition group-open:rotate-180" />
+          </summary>
+
+          <section className="grid gap-3 border-t border-white/[0.07] p-4 md:grid-cols-2 xl:grid-cols-6">
+            <KpiCard icon={Flame} label="Leads quentes" value={String(kpis.hot)} trend="+12%" detail="prioridade alta" tone="from-success/18" />
+            <KpiCard icon={AlertCircle} label="Sem resposta" value={String(kpis.unanswered)} trend="-8%" detail="precisam retorno" tone="from-danger/18" />
+            <KpiCard icon={Bot} label="IA atendendo" value={String(kpis.aiNow)} trend="ao vivo" detail="fluxo automatico" tone="from-primary/18" />
+            <KpiCard icon={TrendingUp} label="Receita potencial" value={formatCurrency(kpis.potential)} trend="+21%" detail="pipeline aberto" tone="from-primary/20" compact />
+            <KpiCard icon={Gauge} label="Conversao mes" value={`${kpis.conversion}%`} trend="+3.4%" detail="matriculas" tone="from-[#0f4c8a]/18" />
+            <KpiCard icon={Clock3} label="Follow-ups atrasados" value={String(kpis.followups)} trend="hoje" detail="acao comercial" tone="from-primary/18" />
+          </section>
+        </details>
 
         <section className="overflow-hidden rounded-[28px] border border-white/10 bg-card/62 shadow-panel backdrop-blur-xl">
           <div className="grid grid-cols-[1.7fr_1.2fr_0.7fr_0.9fr] gap-4 border-b border-white/10 bg-white/[0.035] px-4 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-muted-foreground max-xl:hidden">

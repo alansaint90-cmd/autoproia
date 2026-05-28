@@ -70,3 +70,12 @@ O funil deve ser lido por setor operacional:
 - Fechamento: matricula pendente e matricula realizada.
 
 Cada setor pode ser recolhido para reduzir ruido visual e focar no trabalho do momento.
+
+## Central De Fechamento
+
+Na central de fechamento, o topo deve orientar o atendente:
+
+- Primeiro: plano de ataque e proxima acao.
+- Segundo: filtros rapidos para escolher o foco.
+- Terceiro: indicadores apenas como apoio em secao expansivel.
+- Detalhes completos ficam no drawer do lead, nunca todos abertos na lista.
