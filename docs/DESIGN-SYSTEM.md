@@ -34,3 +34,13 @@ A Central de Atendimento usa esse padrao no painel lateral:
 - Inteligencia do lead em secao expansível.
 - Timeline operacional em secao expansível.
 - Perfil completo em modal separado.
+
+## Leads E Kanban
+
+As telas de Leads e Kanban seguem o mesmo criterio:
+
+- Cards fechados mostram apenas identidade, prioridade e proxima acao.
+- Telefone, observacoes, timeline e dados completos ficam em drawer ou expansao.
+- Acoes rapidas ficam compactas e aparecem perto da decisao operacional.
+- O Kanban usa expansao no proprio card para abrir contexto sem trocar de tela.
+- Leads usa drawer lateral para detalhamento, com secoes expansíveis.

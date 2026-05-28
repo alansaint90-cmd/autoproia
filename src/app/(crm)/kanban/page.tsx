@@ -129,6 +129,24 @@ const quickMessages = [
   "Aguardando retorno do responsavel comercial."
 ];
 
+function kanbanNextAction(status: PipelineStage) {
+  const actions: Record<PipelineStage, string> = {
+    novo: "Qualificar interesse",
+    ia: "Monitorar IA",
+    qualificado: "Enviar proposta",
+    atendimento: "Responder duvida",
+    orcamento: "Confirmar condicao",
+    negociacao: "Remover objecao",
+    interessado: "Agendar visita",
+    followup: "Fazer retorno",
+    perdido: "Registrar motivo",
+    matricula_pendente: "Validar documentos",
+    matricula_realizada: "Encerrar atendimento"
+  };
+
+  return actions[status];
+}
+
 function initialsFromName(name: string) {
   return name
     .split(" ")
@@ -935,10 +953,15 @@ export default function KanbanPage() {
                                   Detalhes do lead
                                 </span>
                               </div>
-                              <p className="mt-1.5 flex items-center gap-1.5 text-xs leading-none text-muted-foreground">
+                              <p className={cn("mt-1.5 items-center gap-1.5 text-xs leading-none text-muted-foreground", isExpanded ? "flex" : "hidden")}>
                                 <Phone className="size-3" />
                                 {lead.phone}
                               </p>
+                              {!isExpanded ? (
+                                <p className="mt-1.5 line-clamp-1 text-xs font-semibold text-cyan-100">
+                                  {kanbanNextAction(lead.status)}
+                                </p>
+                              ) : null}
                             </div>
                           </div>
 

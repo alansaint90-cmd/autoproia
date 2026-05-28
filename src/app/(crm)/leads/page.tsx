@@ -10,6 +10,7 @@ import {
   Brain,
   CalendarClock,
   CalendarPlus,
+  ChevronDown,
   CheckCircle2,
   Clock3,
   Trash2,
@@ -17,7 +18,6 @@ import {
   Flame,
   Gauge,
   MessageCircle,
-  MoveRight,
   Phone,
   PhoneCall,
   Plus,
@@ -502,14 +502,11 @@ export default function LeadsPage() {
         </section>
 
         <section className="overflow-hidden rounded-[28px] border border-white/10 bg-card/62 shadow-panel backdrop-blur-xl">
-          <div className="grid grid-cols-[1.6fr_0.9fr_0.8fr_0.9fr_0.8fr_0.8fr_0.9fr] gap-4 border-b border-white/10 bg-white/[0.035] px-4 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-muted-foreground max-xl:hidden">
+          <div className="grid grid-cols-[1.7fr_1.2fr_0.7fr_0.9fr] gap-4 border-b border-white/10 bg-white/[0.035] px-4 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-muted-foreground max-xl:hidden">
             <span>Lead</span>
-            <span>Origem</span>
-            <span>Status</span>
-            <span>Prioridade</span>
+            <span>Direcionamento</span>
             <span>Score IA</span>
-            <span>Resposta</span>
-            <span>Proxima acao</span>
+            <span>Acoes</span>
           </div>
 
           <div className="divide-y divide-white/[0.07]">
@@ -619,7 +616,7 @@ function LeadRow({
 
   return (
     <article
-      className="group relative grid gap-4 px-4 py-4 transition duration-300 hover:bg-white/[0.04] xl:grid-cols-[1.6fr_0.9fr_0.8fr_0.9fr_0.8fr_0.8fr_0.9fr] xl:items-center"
+      className="group relative grid gap-4 px-4 py-4 transition duration-300 hover:bg-white/[0.04] xl:grid-cols-[1.7fr_1.2fr_0.7fr_0.9fr] xl:items-center"
       style={{ animation: `leadFadeIn 360ms ease ${index * 35}ms both` }}
     >
       <div className={cn("absolute left-0 top-3 h-[calc(100%-24px)] w-1 rounded-r-full bg-gradient-to-b to-transparent", temperatureConfig[lead.temperature].priority)} />
@@ -638,43 +635,29 @@ function LeadRow({
                 {ai.label}
               </span>
             </div>
-            <p className="mt-1 line-clamp-1 text-xs leading-5 text-muted-foreground">{lead.lastMessage}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
-              <span>Entrou</span>
-              <ArrowRight className="size-3 text-primary" />
-              <span>IA respondeu</span>
-              <ArrowRight className="size-3 text-primary" />
-              <span>{nextAction(lead)}</span>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-black", stageTone(lead.status))}>
+                {stageLabel(lead.status)}
+              </span>
+              <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-black", temperatureConfig[lead.temperature].tone)}>
+                {temperatureConfig[lead.temperature].label}
+              </span>
+              <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-2 py-0.5 text-[10px] font-bold text-sky-200">
+                {lead.origin}
+              </span>
             </div>
           </div>
         </div>
       </button>
 
-      <Cell label="Origem">
-        <div className="space-y-1">
-          <p className="text-sm font-bold text-sky-100">{lead.origin}</p>
-          <p className="text-xs text-muted-foreground">{lead.phone}</p>
-        </div>
-      </Cell>
-
-      <Cell label="Status">
-        <span className={cn("inline-flex w-fit rounded-full border px-2.5 py-1 text-[11px] font-black", stageTone(lead.status))}>
-          {stageLabel(lead.status)}
-        </span>
-      </Cell>
-
-      <Cell label="Prioridade">
-        <div className="w-full min-w-28">
-          <div className="mb-1 flex items-center justify-between gap-2">
-            <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-black", temperatureConfig[lead.temperature].tone)}>
-              {temperatureConfig[lead.temperature].label}
-            </span>
-            <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold", sentimentConfig[lead.sentiment].tone)}>
-              {sentimentConfig[lead.sentiment].label}
-            </span>
-          </div>
-          <div className={cn("h-1.5 overflow-hidden rounded-full", temperatureConfig[lead.temperature].rail)}>
-            <div className={cn("h-full rounded-full", temperatureConfig[lead.temperature].bar)} />
+      <Cell label="Direcionamento">
+        <div>
+          <p className="line-clamp-1 text-sm font-black text-slate-100">{nextAction(lead)}</p>
+          <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{intentText(lead)}</p>
+          <div className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
+            <span>Entrada</span>
+            <ArrowRight className="size-3 text-primary" />
+            <span>{stageLabel(lead.status)}</span>
           </div>
         </div>
       </Cell>
@@ -689,21 +672,15 @@ function LeadRow({
         </div>
       </Cell>
 
-      <Cell label="Resposta">
-        <span className={cn("inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black", timeTone(lead))}>
-          <Clock3 className="size-3" />
-          {lead.lastInteraction}
-        </span>
-      </Cell>
-
-      <Cell label="Proxima acao">
+      <Cell label="Acoes">
         <div className="flex items-center justify-between gap-2">
-          <p className="line-clamp-2 text-xs font-bold text-slate-200">{nextAction(lead)}</p>
-          <div className="flex translate-x-2 items-center gap-1 opacity-0 transition duration-200 group-hover:translate-x-0 group-hover:opacity-100">
+          <span className={cn("inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black", timeTone(lead))}>
+            <Clock3 className="size-3" />
+            {lead.lastInteraction}
+          </span>
+          <div className="flex items-center gap-1">
             <QuickAction label="WhatsApp" icon={MessageCircle} href={`/conversas?lead=${lead.id}`} />
             <QuickAction label="Ligar" icon={PhoneCall} />
-            <QuickAction label="Mover etapa" icon={MoveRight} />
-            <QuickAction label="Agendar" icon={CalendarPlus} />
             <QuickAction label="Excluir lead" icon={Trash2} danger onClick={onAskDelete} />
           </div>
         </div>
@@ -860,32 +837,26 @@ function LeadSidePanel({ lead, onClose }: { lead: LeadRecord; onClose: () => voi
             <Insight label="Receita estimada" value={formatCurrency(Math.round(2100 * (score / 100)))} icon={TrendingUp} />
           </div>
 
-          <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-5">
-            <h3 className="mb-4 flex items-center gap-2 text-sm font-black">
-              <Activity className="size-4 text-primary" />
-              Timeline operacional
-            </h3>
+          <DrawerSection title="Timeline operacional" subtitle="Historico resumido do lead" icon={Activity}>
             <div className="space-y-3">
               <TimelineItem title="Lead entrou no funil" detail={`${lead.origin} - ${lead.lastInteraction}`} />
               <TimelineItem title="IA identificou intencao" detail={intentText(lead)} />
               <TimelineItem title="Proxima acao" detail={nextAction(lead)} active />
             </div>
-          </section>
+          </DrawerSection>
 
-          <section className="grid gap-3 sm:grid-cols-2">
-            <PanelInfo label="Origem" value={lead.origin} icon={Target} />
-            <PanelInfo label="Responsavel" value={lead.responsible} icon={UserRound} />
-            <PanelInfo label="Interesse" value={`CNH ${lead.interest ?? "carro"}`} icon={Tag} />
-            <PanelInfo label="Ultima interacao" value={lead.lastInteraction} icon={Clock3} />
-          </section>
+          <DrawerSection title="Dados comerciais" subtitle="Origem, responsavel e interesse" icon={Target} defaultOpen>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <PanelInfo label="Origem" value={lead.origin} icon={Target} />
+              <PanelInfo label="Responsavel" value={lead.responsible} icon={UserRound} />
+              <PanelInfo label="Interesse" value={`CNH ${lead.interest ?? "carro"}`} icon={Tag} />
+              <PanelInfo label="Ultima interacao" value={lead.lastInteraction} icon={Clock3} />
+            </div>
+          </DrawerSection>
 
-          <section className="rounded-3xl border border-white/10 bg-white/[0.035] p-5">
-            <h3 className="mb-2 flex items-center gap-2 text-sm font-black">
-              <FileText className="size-4 text-primary" />
-              Observacoes
-            </h3>
+          <DrawerSection title="Observacoes" subtitle="Contexto completo sob demanda" icon={FileText}>
             <p className="text-sm leading-6 text-muted-foreground">{lead.notes}</p>
-          </section>
+          </DrawerSection>
 
           <div className="grid gap-2 sm:grid-cols-2">
             <Link
@@ -903,6 +874,36 @@ function LeadSidePanel({ lead, onClose }: { lead: LeadRecord; onClose: () => voi
         </div>
       </aside>
     </div>
+  );
+}
+
+function DrawerSection({
+  title,
+  subtitle,
+  icon: Icon,
+  defaultOpen = false,
+  children
+}: {
+  title: string;
+  subtitle: string;
+  icon: React.ComponentType<{ className?: string }>;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <details open={defaultOpen} className="group rounded-3xl border border-white/10 bg-white/[0.035] p-4">
+      <summary className="flex cursor-pointer list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
+        <span className="grid size-9 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
+          <Icon className="size-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-black">{title}</span>
+          <span className="mt-0.5 block truncate text-xs text-muted-foreground">{subtitle}</span>
+        </span>
+        <ChevronDown className="size-4 text-muted-foreground transition group-open:rotate-180" />
+      </summary>
+      <div className="mt-4 border-t border-white/[0.07] pt-4">{children}</div>
+    </details>
   );
 }
 
