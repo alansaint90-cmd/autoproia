@@ -720,25 +720,16 @@ function TooltipMetric({ color, label, value }: { color: string; label: string; 
 function OriginDonut() {
   const [activeOrigin, setActiveOrigin] = useState<number | null>(null);
   const total = leadsByOrigin.reduce((sum, item) => sum + item.value, 0);
-  const bestOrigin = leadsByOrigin.reduce((best, item) => (item.value > best.value ? item : best), leadsByOrigin[0]);
   const active = activeOrigin === null ? null : leadsByOrigin[activeOrigin];
-  const maxOrigin = Math.max(...leadsByOrigin.map((item) => item.value));
+  const radius = 42;
+  const circumference = 2 * Math.PI * radius;
+  let accumulated = 0;
 
   return (
-    <div className={chartSurfaceClass}>
-      <div className="mb-3 grid grid-cols-[1fr_auto] items-center gap-3">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.14em] text-muted-foreground">Total</p>
-          <p className="font-mono text-2xl font-black text-primary">{total}</p>
-        </div>
-        <div className="rounded-2xl border border-primary/20 bg-primary/10 px-3 py-2 text-right">
-          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-primary">Top canal</p>
-          <p className="text-sm font-black">{bestOrigin.label}</p>
-        </div>
-      </div>
-
-      <div className="mb-3 rounded-2xl border border-white/[0.08] bg-background/30 p-3">
-        <svg viewBox="0 0 300 118" className="h-[118px] w-full">
+    <div className={cn(chartSurfaceClass, "flex min-h-[260px] flex-col justify-center")}>
+      <div className="grid items-center gap-4 sm:grid-cols-[minmax(120px,0.85fr)_minmax(130px,1fr)]">
+        <div className="relative mx-auto grid size-36 place-items-center">
+          <svg viewBox="0 0 120 120" className="size-36 -rotate-90">
           <defs>
             <filter id="originGlow" x="-40%" y="-40%" width="180%" height="180%">
               <feGaussianBlur stdDeviation="3" result="coloredBlur" />
@@ -748,63 +739,50 @@ function OriginDonut() {
               </feMerge>
             </filter>
           </defs>
-          {[0, 1, 2].map((line) => (
-            <line
-              key={line}
-              x1="12"
-              x2="288"
-              y1={24 + line * 28}
-              y2={24 + line * 28}
-              stroke="oklch(1 0 0 / 0.06)"
-              strokeDasharray="4 6"
-            />
-          ))}
+            <circle cx="60" cy="60" r={radius} fill="none" stroke="rgba(255,255,255,0.055)" strokeWidth="20" />
           {leadsByOrigin.map((origin, index) => {
-            const height = Math.max(16, (origin.value / maxOrigin) * 78);
-            const x = 24 + index * 48;
+              const percent = origin.value / total;
+              const dash = percent * circumference;
+              const offset = -accumulated * circumference;
+              accumulated += percent;
             const isActive = activeOrigin === index;
 
             return (
-              <g key={origin.label}>
-                <rect
-                  x={x}
-                  y={92 - height}
-                  width="22"
-                  height={height}
-                  rx="8"
-                  fill={originDonutColors[index]}
-                  opacity={isActive ? 1 : 0.72}
+                <circle
+                  key={origin.label}
+                  cx="60"
+                  cy="60"
+                  r={radius}
+                  fill="none"
+                  stroke={originDonutColors[index]}
+                  strokeWidth={isActive ? "23" : "20"}
+                  strokeLinecap="butt"
+                  strokeDasharray={`${dash} ${circumference - dash}`}
+                  strokeDashoffset={offset}
+                  opacity={activeOrigin === null || isActive ? 1 : 0.52}
                   filter={isActive ? "url(#originGlow)" : undefined}
                   className="cursor-pointer transition-all duration-300"
                   onMouseEnter={() => setActiveOrigin(index)}
                   onMouseLeave={() => setActiveOrigin(null)}
                   onClick={() => setActiveOrigin((current) => (current === index ? null : index))}
                 />
-                <circle
-                  cx={x + 11}
-                  cy={92 - height - 7}
-                  r={isActive ? "5" : "3"}
-                  fill={originDonutColors[index]}
-                  stroke="oklch(1 0 0 / 0.85)"
-                  strokeWidth={isActive ? "2" : "1"}
-                  className="transition-all duration-300"
-                />
-                <text x={x + 11} y="112" textAnchor="middle" fill={isActive ? "#facc15" : "oklch(0.76 0.025 250)"} fontSize="9" fontWeight="800">
-                  {origin.label.slice(0, 3)}
-                </text>
-              </g>
             );
           })}
         </svg>
-        <div className="mt-1 flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
-          <span>Captacao por canal</span>
-          <span className="text-foreground">{active ? `${active.label}: ${active.value}` : "ranking ao vivo"}</span>
-        </div>
-      </div>
 
-      <div className="grid gap-2">
+          <div className="absolute inset-0 grid place-items-center">
+            <div className="grid size-[72px] place-items-center rounded-full border border-white/[0.08] bg-[#0b1120]/92 text-center shadow-[inset_0_0_28px_rgba(0,0,0,0.35)]">
+              <span>
+                <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">Total</span>
+                <span className="block font-mono text-xl font-black text-primary">{total}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-2">
           {leadsByOrigin.map((origin, index) => {
-            const percent = Math.round((origin.value / total) * 1000) / 10;
+            const percent = Math.round((origin.value / total) * 100);
             const isActive = activeOrigin === index;
 
             return (
@@ -815,32 +793,25 @@ function OriginDonut() {
                 onMouseLeave={() => setActiveOrigin(null)}
                 onClick={() => setActiveOrigin((current) => (current === index ? null : index))}
                 className={cn(
-                  "w-full rounded-xl border px-3 py-2 text-left transition duration-300 hover:-translate-y-0.5",
+                  "grid w-full grid-cols-[1fr_auto] items-center gap-3 rounded-xl border px-2.5 py-2 text-left transition duration-300 hover:-translate-y-0.5",
                   isActive
                     ? "border-primary/35 bg-white/[0.075] shadow-[0_18px_44px_oklch(0_0_0_/_0.26)]"
                     : "border-white/[0.08] bg-white/[0.025] hover:border-white/15 hover:bg-white/[0.055]"
                 )}
               >
-                <div className="mb-1.5 flex items-center justify-between gap-3">
-                  <span className="inline-flex min-w-0 items-center gap-2 text-sm font-black">
-                    <span className="size-3 rounded-full shadow-[0_0_14px_currentColor]" style={{ backgroundColor: originDonutColors[index], color: originDonutColors[index] }} />
-                    <span className="truncate">{origin.label}</span>
-                  </span>
-                  <span className="font-mono text-sm font-black text-foreground">{origin.value}</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${percent}%`, backgroundColor: originDonutColors[index] }}
-                  />
-                </div>
-                <div className="mt-1 flex justify-between text-[11px] font-semibold text-muted-foreground">
-                  <span>{percent}% dos leads</span>
-                  <span className="hidden sm:inline xl:hidden 2xl:inline">{origin.percent}% informado</span>
-                </div>
+                <span className="inline-flex min-w-0 items-center gap-2 text-xs font-black">
+                  <span className="size-2.5 rounded-full shadow-[0_0_14px_currentColor]" style={{ backgroundColor: originDonutColors[index], color: originDonutColors[index] }} />
+                  <span className="truncate">{origin.label}</span>
+                </span>
+                <span className="font-mono text-xs font-black text-foreground">{percent}%</span>
               </button>
             );
           })}
+        </div>
+      </div>
+
+      <div className="mt-3 min-h-5 text-center text-[11px] font-semibold text-muted-foreground">
+        {active ? `${active.label}: ${active.value} leads captados` : "Passe o mouse para ver detalhes do canal"}
       </div>
     </div>
   );
