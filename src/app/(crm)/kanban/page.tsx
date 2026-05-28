@@ -818,6 +818,60 @@ export default function KanbanPage() {
               const groupStageIds = pipelineStages.filter((item) => item.group === stage.group).map((item) => item.id);
               const isGroupCollapsed = groupStageIds.every((stageId) => collapsedStages.includes(stageId));
 
+              if (isGroupCollapsed) {
+                if (!showGroupLabel) {
+                  return null;
+                }
+
+                const groupStages = stagesToRender.filter((item) => item.group === stage.group);
+
+                return (
+                  <div key={`${stage.group}-collapsed`} className="flex h-full min-h-0 w-[250px] shrink-0 flex-col">
+                    <div className="mb-2 h-6 px-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleGroupCollapse(stage.group)}
+                        title={`Expandir ${stage.group}`}
+                        className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-primary transition-all duration-200 hover:border-primary/45 hover:bg-primary/15"
+                      >
+                        {stage.group}
+                      </button>
+                    </div>
+
+                    <div className="rounded-[24px] border border-white/10 bg-card/[0.58] p-3 shadow-[0_18px_42px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+                      <div className="mb-3 flex items-center justify-between border-b border-white/[0.06] pb-3">
+                        <div>
+                          <p className="text-xs font-black text-foreground">Setor recolhido</p>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">Clique em uma etapa para abrir</p>
+                        </div>
+                        <ChevronDown className="size-4 rotate-180 text-primary" />
+                      </div>
+
+                      <div className="space-y-2">
+                        {groupStages.map((groupStage) => {
+                          const count = visibleLeads.filter((lead) => lead.status === groupStage.id).length;
+
+                          return (
+                            <button
+                              key={groupStage.id}
+                              type="button"
+                              onClick={() => toggleStageCollapse(groupStage.id)}
+                              className="flex w-full items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.035] px-3 py-3 text-left transition hover:border-primary/25 hover:bg-white/[0.06]"
+                            >
+                              <span className={cn("size-2.5 rounded-full shadow-[0_0_14px_currentColor]", groupStage.dot)} />
+                              <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-100">{groupStage.title}</span>
+                              <span className="rounded-full border border-white/[0.08] bg-white/[0.055] px-2 py-0.5 font-mono text-[10px] font-bold text-muted-foreground">
+                                {count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={stage.id}
