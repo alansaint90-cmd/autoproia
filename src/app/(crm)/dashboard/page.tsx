@@ -37,21 +37,21 @@ const cards = [
     value: dashboardStats.leadsHoje,
     badge: "+12%",
     icon: UserPlus,
-    tone: "blue"
+    tone: "trust"
   },
   {
     label: "Conversas Ativas",
     value: dashboardStats.conversasAtivas,
     badge: "+5",
     icon: MessageCircle,
-    tone: "violet"
+    tone: "tech"
   },
   {
     label: "Matriculas",
     value: dashboardStats.matriculasFechadas,
     badge: "+3",
     icon: Trophy,
-    tone: "teal"
+    tone: "success"
   },
   {
     label: "Taxa Conversao",
@@ -65,14 +65,14 @@ const cards = [
     value: dashboardStats.iaAtendendo,
     badge: "ao vivo",
     icon: Bot,
-    tone: "cyan"
+    tone: "gold"
   },
   {
     label: "Leads Quentes",
     value: dashboardStats.leadsQuentes,
     badge: "+4",
     icon: Flame,
-    tone: "rose"
+    tone: "alert"
   },
   {
     label: "Tempo Resposta",
@@ -91,21 +91,20 @@ const cards = [
 ];
 
 const cardToneClasses: Record<string, string> = {
-  blue: "bg-[#132033] border-[#20314b]",
-  violet: "bg-[#211d35] border-[#332b52]",
-  teal: "bg-[#122d2b] border-[#1e4743]",
+  trust: "bg-[#0b1624] border-[#0f4c8a]/35",
+  tech: "bg-[#111827] border-[#1f2937]",
+  success: "bg-[#10251a] border-[#22c55e]/28",
   olive: "bg-[#242922] border-[#3b422f]",
-  cyan: "bg-[#112b3a] border-[#1c455a]",
-  rose: "bg-[#281d2b] border-[#422b45]",
+  alert: "bg-[#281818] border-[#ef4444]/28",
   slate: "bg-[#17212e] border-[#26384a]",
-  gold: "bg-[#2a2818] border-[#49401f]"
+  gold: "bg-[#2a2818] border-[#facc15]/30"
 };
 
 const interactivePanelClass =
   "rounded-[22px] border border-border bg-card/72 p-5 shadow-panel transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.01] hover:shadow-[0_30px_80px_oklch(0_0_0_/_0.42)]";
 
 const chartSurfaceClass =
-  "relative overflow-hidden rounded-[22px] border border-white/[0.08] bg-[radial-gradient(circle_at_78%_4%,oklch(0.72_0.18_210_/_0.14),transparent_32%),linear-gradient(145deg,oklch(0.19_0.035_250_/_0.74),oklch(0.15_0.025_250_/_0.88))] p-4";
+  "relative overflow-hidden rounded-[22px] border border-white/[0.08] bg-[radial-gradient(circle_at_78%_4%,rgba(250,204,21,0.14),transparent_32%),linear-gradient(145deg,rgba(17,24,39,0.78),rgba(11,17,32,0.9))] p-4";
 
 const commercialPulse = [
   { label: "Ana fechou matricula CNH B", time: "agora", icon: CarPulseIcon },
@@ -190,24 +189,24 @@ export default function DashboardPage() {
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[400px_1fr]">
-          <article className="relative overflow-hidden rounded-[22px] border border-cyan-300/10 bg-[radial-gradient(circle_at_16%_0%,rgba(34,211,238,0.12),transparent_34%),linear-gradient(145deg,rgba(15,23,42,0.82),rgba(8,17,31,0.94))] p-5 shadow-panel">
-            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/55 to-transparent" />
-            <div className="pointer-events-none absolute -right-12 -top-16 size-44 rounded-full bg-violet-500/10 blur-3xl" />
+          <article className="relative overflow-hidden rounded-[22px] border border-primary/10 bg-[radial-gradient(circle_at_16%_0%,rgba(250,204,21,0.12),transparent_34%),linear-gradient(145deg,rgba(17,24,39,0.86),rgba(11,17,32,0.96))] p-5 shadow-panel">
+            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/55 to-transparent" />
+            <div className="pointer-events-none absolute -right-12 -top-16 size-44 rounded-full bg-primary/10 blur-3xl" />
 
             <div className="relative mb-6 flex items-start justify-between gap-4">
               <div>
-                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-200">
+                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-primary">
                   <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.95)]" />
                   IA Ativa
                 </div>
                 <h2 className="text-lg font-extrabold tracking-normal">Pulso Comercial</h2>
                 <p className="mt-1 text-sm text-muted-foreground">Eventos comerciais em tempo real</p>
               </div>
-              <div className="group/health relative grid size-12 place-items-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-200 shadow-[0_0_24px_rgba(34,211,238,0.12)]">
+              <div className="group/health relative grid size-12 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-[0_0_24px_rgba(250,204,21,0.12)]">
                 <PulseHealthIcon />
-                <div className="pointer-events-none absolute right-0 top-14 z-30 w-72 translate-y-2 rounded-2xl border border-cyan-300/15 bg-[#08111f]/96 p-4 text-left opacity-0 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl transition-all duration-200 group-hover/health:translate-y-0 group-hover/health:opacity-100">
+                <div className="pointer-events-none absolute right-0 top-14 z-30 w-72 translate-y-2 rounded-2xl border border-primary/15 bg-[#0b1120]/96 p-4 text-left opacity-0 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl transition-all duration-200 group-hover/health:translate-y-0 group-hover/health:opacity-100">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-cyan-200">
+                    <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-primary">
                       <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.95)]" />
                       Saude comercial
                     </span>
@@ -227,9 +226,9 @@ export default function DashboardPage() {
               {commercialPulse.map((event, index) => (
                 <div
                   key={event.label}
-                  className="group relative grid grid-cols-[34px_1fr_auto] items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.028] p-2.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-300/20 hover:bg-white/[0.055] hover:shadow-[0_18px_44px_rgba(34,211,238,0.10)]"
+                  className="group relative grid grid-cols-[34px_1fr_auto] items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.028] p-2.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/20 hover:bg-white/[0.055] hover:shadow-[0_18px_44px_rgba(250,204,21,0.10)]"
                 >
-                  <div className="relative z-10 grid size-8 place-items-center rounded-xl border border-cyan-300/15 bg-cyan-300/10 text-cyan-200 transition duration-300 group-hover:border-violet-300/25 group-hover:bg-violet-400/12 group-hover:text-violet-100">
+                  <div className="relative z-10 grid size-8 place-items-center rounded-xl border border-primary/15 bg-primary/10 text-primary transition duration-300 group-hover:border-primary/30 group-hover:bg-primary/15">
                     <event.icon size={15} />
                     {index === 0 ? <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" /> : null}
                   </div>
@@ -239,7 +238,7 @@ export default function DashboardPage() {
                       {index === 0 ? "Evento confirmado no funil" : "Sincronizado com IA comercial"}
                     </p>
                   </div>
-                  <span className="rounded-full border border-white/10 bg-background/40 px-2 py-1 text-[10px] font-black text-cyan-100">
+                  <span className="rounded-full border border-white/10 bg-background/40 px-2 py-1 text-[10px] font-black text-primary">
                     {event.time}
                   </span>
                   <Tooltip>{event.time} - evento comercial em tempo real</Tooltip>
@@ -248,11 +247,11 @@ export default function DashboardPage() {
             </div>
           </article>
 
-          <article className="group relative overflow-hidden rounded-[22px] border border-sky-300/[0.10] bg-[radial-gradient(circle_at_90%_0%,rgba(56,189,248,0.12),transparent_34%),linear-gradient(145deg,rgba(15,23,42,0.88),rgba(8,15,28,0.96))] p-5 shadow-panel transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_30px_80px_rgba(0,0,0,0.42),0_0_34px_rgba(56,189,248,0.08)]">
-            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/45 to-transparent opacity-70" />
+          <article className="group relative overflow-hidden rounded-[22px] border border-primary/[0.10] bg-[radial-gradient(circle_at_90%_0%,rgba(250,204,21,0.12),transparent_34%),linear-gradient(145deg,rgba(17,24,39,0.9),rgba(11,17,32,0.96))] p-5 shadow-panel transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_30px_80px_rgba(0,0,0,0.42),0_0_34px_rgba(250,204,21,0.08)]">
+            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-primary/45 to-transparent opacity-70" />
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-sky-200/80">Ranking comercial</p>
+                <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary/80">Ranking comercial</p>
                 <h2 className="text-lg font-extrabold tracking-normal">Vendedor com mais fechamento</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {bestSeller.seller} lidera com {bestSeller.closed} matriculas no mes
@@ -261,11 +260,11 @@ export default function DashboardPage() {
               <div className="flex shrink-0 items-center gap-2">
                 <Link
                   href="/relatorios"
-                  className="inline-flex h-10 items-center justify-center rounded-xl border border-sky-300/20 bg-sky-300/10 px-3 text-xs font-black text-sky-100 shadow-[0_0_22px_rgba(56,189,248,0.10)] transition hover:-translate-y-0.5 hover:border-sky-300/35 hover:bg-sky-300/15"
+                  className="inline-flex h-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 px-3 text-xs font-black text-primary shadow-[0_0_22px_rgba(250,204,21,0.10)] transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/15"
                 >
                   Abrir relatorio
                 </Link>
-                <div className="grid size-10 place-items-center rounded-xl border border-sky-300/20 bg-sky-300/10 text-sky-200 shadow-[0_0_24px_rgba(56,189,248,0.12)]">
+                <div className="grid size-10 place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary shadow-[0_0_24px_rgba(250,204,21,0.12)]">
                   <Trophy size={20} />
                 </div>
               </div>

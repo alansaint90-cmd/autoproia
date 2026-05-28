@@ -14,7 +14,7 @@ const notifications = [
     description: "Ana Beatriz respondeu sobre CNH B e esta pronta para atendimento.",
     time: "2 min",
     icon: Bot,
-    tone: "text-cyan-300"
+    tone: "text-primary"
   },
   {
     id: "n2",
@@ -30,7 +30,7 @@ const notifications = [
     description: "Carla Vendas confirmou uma matricula CNH B.",
     time: "14 min",
     icon: CheckCircle2,
-    tone: "text-emerald-300"
+    tone: "text-success"
   },
   {
     id: "n4",
@@ -38,7 +38,7 @@ const notifications = [
     description: "Meta Ads subiu 18% em conversao na ultima hora.",
     time: "32 min",
     icon: TrendingUp,
-    tone: "text-violet-300"
+    tone: "text-[#0f4c8a]"
   }
 ];
 
@@ -164,7 +164,7 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
 
   return (
     <>
-      <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-white/[0.08] bg-card/75 px-6 backdrop-blur-xl">
+      <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-white/[0.08] bg-card/86 px-6 shadow-[0_12px_46px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         <div className="min-w-0">
           <h1 className="text-lg font-bold leading-none">{title}</h1>
           {subtitle ? <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p> : null}
@@ -178,7 +178,7 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
                 value={searchValue ?? ""}
                 onChange={(event) => onSearchChange(event.target.value)}
                 placeholder="Buscar leads, conversas, clientes..."
-                className="h-10 w-full rounded-2xl border border-white/10 bg-white/[0.045] pl-10 pr-4 text-sm outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-white/[0.16] focus:border-primary/55 focus:bg-white/[0.065] focus:ring-4 focus:ring-primary/10"
+                className="h-10 w-full rounded-2xl border border-white/10 bg-[#0b1120]/72 pl-10 pr-4 text-sm outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-primary/25 focus:border-primary/60 focus:bg-[#111827] focus:ring-4 focus:ring-primary/10"
               />
             ) : (
               <input
@@ -190,7 +190,7 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
                   }
                 }}
                 placeholder="Buscar leads, conversas, clientes..."
-                className="h-10 w-full rounded-2xl border border-white/10 bg-white/[0.045] pl-10 pr-4 text-sm outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-white/[0.16] focus:border-primary/55 focus:bg-white/[0.065] focus:ring-4 focus:ring-primary/10"
+                className="h-10 w-full rounded-2xl border border-white/10 bg-[#0b1120]/72 pl-10 pr-4 text-sm outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-primary/25 focus:border-primary/60 focus:bg-[#111827] focus:ring-4 focus:ring-primary/10"
               />
             )}
           </div>
@@ -210,14 +210,14 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
               type="button"
               onClick={() => setShowNotificationsModal(true)}
               aria-label="Abrir notificacoes"
-              className="relative grid size-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.035] transition duration-200 hover:-translate-y-0.5 hover:border-white/[0.18] hover:bg-white/[0.06] active:translate-y-0"
+              className="relative grid size-10 place-items-center rounded-2xl border border-white/10 bg-[#0b1120]/72 transition duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-[#111827] active:translate-y-0"
             >
               <Bell className="size-4" />
               <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-danger" />
             </button>
 
             <div className="pointer-events-none absolute right-0 top-10 z-30 w-80 translate-y-2 pt-2 opacity-0 transition-all duration-200 group-hover/notifications:pointer-events-auto group-hover/notifications:translate-y-0 group-hover/notifications:opacity-100">
-              <div className="rounded-2xl border border-white/10 bg-[#0b1422]/95 p-3 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+              <div className="rounded-2xl border border-white/10 bg-[#0b1120]/95 p-3 shadow-[0_24px_70px_rgba(0,0,0,0.42),0_0_34px_rgba(250,204,21,0.08)] backdrop-blur-xl">
                 <div className="mb-2 flex items-center justify-between px-1">
                   <p className="text-sm font-bold">Notificacoes</p>
                   <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">
@@ -266,7 +266,7 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
             </button>
 
             <div className="pointer-events-none absolute right-0 top-10 z-30 w-64 translate-y-2 pt-2 opacity-0 transition-all duration-200 group-hover/profile:pointer-events-auto group-hover/profile:translate-y-0 group-hover/profile:opacity-100">
-              <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0b1422]/95 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+              <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0b1120]/95 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.42),0_0_34px_rgba(250,204,21,0.08)] backdrop-blur-xl">
                 <div className="flex items-center gap-3 border-b border-white/10 px-3 py-3">
                   <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-2xl bg-primary text-xs font-bold text-primary-foreground">
                     {companyProfile.logo ? (

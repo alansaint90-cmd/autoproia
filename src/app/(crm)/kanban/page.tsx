@@ -77,14 +77,14 @@ const pipelineStages: Array<{
   dot: string;
   accent: string;
 }> = [
-  { id: "novo", title: "Novo Lead", group: "Comercial", dot: "bg-sky-400", accent: "from-sky-500/10" },
-  { id: "ia", title: "IA Atendendo", group: "Comercial", dot: "bg-violet-400", accent: "from-violet-500/10" },
-  { id: "qualificado", title: "Qualificado", group: "Comercial", dot: "bg-cyan-400", accent: "from-cyan-500/10" },
-  { id: "atendimento", title: "Em Atendimento", group: "Comercial", dot: "bg-blue-400", accent: "from-blue-500/10" },
+  { id: "novo", title: "Novo Lead", group: "Comercial", dot: "bg-primary", accent: "from-primary/10" },
+  { id: "ia", title: "IA Atendendo", group: "Comercial", dot: "bg-[#0f4c8a]", accent: "from-[#0f4c8a]/12" },
+  { id: "qualificado", title: "Qualificado", group: "Comercial", dot: "bg-success", accent: "from-success/10" },
+  { id: "atendimento", title: "Em Atendimento", group: "Comercial", dot: "bg-[#f9fafb]", accent: "from-white/[0.06]" },
   { id: "orcamento", title: "Orcamento Enviado", group: "Comercial", dot: "bg-amber-300", accent: "from-amber-500/10" },
   { id: "negociacao", title: "Negociacao", group: "Comercial", dot: "bg-orange-400", accent: "from-orange-500/10" },
   { id: "interessado", title: "Interessado", group: "Follow-up", dot: "bg-fuchsia-400", accent: "from-fuchsia-500/10" },
-  { id: "followup", title: "Follow up", group: "Follow-up", dot: "bg-purple-400", accent: "from-purple-500/10" },
+  { id: "followup", title: "Follow up", group: "Follow-up", dot: "bg-primary", accent: "from-primary/10" },
   { id: "perdido", title: "Leads Perdidos", group: "Follow-up", dot: "bg-red-400", accent: "from-red-500/10" },
   { id: "matricula_pendente", title: "Matricula Pendente", group: "Fechamento", dot: "bg-yellow-300", accent: "from-yellow-500/10" },
   { id: "matricula_realizada", title: "Matricula Realizada", group: "Fechamento", dot: "bg-emerald-400", accent: "from-emerald-500/10" }
@@ -197,14 +197,14 @@ const emptyDraft: LeadDraft = {
 const temperatureClasses: Record<LeadCard["temperature"], string> = {
   quente: "border-emerald-500/30 bg-emerald-500/15 text-emerald-300",
   morno: "border-yellow-500/30 bg-yellow-500/15 text-yellow-300",
-  frio: "border-sky-500/30 bg-sky-500/15 text-sky-300",
+  frio: "border-[#0f4c8a]/40 bg-[#0f4c8a]/16 text-blue-100",
   urgente: "border-red-500/30 bg-red-500/15 text-red-300"
 };
 
 const sentimentClasses: Record<LeadCard["sentiment"], string> = {
-  positivo: "border-cyan-400/30 bg-cyan-400/15 text-cyan-200",
+  positivo: "border-success/30 bg-success/10 text-success",
   neutro: "border-slate-400/30 bg-slate-400/[0.12] text-slate-200",
-  duvida: "border-violet-400/30 bg-violet-400/15 text-violet-200",
+  duvida: "border-primary/30 bg-primary/10 text-primary",
   negativo: "border-red-400/30 bg-red-400/15 text-red-200"
 };
 
@@ -232,13 +232,13 @@ const sentimentEmoji: Record<LeadCard["sentiment"], string> = {
 
 const avatarClasses: Record<PipelineStage, string> = {
   novo: "bg-emerald-500 text-white",
-  ia: "bg-violet-500 text-white",
-  qualificado: "bg-cyan-400 text-primary-foreground",
-  atendimento: "bg-blue-500 text-white",
+  ia: "bg-[#0f4c8a] text-white",
+  qualificado: "bg-success text-primary-foreground",
+  atendimento: "bg-[#1f2937] text-white",
   orcamento: "bg-yellow-400 text-primary-foreground",
   negociacao: "bg-orange-500 text-white",
   interessado: "bg-fuchsia-500 text-white",
-  followup: "bg-purple-500 text-white",
+  followup: "bg-primary text-primary-foreground",
   perdido: "bg-red-500 text-white",
   matricula_pendente: "bg-amber-400 text-primary-foreground",
   matricula_realizada: "bg-emerald-500 text-white"

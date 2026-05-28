@@ -86,17 +86,17 @@ const STORAGE_KEY = "auto-pro-ia:kanban-leads";
 const origins = ["WhatsApp", "Meta Ads", "Google Ads", "Instagram", "Indicacao", "Site"];
 
 const stages: Array<{ id: LeadStage; label: string; tone: string }> = [
-  { id: "novo", label: "Novo Lead", tone: "border-sky-400/30 bg-sky-400/10 text-sky-200" },
-  { id: "ia", label: "IA Atendendo", tone: "border-violet-400/30 bg-violet-400/10 text-violet-200" },
-  { id: "qualificado", label: "Qualificado", tone: "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" },
-  { id: "atendimento", label: "Em Atendimento", tone: "border-blue-400/30 bg-blue-400/10 text-blue-200" },
+  { id: "novo", label: "Novo Lead", tone: "border-primary/35 bg-primary/10 text-primary" },
+  { id: "ia", label: "IA Atendendo", tone: "border-[#0f4c8a]/45 bg-[#0f4c8a]/16 text-blue-100" },
+  { id: "qualificado", label: "Qualificado", tone: "border-success/35 bg-success/10 text-success" },
+  { id: "atendimento", label: "Em Atendimento", tone: "border-white/15 bg-white/[0.06] text-slate-100" },
   { id: "orcamento", label: "Orcamento Enviado", tone: "border-amber-400/30 bg-amber-400/10 text-amber-200" },
   { id: "negociacao", label: "Negociando", tone: "border-orange-400/30 bg-orange-400/10 text-orange-200" },
-  { id: "interessado", label: "Interessado", tone: "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-200" },
-  { id: "followup", label: "Follow-up", tone: "border-purple-400/30 bg-purple-400/10 text-purple-200" },
-  { id: "perdido", label: "Perdido", tone: "border-red-400/30 bg-red-400/10 text-red-200" },
-  { id: "matricula_pendente", label: "Matricula Pendente", tone: "border-yellow-400/30 bg-yellow-400/10 text-yellow-200" },
-  { id: "matricula_realizada", label: "Matricula Realizada", tone: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" }
+  { id: "interessado", label: "Interessado", tone: "border-primary/30 bg-primary/10 text-primary" },
+  { id: "followup", label: "Follow-up", tone: "border-primary/30 bg-primary/10 text-primary" },
+  { id: "perdido", label: "Perdido", tone: "border-danger/30 bg-danger/10 text-red-200" },
+  { id: "matricula_pendente", label: "Matricula Pendente", tone: "border-primary/30 bg-primary/10 text-primary" },
+  { id: "matricula_realizada", label: "Matricula Realizada", tone: "border-success/30 bg-success/10 text-success" }
 ];
 
 const quickFilters: Array<{ id: QuickFilter; label: string }> = [
@@ -162,10 +162,10 @@ const emptyDraft: LeadDraft = {
 const temperatureConfig: Record<LeadRecord["temperature"], { label: string; tone: string; rail: string; bar: string; priority: string }> = {
   quente: {
     label: "Quente",
-    tone: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200",
-    rail: "bg-emerald-400/12",
-    bar: "w-[82%] bg-gradient-to-r from-emerald-400 to-cyan-300",
-    priority: "from-emerald-400/55"
+    tone: "border-success/30 bg-success/10 text-success",
+    rail: "bg-success/12",
+    bar: "w-[82%] bg-gradient-to-r from-success to-primary",
+    priority: "from-success/55"
   },
   morno: {
     label: "Morno",
@@ -176,29 +176,29 @@ const temperatureConfig: Record<LeadRecord["temperature"], { label: string; tone
   },
   frio: {
     label: "Frio",
-    tone: "border-sky-400/30 bg-sky-400/10 text-sky-200",
-    rail: "bg-sky-400/12",
-    bar: "w-[34%] bg-gradient-to-r from-sky-400 to-blue-300",
-    priority: "from-sky-400/55"
+    tone: "border-[#0f4c8a]/40 bg-[#0f4c8a]/16 text-blue-100",
+    rail: "bg-[#0f4c8a]/18",
+    bar: "w-[34%] bg-gradient-to-r from-[#0f4c8a] to-[#f9fafb]",
+    priority: "from-[#0f4c8a]/55"
   },
   urgente: {
     label: "Urgente",
-    tone: "border-red-400/30 bg-red-400/10 text-red-200",
-    rail: "bg-red-400/12",
-    bar: "w-[95%] bg-gradient-to-r from-red-400 to-orange-300",
-    priority: "from-red-400/60"
+    tone: "border-danger/30 bg-danger/10 text-red-200",
+    rail: "bg-danger/12",
+    bar: "w-[95%] bg-gradient-to-r from-danger to-primary",
+    priority: "from-danger/60"
   }
 };
 
 const sentimentConfig: Record<LeadRecord["sentiment"], { label: string; tone: string }> = {
-  positivo: { label: "Positivo", tone: "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" },
+  positivo: { label: "Positivo", tone: "border-success/30 bg-success/10 text-success" },
   neutro: { label: "Neutro", tone: "border-slate-400/30 bg-slate-400/10 text-slate-200" },
-  duvida: { label: "Em duvida", tone: "border-violet-400/30 bg-violet-400/10 text-violet-200" },
-  negativo: { label: "Negativo", tone: "border-red-400/30 bg-red-400/10 text-red-200" }
+  duvida: { label: "Em duvida", tone: "border-primary/30 bg-primary/10 text-primary" },
+  negativo: { label: "Negativo", tone: "border-danger/30 bg-danger/10 text-red-200" }
 };
 
 const aiStatusConfig = {
-  active: { label: "IA ativa", tone: "border-cyan-400/30 bg-cyan-400/10 text-cyan-200", dot: "bg-cyan-300" },
+  active: { label: "IA ativa", tone: "border-primary/30 bg-primary/10 text-primary", dot: "bg-primary" },
   paused: { label: "IA pausada", tone: "border-slate-400/30 bg-slate-400/10 text-slate-200", dot: "bg-slate-300" },
   handoff: { label: "Aguardando humano", tone: "border-yellow-400/30 bg-yellow-400/10 text-yellow-200", dot: "bg-yellow-300" }
 };

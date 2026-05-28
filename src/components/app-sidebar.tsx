@@ -33,7 +33,7 @@ export function AppSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
+    <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-[18px_0_60px_rgba(0,0,0,0.22)] md:flex">
       <div className="border-b border-sidebar-border px-5 py-5">
         <Link href="/dashboard" className="flex items-center gap-3">
           <BrandLogo size={52} showStatus />
@@ -55,11 +55,11 @@ export function AppSidebar() {
               href={item.href}
               className={cn(
                 "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition",
-                active ? "bg-sidebar-accent text-foreground" : "text-muted-foreground hover:bg-sidebar-accent"
+                active ? "bg-primary text-primary-foreground shadow-[0_12px_28px_rgba(250,204,21,0.18)]" : "text-muted-foreground hover:bg-white/[0.045] hover:text-foreground"
               )}
             >
-              {active ? <span className="absolute left-0 h-6 w-[3px] rounded-r bg-primary" /> : null}
-              <Icon className={cn("size-[18px]", active && "text-primary")} />
+              {active ? <span className="absolute left-0 h-6 w-[3px] rounded-r bg-primary-foreground/75" /> : null}
+              <Icon className="size-[18px]" />
               <span className="flex-1 font-medium">{item.label}</span>
               {item.badge ? (
                 <span className="rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">

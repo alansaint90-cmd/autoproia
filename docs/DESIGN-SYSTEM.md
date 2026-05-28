@@ -12,6 +12,22 @@ Direcionamento antes de informacao. O atendente deve enxergar primeiro o que faz
 - Preferir textos curtos, verbos de acao e indicadores visuais.
 - Usar cards para tarefas, nao para despejar informacao.
 
+## Paleta Oficial
+
+A identidade visual deve usar a paleta Auto Pro IA inspirada em transito, tecnologia e resultado:
+
+- Fundo principal: `#0B1120`.
+- Superficie elevada: `#111827`.
+- Tecnologia neutra: `#1F2937`.
+- Acao primaria / transito: `#FACC15`.
+- Amarelo profundo: `#EAB308`.
+- Clareza / texto principal: `#F9FAFB`.
+- Sucesso / matricula: `#22C55E`.
+- Alerta / urgencia: `#EF4444`.
+- Confianca pontual: `#0F4C8A`.
+
+O amarelo deve ser a cor dominante de acao. Azul deve aparecer apenas como apoio de confianca/tecnologia, sem competir com o amarelo.
+
 ## Hierarquia Operacional
 
 1. Proxima acao recomendada.
