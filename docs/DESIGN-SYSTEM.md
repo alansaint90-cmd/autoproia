@@ -44,3 +44,13 @@ As telas de Leads e Kanban seguem o mesmo criterio:
 - Acoes rapidas ficam compactas e aparecem perto da decisao operacional.
 - O Kanban usa expansao no proprio card para abrir contexto sem trocar de tela.
 - Leads usa drawer lateral para detalhamento, com secoes expansíveis.
+
+## Setores Do Kanban
+
+O funil deve ser lido por setor operacional:
+
+- Comercial: entrada, qualificacao, atendimento, orcamento e negociacao.
+- Follow-up: interessados, retornos e leads perdidos.
+- Fechamento: matricula pendente e matricula realizada.
+
+Cada setor pode ser recolhido para reduzir ruido visual e focar no trabalho do momento.

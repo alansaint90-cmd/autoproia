@@ -64,7 +64,9 @@ type LeadDraft = {
   notes: string;
 };
 
-type PipelineGroup = "Entrada" | "Conversao" | "Fechamento";
+type PipelineGroup = "Comercial" | "Follow-up" | "Fechamento";
+
+const pipelineGroups: PipelineGroup[] = ["Comercial", "Follow-up", "Fechamento"];
 
 const STORAGE_KEY = "auto-pro-ia:kanban-leads";
 
@@ -75,15 +77,15 @@ const pipelineStages: Array<{
   dot: string;
   accent: string;
 }> = [
-  { id: "novo", title: "Novo Lead", group: "Entrada", dot: "bg-sky-400", accent: "from-sky-500/10" },
-  { id: "ia", title: "IA Atendendo", group: "Entrada", dot: "bg-violet-400", accent: "from-violet-500/10" },
-  { id: "qualificado", title: "Qualificado", group: "Entrada", dot: "bg-cyan-400", accent: "from-cyan-500/10" },
-  { id: "atendimento", title: "Em Atendimento", group: "Conversao", dot: "bg-blue-400", accent: "from-blue-500/10" },
-  { id: "orcamento", title: "Orcamento Enviado", group: "Conversao", dot: "bg-amber-300", accent: "from-amber-500/10" },
-  { id: "negociacao", title: "Negociacao", group: "Conversao", dot: "bg-orange-400", accent: "from-orange-500/10" },
-  { id: "interessado", title: "Interessado", group: "Conversao", dot: "bg-fuchsia-400", accent: "from-fuchsia-500/10" },
-  { id: "followup", title: "Follow up", group: "Conversao", dot: "bg-purple-400", accent: "from-purple-500/10" },
-  { id: "perdido", title: "Leads Perdidos", group: "Conversao", dot: "bg-red-400", accent: "from-red-500/10" },
+  { id: "novo", title: "Novo Lead", group: "Comercial", dot: "bg-sky-400", accent: "from-sky-500/10" },
+  { id: "ia", title: "IA Atendendo", group: "Comercial", dot: "bg-violet-400", accent: "from-violet-500/10" },
+  { id: "qualificado", title: "Qualificado", group: "Comercial", dot: "bg-cyan-400", accent: "from-cyan-500/10" },
+  { id: "atendimento", title: "Em Atendimento", group: "Comercial", dot: "bg-blue-400", accent: "from-blue-500/10" },
+  { id: "orcamento", title: "Orcamento Enviado", group: "Comercial", dot: "bg-amber-300", accent: "from-amber-500/10" },
+  { id: "negociacao", title: "Negociacao", group: "Comercial", dot: "bg-orange-400", accent: "from-orange-500/10" },
+  { id: "interessado", title: "Interessado", group: "Follow-up", dot: "bg-fuchsia-400", accent: "from-fuchsia-500/10" },
+  { id: "followup", title: "Follow up", group: "Follow-up", dot: "bg-purple-400", accent: "from-purple-500/10" },
+  { id: "perdido", title: "Leads Perdidos", group: "Follow-up", dot: "bg-red-400", accent: "from-red-500/10" },
   { id: "matricula_pendente", title: "Matricula Pendente", group: "Fechamento", dot: "bg-yellow-300", accent: "from-yellow-500/10" },
   { id: "matricula_realizada", title: "Matricula Realizada", group: "Fechamento", dot: "bg-emerald-400", accent: "from-emerald-500/10" }
 ];
@@ -615,7 +617,7 @@ export default function KanbanPage() {
                       Etapas
                       {statusFilter === "todos" ? <span className="size-1.5 rounded-full bg-primary shadow-glow" /> : null}
                     </button>
-                    {(["Entrada", "Conversao", "Fechamento"] as const).map((group) => (
+                    {pipelineGroups.map((group) => (
                       <div key={group} className="border-t border-white/[0.06] pt-2 first:border-t-0">
                         <p className="px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">{group}</p>
                         <div className="grid gap-1 pb-1">
@@ -1092,7 +1094,7 @@ export default function KanbanPage() {
                   onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value as PipelineStage }))}
                   className="kanban-input [&_option]:bg-[#0b1422] [&_option]:text-white"
                 >
-                  {(["Entrada", "Conversao", "Fechamento"] as const).map((group) => (
+                  {pipelineGroups.map((group) => (
                     <optgroup key={group} label={group}>
                       {pipelineStages
                         .filter((stage) => stage.group === group)
