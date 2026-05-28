@@ -14,7 +14,6 @@ import {
   Plus,
   Search,
   Smile,
-  Bot,
   Workflow,
   Trash2,
   X
@@ -231,17 +230,31 @@ const sentimentEmoji: Record<LeadCard["sentiment"], string> = {
 };
 
 const avatarClasses: Record<PipelineStage, string> = {
-  novo: "bg-emerald-500 text-white",
-  ia: "bg-[#0f4c8a] text-white",
-  qualificado: "bg-success text-primary-foreground",
-  atendimento: "bg-[#1f2937] text-white",
-  orcamento: "bg-yellow-400 text-primary-foreground",
-  negociacao: "bg-orange-500 text-white",
-  interessado: "bg-fuchsia-500 text-white",
-  followup: "bg-primary text-primary-foreground",
-  perdido: "bg-red-500 text-white",
-  matricula_pendente: "bg-amber-400 text-primary-foreground",
-  matricula_realizada: "bg-emerald-500 text-white"
+  novo: "border-[#FACC15]/35 bg-[#FACC15]/12 text-[#FACC15]",
+  ia: "border-[#0B5FA5]/45 bg-[#0B5FA5]/16 text-blue-100",
+  qualificado: "border-[#22C55E]/35 bg-[#22C55E]/12 text-[#22C55E]",
+  atendimento: "border-white/12 bg-white/[0.045] text-slate-200",
+  orcamento: "border-[#FACC15]/35 bg-[#FACC15]/12 text-[#FACC15]",
+  negociacao: "border-[#EAB308]/30 bg-[#EAB308]/10 text-[#EAB308]",
+  interessado: "border-[#0B5FA5]/45 bg-[#0B5FA5]/16 text-blue-100",
+  followup: "border-[#0B5FA5]/45 bg-[#0B5FA5]/16 text-blue-100",
+  perdido: "border-red-400/30 bg-red-400/10 text-red-200",
+  matricula_pendente: "border-[#FACC15]/35 bg-[#FACC15]/12 text-[#FACC15]",
+  matricula_realizada: "border-[#22C55E]/35 bg-[#22C55E]/12 text-[#22C55E]"
+};
+
+const cardStripeClasses: Record<PipelineStage, string> = {
+  novo: "from-[#FACC15] via-[#EAB308] to-transparent",
+  ia: "from-[#0B5FA5] via-sky-400 to-transparent",
+  qualificado: "from-[#22C55E] via-emerald-300 to-transparent",
+  atendimento: "from-slate-300 via-slate-500 to-transparent",
+  orcamento: "from-[#FACC15] via-[#EAB308] to-transparent",
+  negociacao: "from-[#EAB308] via-[#FACC15] to-transparent",
+  interessado: "from-[#0B5FA5] via-sky-300 to-transparent",
+  followup: "from-[#0B5FA5] via-sky-300 to-transparent",
+  perdido: "from-red-400 via-red-300 to-transparent",
+  matricula_pendente: "from-[#FACC15] via-[#EAB308] to-transparent",
+  matricula_realizada: "from-[#22C55E] via-emerald-300 to-transparent"
 };
 
 export default function KanbanPage() {
@@ -324,40 +337,6 @@ export default function KanbanPage() {
     () => pipelineStages.filter((stage) => statusFilter === "todos" || stage.id === statusFilter),
     [statusFilter]
   );
-
-  const aiSuggestion = useMemo(() => {
-    const hotClosingLeads = visibleLeads.filter(
-      (lead) =>
-        ["orcamento", "negociacao", "interessado", "followup"].includes(lead.status) &&
-        ["quente", "urgente", "morno"].includes(lead.temperature)
-    );
-    const followUpLeads = visibleLeads.filter((lead) => lead.status === "followup");
-    const quoteLeads = visibleLeads.filter((lead) => lead.status === "orcamento");
-    const negotiationLeads = visibleLeads.filter((lead) => lead.status === "negociacao");
-
-    if (hotClosingLeads.length > 0) {
-      const bestStage =
-        negotiationLeads.length >= quoteLeads.length && negotiationLeads.length >= followUpLeads.length
-          ? "Negociacao"
-          : quoteLeads.length >= followUpLeads.length
-            ? "Orcamento enviado"
-            : "Follow up";
-
-      return {
-        title: `Foque em ${bestStage}`,
-        description: `${hotClosingLeads.length} leads com alta chance de matricula. Priorize proposta objetiva e chamada para fechamento.`,
-        score: Math.min(96, 72 + hotClosingLeads.length * 4)
-      };
-    }
-
-    const iaLeads = visibleLeads.filter((lead) => lead.status === "ia" || lead.status === "qualificado");
-
-    return {
-      title: "Qualifique novos leads",
-      description: `${iaLeads.length} conversas podem virar atendimento humano. Assuma as que citarem valor, horario ou matricula.`,
-      score: Math.min(88, 58 + iaLeads.length * 5)
-    };
-  }, [visibleLeads]);
 
   const selectedStageLabel =
     statusFilter === "todos"
@@ -531,12 +510,12 @@ export default function KanbanPage() {
         <section className="relative z-30 border-b border-white/[0.08] bg-background/72 px-4 py-5 backdrop-blur-xl xl:px-7">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
             <div className="relative min-w-0 flex-1 lg:hidden">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-primary/80" />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Buscar por nome, telefone, origem..."
-                className="h-12 w-full rounded-2xl border border-white/10 bg-white/[0.045] pl-10 pr-4 text-sm outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-white/[0.16] focus:border-primary/55 focus:bg-white/[0.065] focus:ring-4 focus:ring-primary/10"
+                className="h-11 w-full rounded-xl border border-white/10 bg-[#111827]/72 pl-10 pr-4 text-sm outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-white/[0.16] focus:border-primary/55 focus:bg-[#111827] focus:ring-4 focus:ring-primary/10"
               />
             </div>
 
@@ -755,48 +734,9 @@ export default function KanbanPage() {
                 <span className="truncate">Limpar filtros</span>
               </button>
 
-              <div className="group/ai-suggestion relative col-span-2 sm:col-span-1">
-                <div className="ai-blue-shine relative grid h-14 grid-cols-[42px_1fr_auto] items-center gap-3 overflow-hidden rounded-2xl border border-sky-300/22 bg-sky-400/[0.07] px-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_16px_40px_rgba(14,165,233,0.12)] ring-1 ring-sky-300/10 sm:min-w-[360px] xl:min-w-[500px]">
-                  <span className="ai-bot-orbit relative z-10 grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-sky-300/10 text-sky-200 shadow-[0_0_20px_rgba(56,189,248,0.16)]">
-                    <Bot className="relative z-10 size-4" />
-                  </span>
-                  <div className="relative z-10 min-w-0">
-                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-sky-200">Sugestao de IA</p>
-                    <p className="truncate text-sm font-black text-foreground">{aiSuggestion.title}</p>
-                    <p className="hidden truncate text-[11px] font-semibold text-sky-100/65 xl:block">Passe o mouse para ver a acao recomendada</p>
-                  </div>
-                  <span className="relative z-10 shrink-0 rounded-full border border-sky-300/22 bg-sky-300/10 px-2.5 py-1 font-mono text-[10px] font-black text-sky-100 shadow-[0_0_18px_rgba(56,189,248,0.12)]">
-                    {aiSuggestion.score}%
-                  </span>
-                </div>
-
-                <div className="pointer-events-none absolute left-0 top-16 z-[85] w-[min(500px,calc(100vw-2rem))] translate-y-2 rounded-2xl border border-sky-300/18 bg-[#07111f]/98 p-4 opacity-0 shadow-[0_24px_70px_rgba(0,0,0,0.48),0_0_34px_rgba(14,165,233,0.1)] backdrop-blur-xl transition-all duration-200 group-hover/ai-suggestion:pointer-events-auto group-hover/ai-suggestion:translate-y-0 group-hover/ai-suggestion:opacity-100">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-200">IA recomenda agora</p>
-                      <h3 className="mt-1 text-sm font-black text-foreground">{aiSuggestion.title}</h3>
-                    </div>
-                    <span className="rounded-full border border-sky-300/20 bg-sky-300/10 px-2 py-1 font-mono text-xs font-black text-sky-200">
-                      {aiSuggestion.score}%
-                    </span>
-                  </div>
-                  <p className="text-xs leading-5 text-muted-foreground">{aiSuggestion.description}</p>
-                  <div className="mt-4 grid gap-2">
-                    <div className="rounded-xl border border-sky-300/[0.08] bg-sky-300/[0.035] px-3 py-2">
-                      <p className="text-xs font-black text-sky-200">1. Prioridade</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">Abra os leads quentes desta etapa e responda primeiro quem pediu valor, horario ou matricula.</p>
-                    </div>
-                    <div className="rounded-xl border border-sky-300/[0.08] bg-sky-300/[0.035] px-3 py-2">
-                      <p className="text-xs font-black text-sky-200">2. Acao sugerida</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">Envie proposta objetiva e convide para fechar a matricula ainda hoje.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               <button
                 onClick={openCreateModal}
-                className="col-span-2 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-sm font-bold text-primary-foreground shadow-glow transition duration-200 hover:-translate-y-0.5 hover:scale-[1.01] hover:shadow-[0_18px_42px_rgba(250,204,21,0.24)] active:translate-y-0 sm:col-span-1 lg:hidden"
+                className="col-span-2 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-sm font-bold text-primary-foreground shadow-glow transition duration-200 hover:-translate-y-0.5 hover:scale-[1.01] hover:shadow-[0_18px_42px_rgba(250,204,21,0.24)] active:translate-y-0 sm:col-span-1 sm:w-40"
               >
                 <Plus className="size-4" />
                 Novo Lead
@@ -950,7 +890,7 @@ export default function KanbanPage() {
                   {!isCollapsed ? (
                   <div
                     data-kanban-column-scroll
-                    className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pb-5 pr-1.5 scrollbar-thin"
+                    className="min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain pb-5 pr-1.5 scrollbar-thin"
                   >
                     {!hasHydrated ? (
                       <KanbanColumnSkeleton />
@@ -969,22 +909,26 @@ export default function KanbanPage() {
                           onDragStart={() => setDraggedId(lead.id)}
                           onDragEnd={() => setDraggedId(null)}
                           className={cn(
-                            "group cursor-grab rounded-[22px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_14px_32px_rgba(0,0,0,0.18)] backdrop-blur-md transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-primary/24 hover:bg-white/[0.07] hover:shadow-[0_18px_38px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.06)] active:cursor-grabbing active:scale-[0.99]",
+                            "group relative cursor-grab overflow-hidden rounded-2xl border border-white/[0.075] bg-[linear-gradient(135deg,rgba(17,24,39,0.82),rgba(11,17,32,0.7))] px-3 py-2.5 backdrop-blur-md transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-white/[0.15] hover:bg-[#111827]/90 active:cursor-grabbing active:scale-[0.99]",
                             movedLeadId === lead.id && "animate-[pulse_420ms_ease-out]"
                           )}
                         >
-                          <div className="flex items-start gap-3">
+                          <span className={cn("absolute left-0 top-2.5 h-[calc(100%-20px)] w-1 rounded-r-full bg-gradient-to-b opacity-90", cardStripeClasses[lead.status])} />
+                          <div className="flex items-center gap-2.5 pl-1.5">
                             <div
                               className={cn(
-                                "grid size-10 shrink-0 place-items-center rounded-2xl text-sm font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_10px_24px_rgba(0,0,0,0.20)]",
+                                "grid size-8 shrink-0 place-items-center rounded-xl border text-[11px] font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_18px_rgba(0,0,0,0.18)]",
                                 avatarClasses[lead.status]
                               )}
                             >
                               {lead.initials}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-start gap-2">
-                                <h3 className="truncate text-[15px] font-bold leading-5">{lead.name}</h3>
+                              <div className="flex items-center gap-1.5">
+                                <h3 className="truncate text-[13px] font-black leading-5 text-slate-100">{lead.name}</h3>
+                                <span className="hidden shrink-0 rounded-lg border border-white/[0.08] bg-white/[0.035] px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground 2xl:inline-flex">
+                                  {lead.lastInteraction}
+                                </span>
                                 <button
                                   type="button"
                                   onClick={(event) => {
@@ -994,16 +938,16 @@ export default function KanbanPage() {
                                   }}
                                   aria-label={isExpanded ? `Recolher ${lead.name}` : `Expandir ${lead.name}`}
                                   title={isExpanded ? "Recolher card" : "Expandir card"}
-                                  className="ml-auto grid size-8 shrink-0 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.035] text-muted-foreground transition hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+                                  className="ml-auto grid size-7 shrink-0 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.035] text-muted-foreground transition hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
                                 >
-                                  <ChevronDown className={cn("size-4 transition-transform duration-300", isExpanded && "rotate-180")} />
+                                  <ChevronDown className={cn("size-3.5 transition-transform duration-300", isExpanded && "rotate-180")} />
                                 </button>
                                 <button
                                   onClick={() => openEditModal(lead)}
                                   aria-label={`Abrir ${lead.name}`}
-                                  className="peer grid size-8 shrink-0 place-items-center rounded-xl text-muted-foreground opacity-0 transition-all duration-200 hover:bg-white/[0.08] hover:text-foreground group-hover:opacity-100"
+                                  className="peer grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground opacity-0 transition-all duration-200 hover:bg-white/[0.08] hover:text-foreground group-hover:opacity-100"
                                 >
-                                  <MoreHorizontal className="size-4" />
+                                  <MoreHorizontal className="size-3.5" />
                                 </button>
                                 <span className="pointer-events-none absolute right-9 top-3 z-10 translate-y-1 rounded-lg border border-white/10 bg-[#0b1422]/95 px-2.5 py-1 text-[11px] font-semibold text-foreground opacity-0 shadow-[0_12px_28px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-200 peer-hover:translate-y-0 peer-hover:opacity-100">
                                   Detalhes do lead
@@ -1014,7 +958,7 @@ export default function KanbanPage() {
                                 {lead.phone}
                               </p>
                               {!isExpanded ? (
-                                <p className="mt-1.5 line-clamp-1 text-xs font-semibold text-cyan-100">
+                                <p className="line-clamp-1 text-[11px] font-semibold leading-4 text-muted-foreground">
                                   {kanbanNextAction(lead.status)}
                                 </p>
                               ) : null}
@@ -1022,12 +966,12 @@ export default function KanbanPage() {
                           </div>
 
                           {!isExpanded ? (
-                            <div className="mt-3 grid grid-cols-3 gap-1.5 text-[10px]">
-                              <span className={cn("inline-flex min-w-0 items-center justify-center gap-1 rounded-full border px-1.5 py-1 font-semibold capitalize", temperatureClasses[lead.temperature])}>
+                            <div className="mt-2 grid grid-cols-3 gap-1.5 pl-1.5 text-[9px]">
+                              <span className={cn("inline-flex min-w-0 items-center justify-center gap-1 rounded-lg border px-1.5 py-1 font-bold capitalize", temperatureClasses[lead.temperature])}>
                                 <span aria-hidden="true">{temperatureEmoji[lead.temperature]}</span>
                                 <span className="truncate">{lead.temperature}</span>
                               </span>
-                              <span className="inline-flex min-w-0 items-center justify-center gap-1 rounded-full border border-sky-400/20 bg-sky-500/[0.12] px-1.5 py-1 font-semibold text-sky-200">
+                              <span className="inline-flex min-w-0 items-center justify-center gap-1 rounded-lg border border-[#0B5FA5]/25 bg-[#0B5FA5]/12 px-1.5 py-1 font-bold text-blue-100">
                                 {lead.origin === "WhatsApp" ? (
                                   <WhatsAppLogoIcon />
                                 ) : (
@@ -1035,7 +979,7 @@ export default function KanbanPage() {
                                 )}
                                 <span className="truncate">{lead.origin}</span>
                               </span>
-                              <span className={cn("inline-flex min-w-0 items-center justify-center gap-1 rounded-full border px-1.5 py-1 font-semibold capitalize", sentimentClasses[lead.sentiment])}>
+                              <span className={cn("inline-flex min-w-0 items-center justify-center gap-1 rounded-lg border px-1.5 py-1 font-bold capitalize", sentimentClasses[lead.sentiment])}>
                                 <span aria-hidden="true">{sentimentEmoji[lead.sentiment]}</span>
                                 <span className="truncate">{lead.sentiment}</span>
                               </span>

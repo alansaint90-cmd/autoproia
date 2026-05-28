@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Bell, Bot, CheckCircle2, LogOut, MessageCircle, Plus, Search, TrendingUp, UserRound, X } from "lucide-react";
+import { Bell, Bot, CheckCircle2, LogOut, MessageCircle, Search, TrendingUp, UserRound, X } from "lucide-react";
 
 const KANBAN_STORAGE_KEY = "auto-pro-ia:kanban-leads";
 const COMPANY_PROFILE_STORAGE_KEY = "auto-pro-ia:company-profile";
@@ -165,20 +165,24 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
   return (
     <>
       <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-white/[0.08] bg-card/86 px-6 shadow-[0_12px_46px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-        <div className="min-w-0">
-          <h1 className="text-lg font-bold leading-none">{title}</h1>
-          {subtitle ? <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p> : null}
+        <div className="group/title relative min-w-0">
+          <h1 className="truncate text-lg font-bold leading-none">{title}</h1>
+          {subtitle ? (
+            <div className="pointer-events-none absolute left-0 top-8 z-40 w-max max-w-[320px] translate-y-1 rounded-2xl border border-white/10 bg-[#0b1120]/95 px-3 py-2 text-xs font-semibold leading-5 text-slate-200 opacity-0 shadow-[0_18px_55px_rgba(0,0,0,0.42)] backdrop-blur-xl transition-all duration-200 group-hover/title:translate-y-0 group-hover/title:opacity-100">
+              {subtitle}
+            </div>
+          ) : null}
         </div>
 
         <div className="ml-6 hidden max-w-md flex-1 lg:block">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-primary/80" />
             {hasInteractiveSearch ? (
               <input
                 value={searchValue ?? ""}
                 onChange={(event) => onSearchChange(event.target.value)}
                 placeholder="Buscar leads, conversas, clientes..."
-                className="h-10 w-full rounded-2xl border border-white/10 bg-[#0b1120]/72 pl-10 pr-4 text-sm outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-primary/25 focus:border-primary/60 focus:bg-[#111827] focus:ring-4 focus:ring-primary/10"
+                className="h-10 w-full rounded-xl border border-white/10 bg-[#111827]/70 pl-10 pr-4 text-sm text-foreground outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-white/[0.18] focus:border-primary/55 focus:bg-[#111827] focus:ring-4 focus:ring-primary/10"
               />
             ) : (
               <input
@@ -190,34 +194,55 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
                   }
                 }}
                 placeholder="Buscar leads, conversas, clientes..."
-                className="h-10 w-full rounded-2xl border border-white/10 bg-[#0b1120]/72 pl-10 pr-4 text-sm outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-primary/25 focus:border-primary/60 focus:bg-[#111827] focus:ring-4 focus:ring-primary/10"
+                className="h-10 w-full rounded-xl border border-white/10 bg-[#111827]/70 pl-10 pr-4 text-sm text-foreground outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-white/[0.18] focus:border-primary/55 focus:bg-[#111827] focus:ring-4 focus:ring-primary/10"
               />
             )}
           </div>
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={openNewLead}
-            type="button"
-            className="inline-flex h-10 items-center gap-1.5 rounded-2xl bg-primary px-4 text-sm font-bold text-primary-foreground shadow-glow transition duration-200 hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0"
-          >
-            <Plus className="size-4" />
-            Novo Lead
-          </button>
+          <div className="group/ai-status relative">
+            <button
+              type="button"
+              className="inline-flex h-10 items-center gap-2 rounded-2xl border border-[#FACC15]/35 bg-[#FACC15]/10 px-3 text-xs font-black text-foreground transition duration-200 hover:-translate-y-0.5 hover:border-primary/55 hover:bg-primary/15 active:translate-y-0"
+              aria-label="Status da IA"
+            >
+              <Bot className="size-4 text-primary" />
+              Status da IA
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[10px] font-black">
+                <span className="size-2 rounded-full bg-[#22C55E]" />
+                Ativo
+              </span>
+            </button>
+            <div className="pointer-events-none absolute right-0 top-10 z-30 w-72 translate-y-2 pt-2 opacity-0 transition-all duration-200 group-hover/ai-status:pointer-events-auto group-hover/ai-status:translate-y-0 group-hover/ai-status:opacity-100">
+              <div className="rounded-2xl border border-[#FACC15]/25 bg-[#0b1120]/96 p-3 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="inline-flex items-center gap-2 text-xs font-black">
+                    <Bot className="size-4 text-primary" />
+                    Status da IA
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[10px] font-black">
+                    <span className="size-2 rounded-full bg-[#22C55E]" />
+                    Ativo
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">18 conversas em atendimento automatico. A IA esta respondendo novos leads e mantendo contexto para repasse humano.</p>
+              </div>
+            </div>
+          </div>
           <div className="group/notifications relative">
             <button
               type="button"
               onClick={() => setShowNotificationsModal(true)}
               aria-label="Abrir notificacoes"
-              className="relative grid size-10 place-items-center rounded-2xl border border-white/10 bg-[#0b1120]/72 transition duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:bg-[#111827] active:translate-y-0"
+              className="ap-button-ghost relative grid size-10 place-items-center rounded-2xl text-primary transition duration-200 hover:-translate-y-0.5 active:translate-y-0"
             >
               <Bell className="size-4" />
               <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-danger" />
             </button>
 
             <div className="pointer-events-none absolute right-0 top-10 z-30 w-80 translate-y-2 pt-2 opacity-0 transition-all duration-200 group-hover/notifications:pointer-events-auto group-hover/notifications:translate-y-0 group-hover/notifications:opacity-100">
-              <div className="rounded-2xl border border-white/10 bg-[#0b1120]/95 p-3 shadow-[0_24px_70px_rgba(0,0,0,0.42),0_0_34px_rgba(250,204,21,0.08)] backdrop-blur-xl">
+              <div className="ap-surface rounded-2xl p-3 shadow-[0_24px_70px_rgba(0,0,0,0.42)]">
                 <div className="mb-2 flex items-center justify-between px-1">
                   <p className="text-sm font-bold">Notificacoes</p>
                   <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">
@@ -255,7 +280,7 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
           <div className="group/profile relative">
             <button
               type="button"
-              className="grid size-10 place-items-center overflow-hidden rounded-2xl bg-primary text-xs font-bold text-primary-foreground shadow-glow transition duration-200 hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0"
+              className="ap-button-primary grid size-10 place-items-center overflow-hidden rounded-2xl text-xs font-bold transition duration-200 hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0"
               aria-label="Abrir perfil"
             >
               {companyProfile.logo ? (
@@ -266,7 +291,7 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
             </button>
 
             <div className="pointer-events-none absolute right-0 top-10 z-30 w-64 translate-y-2 pt-2 opacity-0 transition-all duration-200 group-hover/profile:pointer-events-auto group-hover/profile:translate-y-0 group-hover/profile:opacity-100">
-              <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0b1120]/95 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.42),0_0_34px_rgba(250,204,21,0.08)] backdrop-blur-xl">
+              <div className="ap-surface overflow-hidden rounded-2xl p-2 shadow-[0_24px_70px_rgba(0,0,0,0.42)]">
                 <div className="flex items-center gap-3 border-b border-white/10 px-3 py-3">
                   <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-2xl bg-primary text-xs font-bold text-primary-foreground">
                     {companyProfile.logo ? (
@@ -291,7 +316,7 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
                 <button
                   type="button"
                   onClick={exitApp}
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-red-500/10 hover:text-red-300"
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-danger/10 hover:text-danger"
                 >
                   <LogOut className="size-4" />
                   Sair

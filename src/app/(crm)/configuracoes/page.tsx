@@ -22,16 +22,18 @@ import {
   Users
 } from "lucide-react";
 import { Topbar } from "@/components/topbar";
+import { defaultAiBusinessSettings, type AiBusinessSettings } from "@/lib/ai-business-settings";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 
-type TabId = "empresa" | "usuarios" | "permissoes" | "integracoes" | "preferencias";
+type TabId = "empresa" | "usuarios" | "permissoes" | "integracoes" | "ia" | "preferencias";
 
 const tabs: Array<{ id: TabId; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }> = [
   { id: "empresa", label: "Empresa", icon: Building2 },
   { id: "usuarios", label: "Usuarios", icon: Users },
   { id: "permissoes", label: "Permissoes", icon: ShieldCheck },
   { id: "integracoes", label: "Integracoes", icon: Plug },
+  { id: "ia", label: "IA Comercial", icon: Bot },
   { id: "preferencias", label: "Preferencias", icon: Settings }
 ];
 
@@ -243,6 +245,7 @@ export default function ConfiguracoesPage() {
           {activeTab === "usuarios" ? <UsuariosPanel /> : null}
           {activeTab === "permissoes" ? <PermissoesPanel /> : null}
           {activeTab === "integracoes" ? <IntegracoesPanel /> : null}
+          {activeTab === "ia" ? <IaComercialPanel /> : null}
           {activeTab === "preferencias" ? <PreferenciasPanel /> : null}
         </div>
       </main>
@@ -795,9 +798,9 @@ function IntegrationCard({
   children: React.ReactNode;
 }) {
   const statusMap = {
-    pending: { label: "Pendente", className: "border-yellow-400/25 bg-yellow-400/10 text-yellow-200", icon: AlertCircle },
-    connected: { label: "Conectado", className: "border-emerald-400/25 bg-emerald-400/10 text-emerald-200", icon: CheckCircle2 },
-    error: { label: "Incompleto", className: "border-red-400/25 bg-red-400/10 text-red-200", icon: AlertCircle }
+    pending: { label: "Pendente", className: "ap-status-new", icon: AlertCircle },
+    connected: { label: "Conectado", className: "ap-status-success", icon: CheckCircle2 },
+    error: { label: "Incompleto", className: "ap-status-danger", icon: AlertCircle }
   };
   const StatusIcon = statusMap[status].icon;
 
@@ -859,6 +862,157 @@ function IntegrationInput({
         className="h-10 w-full rounded-[14px] border border-border bg-input/65 px-4 text-sm font-semibold text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-4 focus:ring-primary/10"
       />
     </label>
+  );
+}
+
+function IaComercialPanel() {
+  const [settings, setSettings] = useState<AiBusinessSettings>(defaultAiBusinessSettings);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    fetch("/api/settings/ai-business")
+      .then((response) => response.json())
+      .then((data: { settings?: AiBusinessSettings }) => {
+        if (active && data.settings) {
+          setSettings(data.settings);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setSettings(defaultAiBusinessSettings);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function updateField(key: keyof AiBusinessSettings, value: string) {
+    setSettings((current) => ({ ...current, [key]: value }));
+    setSaved(false);
+    setError("");
+  }
+
+  async function saveSettings() {
+    setError("");
+    setSaved(false);
+
+    try {
+      const response = await fetch("/api/settings/ai-business", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings)
+      });
+
+      if (!response.ok) {
+        throw new Error("Falha ao salvar");
+      }
+
+      const data = (await response.json()) as { settings: AiBusinessSettings };
+      setSettings(data.settings);
+      setSaved(true);
+    } catch {
+      setError("Nao foi possivel salvar. Verifique se o banco foi atualizado com drizzle push.");
+    }
+  }
+
+  return (
+    <section className="rounded-[22px] border border-border bg-card/72 p-6 shadow-panel">
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Prompt dinamico</p>
+          <h2 className="mt-1 text-lg font-extrabold tracking-normal">IA Comercial</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Estes dados entram no prompt da IA em tempo real para orientar respostas sobre valores, endereco,
+            horario e identidade do agente.
+          </p>
+        </div>
+        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#0B5FA5]/35 bg-[#0B5FA5]/14 px-3 py-1.5 text-xs font-black text-blue-100">
+          <Bot size={14} />
+          Usado no WhatsApp
+        </span>
+      </div>
+
+      <form
+        className="mt-6 grid gap-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void saveSettings();
+        }}
+      >
+        <div className="grid gap-5 xl:grid-cols-2">
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Nome do agente IA
+            </span>
+            <input
+              value={settings.agentName}
+              onChange={(event) => updateField("agentName", event.target.value)}
+              className="kanban-input"
+              placeholder="Ana"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Horarios de atendimento
+            </span>
+            <input
+              value={settings.hours}
+              onChange={(event) => updateField("hours", event.target.value)}
+              className="kanban-input"
+              placeholder="Segunda a sexta, das 8h as 18h"
+            />
+          </label>
+        </div>
+
+        <label className="block">
+          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Endereco
+          </span>
+          <input
+            value={settings.address}
+            onChange={(event) => updateField("address", event.target.value)}
+            className="kanban-input"
+            placeholder="Rua, numero, bairro, cidade"
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Precos e regras comerciais
+          </span>
+          <textarea
+            value={settings.prices}
+            onChange={(event) => updateField("prices", event.target.value)}
+            className="kanban-input min-h-36 resize-y leading-6"
+            placeholder="Informe valores por categoria, condicoes e regras para a IA usar."
+          />
+        </label>
+
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-primary">Previa do contexto enviado para a IA</p>
+          <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
+            <p><strong className="text-foreground">Agente:</strong> {settings.agentName}</p>
+            <p><strong className="text-foreground">Endereco:</strong> {settings.address}</p>
+            <p><strong className="text-foreground">Horario:</strong> {settings.hours}</p>
+            <p><strong className="text-foreground">Precos:</strong> {settings.prices}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button className="ap-button-primary inline-flex h-10 items-center justify-center rounded-[14px] px-5 text-sm font-extrabold">
+            Salvar regras da IA
+          </button>
+          {saved ? <span className="text-sm font-semibold text-success">Regras atualizadas no prompt</span> : null}
+          {error ? <span className="text-sm font-semibold text-danger">{error}</span> : null}
+        </div>
+      </form>
+    </section>
   );
 }
 

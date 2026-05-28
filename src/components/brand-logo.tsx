@@ -17,7 +17,7 @@ export function BrandLogo({ className, size = 44, showStatus = false }: BrandLog
       aria-hidden="true"
     >
       <img
-        src="/brand/auto-pro-ia-final-logo-transparent.png"
+        src="/brand/auto-pro-ia-a-logo-transparent.png"
         alt=""
         className="h-full w-full object-contain"
       />

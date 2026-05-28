@@ -17,9 +17,13 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-gradient-to-r from-[#05070d]/15 via-[#0b1120]/78 to-[#05070d]" />
 
         <header className="relative z-10 flex items-center gap-3">
-          <BrandLogo size={48} showStatus />
+          <BrandLogo size={34} />
           <div>
-            <div className="text-sm font-extrabold uppercase tracking-normal text-foreground">AUTO PRO IA</div>
+            <div className="text-sm font-black uppercase tracking-wide">
+              <span className="text-slate-50">AUTO </span>
+              <span className="text-primary">PRO</span>
+              <span className="text-slate-50"> IA</span>
+            </div>
             <div className="font-mono text-[10px] font-semibold text-muted-foreground">v1.1 CRM</div>
           </div>
         </header>

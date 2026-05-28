@@ -73,17 +73,17 @@ const temperatureEmoji: Record<Conversation["lead"]["temperature"], string> = {
 };
 
 const temperatureClasses: Record<Conversation["lead"]["temperature"], string> = {
-  quente: "border-emerald-500/30 bg-emerald-500/15 text-emerald-300",
-  morno: "border-yellow-500/30 bg-yellow-500/15 text-yellow-300",
-  frio: "border-sky-500/30 bg-sky-500/15 text-sky-300",
-  urgente: "border-red-500/30 bg-red-500/15 text-red-300"
+  quente: "border-[#22C55E]/30 bg-[#22C55E]/12 text-[#22C55E]",
+  morno: "border-[#FACC15]/30 bg-[#FACC15]/12 text-[#FACC15]",
+  frio: "border-[#0B5FA5]/35 bg-[#0B5FA5]/16 text-blue-100",
+  urgente: "border-[#FACC15]/45 bg-[#FACC15]/16 text-[#FACC15]"
 };
 
 const temperatureBar: Record<Conversation["lead"]["temperature"], { width: string; gradient: string; label: string }> = {
-  frio: { width: "32%", gradient: "from-sky-500 to-cyan-300", label: "Baixo interesse" },
-  morno: { width: "58%", gradient: "from-yellow-500 to-amber-300", label: "Interesse em evolucao" },
-  quente: { width: "82%", gradient: "from-emerald-500 to-lime-300", label: "Alta chance de conversao" },
-  urgente: { width: "96%", gradient: "from-red-500 to-orange-300", label: "Atencao imediata" }
+  frio: { width: "32%", gradient: "from-[#0B5FA5] to-blue-300", label: "Baixo interesse" },
+  morno: { width: "58%", gradient: "from-[#FACC15] to-[#EAB308]", label: "Interesse em evolucao" },
+  quente: { width: "82%", gradient: "from-[#22C55E] to-emerald-300", label: "Alta chance de conversao" },
+  urgente: { width: "96%", gradient: "from-[#FACC15] to-[#22C55E]", label: "Atencao imediata" }
 };
 
 type LeadSentiment = "positivo" | "neutro" | "duvida" | "negativo";
@@ -96,17 +96,17 @@ const sentimentEmoji: Record<LeadSentiment, string> = {
 };
 
 const sentimentClasses: Record<LeadSentiment, string> = {
-  positivo: "border-cyan-400/30 bg-cyan-400/15 text-cyan-200",
+  positivo: "border-[#22C55E]/30 bg-[#22C55E]/12 text-[#22C55E]",
   neutro: "border-slate-400/30 bg-slate-400/[0.12] text-slate-200",
-  duvida: "border-violet-400/30 bg-violet-400/15 text-violet-200",
-  negativo: "border-red-400/30 bg-red-400/15 text-red-200"
+  duvida: "border-[#0B5FA5]/35 bg-[#0B5FA5]/16 text-blue-100",
+  negativo: "border-[#FACC15]/40 bg-[#FACC15]/14 text-[#FACC15]"
 };
 
 const sentimentBar: Record<LeadSentiment, { width: string; gradient: string; label: string }> = {
-  positivo: { width: "88%", gradient: "from-cyan-400 to-emerald-300", label: "Animado para avancar" },
+  positivo: { width: "88%", gradient: "from-[#22C55E] to-emerald-300", label: "Animado para avancar" },
   neutro: { width: "54%", gradient: "from-slate-400 to-slate-200", label: "Aguardando estimulo" },
-  duvida: { width: "42%", gradient: "from-violet-500 to-fuchsia-300", label: "Precisa de clareza" },
-  negativo: { width: "22%", gradient: "from-red-500 to-orange-300", label: "Risco de perda" }
+  duvida: { width: "42%", gradient: "from-[#0B5FA5] to-blue-300", label: "Precisa de clareza" },
+  negativo: { width: "22%", gradient: "from-[#FACC15] to-[#EAB308]", label: "Risco de perda" }
 };
 
 const originEmoji: Record<string, string> = {
@@ -207,6 +207,51 @@ function AttachmentIcon({ type, className }: { type: QuickReplyAttachment["type"
   if (type === "audio") return <Music2 className={className} />;
   if (type === "image") return <ImageIcon className={className} />;
   return <Video className={className} />;
+}
+
+function initialsFromName(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function LeadInitialAvatar({
+  name,
+  temperature,
+  size = "md"
+}: {
+  name: string;
+  temperature: Conversation["lead"]["temperature"];
+  size?: "sm" | "md" | "lg" | "xl";
+}) {
+  const tone: Record<Conversation["lead"]["temperature"], string> = {
+    quente: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
+    morno: "border-[#0B5FA5]/60 bg-[linear-gradient(135deg,#0B5FA5,#1F2937)] text-blue-50",
+    frio: "border-white/18 bg-[linear-gradient(135deg,#1F2937,#0B1120)] text-slate-100",
+    urgente: "border-[#22C55E]/50 bg-[linear-gradient(135deg,#22C55E,#0B5FA5)] text-[#0B1120]"
+  };
+  const sizes = {
+    sm: "size-9 rounded-[10px] text-xs",
+    md: "size-10 rounded-xl text-sm",
+    lg: "size-12 rounded-[14px] text-base",
+    xl: "size-14 rounded-2xl text-lg"
+  };
+
+  return (
+    <span
+      className={cn(
+        "relative grid shrink-0 place-items-center border font-mono font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_24px_rgba(0,0,0,0.24)]",
+        tone[temperature],
+        sizes[size]
+      )}
+      aria-hidden="true"
+    >
+      <span className="relative z-10">{initialsFromName(name)}</span>
+    </span>
+  );
 }
 
 function normalizeStage(value?: string): Conversation["lead"]["stage"] {
@@ -504,8 +549,8 @@ export default function ConversasPage() {
   return (
     <>
       <Topbar title="Central de Atendimento" subtitle="WhatsApp + IA com intervencao humana sem perda de contexto" />
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden bg-[radial-gradient(circle_at_45%_0%,rgba(82,39,255,0.12),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.018),transparent_28%),var(--background)] md:grid-cols-[320px_1fr] xl:grid-cols-[320px_minmax(560px,0.9fr)_340px]">
-        <aside className="flex min-h-0 flex-col overflow-hidden border-r border-white/[0.08] bg-card/45 backdrop-blur-xl">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden bg-[radial-gradient(circle_at_42%_0%,rgba(11,95,165,0.10),transparent_34%),linear-gradient(180deg,rgba(250,204,21,0.035),transparent_24%),#0B1120] md:grid-cols-[320px_1fr] xl:grid-cols-[320px_minmax(560px,0.9fr)_340px]">
+        <aside className="flex min-h-0 flex-col overflow-hidden border-r border-white/[0.08] bg-[#111827]/72 backdrop-blur-xl">
           <div className="border-b border-white/[0.08] p-3">
             <div className="mb-2.5 flex items-center justify-between gap-3">
               <div>
@@ -536,15 +581,12 @@ export default function ConversasPage() {
                   key={conversation.lead.id}
                   onClick={() => setActiveId(conversation.lead.id)}
                   className={cn(
-                    "group flex w-full items-start gap-2.5 rounded-2xl border border-sky-400/[0.10] bg-[#132235]/80 p-2.5 text-left shadow-[0_12px_28px_rgba(0,0,0,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/35 hover:bg-[#172b42]",
-                    selected && "border-primary/45 bg-[linear-gradient(135deg,rgba(250,204,21,0.16),rgba(19,34,53,0.92))] shadow-[0_18px_42px_rgba(250,204,21,0.13)]"
+                    "group flex w-full items-start gap-2.5 rounded-2xl border border-white/[0.08] bg-[#111827]/88 p-2.5 text-left shadow-[0_12px_28px_rgba(0,0,0,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#0B5FA5]/45 hover:bg-[#132033]",
+                    selected && "border-[#FACC15]/42 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(17,24,39,0.96))] shadow-[0_18px_42px_rgba(0,0,0,0.24)]"
                   )}
                 >
                   <div className="relative shrink-0">
-                    <img src={conversation.lead.avatar} alt="" className="size-9 rounded-xl" />
-                    {conversation.online ? (
-                      <span className="absolute -right-0.5 -top-0.5 size-3 rounded-full bg-success ring-2 ring-card" />
-                    ) : null}
+                    <LeadInitialAvatar name={conversation.lead.name} temperature={conversation.lead.temperature} size="sm" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2">
@@ -563,7 +605,7 @@ export default function ConversasPage() {
                       <span className={cn("rounded-full border px-1.5 py-0.5 text-[9px] font-bold capitalize", temperatureClasses[conversation.lead.temperature])}>
                         {temperatureEmoji[conversation.lead.temperature]} {conversation.lead.temperature}
                       </span>
-                      <span className="rounded-full border border-sky-400/20 bg-sky-500/[0.10] px-1.5 py-0.5 text-[9px] font-bold text-sky-200">
+                      <span className="rounded-full border border-[#0B5FA5]/35 bg-[#0B5FA5]/16 px-1.5 py-0.5 text-[9px] font-bold text-blue-100">
                         {originEmoji[conversation.lead.origin] ?? "📍"} {conversation.lead.origin}
                       </span>
                       <span className="ml-auto rounded-full border border-white/10 bg-white/[0.045] px-1.5 py-0.5 text-[9px] font-bold text-muted-foreground">
@@ -582,10 +624,10 @@ export default function ConversasPage() {
           </div>
         </aside>
 
-        <section className="flex min-h-0 flex-col bg-background/55">
-          <div className="border-b border-white/[0.08] bg-card/45 px-4 py-3 backdrop-blur-xl">
+        <section className="flex min-h-0 flex-col bg-[#0B1120]/74">
+          <div className="border-b border-white/[0.08] bg-[#111827]/72 px-4 py-3 backdrop-blur-xl">
             <div className="flex items-center gap-3">
-            <img src={active.lead.avatar} alt="" className="size-12 rounded-2xl" />
+            <LeadInitialAvatar name={active.lead.name} temperature={active.lead.temperature} size="lg" />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="truncate text-base font-extrabold">{active.lead.name}</span>
@@ -609,7 +651,7 @@ export default function ConversasPage() {
             </div>
             <span
               className={cn(
-                "hidden items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold shadow-[0_0_24px_rgba(250,204,21,0.08)] sm:inline-flex",
+                "hidden items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold sm:inline-flex",
                 isManualAttendance
                   ? "border-success/30 bg-success/15 text-success"
                   : "border-primary/30 bg-primary/15 text-primary"
@@ -647,13 +689,13 @@ export default function ConversasPage() {
 
           <div className="whatsapp-chat-bg flex-1 overflow-y-auto p-4 scrollbar-thin">
             <div className="flex w-full flex-col space-y-4">
-            <div className="rounded-2xl border border-sky-300/25 bg-sky-300/[0.08] p-4 shadow-[0_18px_45px_rgba(56,189,248,0.10),0_0_36px_rgba(56,189,248,0.08)]">
+            <div className="rounded-2xl border border-[#0B5FA5]/35 bg-[#0B5FA5]/14 p-4 shadow-[0_18px_45px_rgba(0,0,0,0.22)]">
               <div className="flex items-start gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-2xl border border-sky-300/25 bg-sky-300/12 text-sky-200 shadow-[0_0_22px_rgba(56,189,248,0.16)]">
+                <span className="grid size-9 shrink-0 place-items-center rounded-2xl border border-[#0B5FA5]/40 bg-[#0B5FA5]/20 text-blue-100">
                   <Bot className="size-4" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-extrabold text-sky-100">Sugestao da IA para este atendimento</p>
+                  <p className="text-sm font-extrabold text-blue-100">Sugestao da IA para este atendimento</p>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">{aiSuggestion.hint}</p>
                 </div>
               </div>
@@ -697,13 +739,13 @@ export default function ConversasPage() {
                 <button
                   key={suggestion.hint}
                   onClick={() => setDraftMessage(suggestion.message)}
-                  className="group/ai-hint relative inline-flex shrink-0 items-center gap-2 overflow-visible rounded-full border border-sky-300/25 bg-sky-300/10 px-3 py-1.5 text-xs font-black text-sky-100 shadow-[0_0_20px_rgba(56,189,248,0.08)] transition hover:-translate-y-0.5 hover:border-sky-300/45 hover:bg-sky-300/15"
+                  className="group/ai-hint relative inline-flex shrink-0 items-center gap-2 overflow-visible rounded-full border border-[#0B5FA5]/40 bg-[#0B5FA5]/18 px-3 py-1.5 text-xs font-black text-blue-100 shadow-[0_0_18px_rgba(11,95,165,0.14)] transition hover:-translate-y-0.5 hover:border-[#0B5FA5]/70 hover:bg-[#0B5FA5]/24"
                   title="Clique para inserir a mensagem sugerida no campo do chat."
                 >
-                  <WandSparkles className="size-3.5 text-sky-300" />
+                  <WandSparkles className="size-3.5 text-blue-200" />
                   Sugestao de IA
-                  <span className="pointer-events-none absolute bottom-full left-0 z-40 mb-2 w-[min(420px,calc(100vw-2rem))] translate-y-1 rounded-2xl border border-sky-300/18 bg-[#07111f]/98 p-3 text-left text-xs font-semibold leading-5 text-sky-50 opacity-0 shadow-[0_22px_60px_rgba(0,0,0,0.45),0_0_28px_rgba(56,189,248,0.10)] backdrop-blur-xl transition-all duration-200 group-hover/ai-hint:translate-y-0 group-hover/ai-hint:opacity-100">
-                    <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.16em] text-sky-300">
+                  <span className="pointer-events-none absolute bottom-full left-0 z-40 mb-2 w-[min(420px,calc(100vw-2rem))] translate-y-1 rounded-2xl border border-[#0B5FA5]/28 bg-[#07111f]/98 p-3 text-left text-xs font-semibold leading-5 text-blue-50 opacity-0 shadow-[0_22px_60px_rgba(0,0,0,0.45),0_0_24px_rgba(11,95,165,0.12)] backdrop-blur-xl transition-all duration-200 group-hover/ai-hint:translate-y-0 group-hover/ai-hint:opacity-100">
+                    <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.16em] text-blue-200">
                       Sugestao atual
                     </span>
                     {suggestion.hint}
@@ -808,15 +850,15 @@ export default function ConversasPage() {
           </div>
         </section>
 
-        <aside className="hidden min-h-0 flex-col gap-3 overflow-y-auto border-l border-white/[0.08] bg-card/45 p-4 backdrop-blur-xl scrollbar-thin xl:flex">
-          <section className="rounded-2xl border border-cyan-300/14 bg-gradient-to-br from-cyan-400/[0.08] via-white/[0.035] to-violet-500/[0.06] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.18)]">
+        <aside className="hidden min-h-0 flex-col gap-3 overflow-y-auto border-l border-white/[0.08] bg-[#111827]/72 p-4 backdrop-blur-xl scrollbar-thin xl:flex">
+          <section className="rounded-2xl border border-[#0B5FA5]/22 bg-[linear-gradient(145deg,rgba(11,95,165,0.10),rgba(17,24,39,0.78))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.18)]">
             <div className="flex items-center gap-3">
-              <img src={active.lead.avatar} alt="" className="size-12 rounded-2xl" />
+              <LeadInitialAvatar name={active.lead.name} temperature={active.lead.temperature} size="lg" />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-extrabold">{active.lead.name}</div>
                 <div className="mt-0.5 truncate text-xs text-muted-foreground">{active.lead.phone}</div>
               </div>
-              <span className={cn("rounded-full border px-2 py-1 text-[10px] font-black", isManualAttendance ? "border-primary/30 bg-primary/10 text-primary" : "border-emerald-400/25 bg-emerald-400/10 text-emerald-300")}>
+              <span className={cn("rounded-full border px-2 py-1 text-[10px] font-black", isManualAttendance ? "border-[#FACC15]/30 bg-[#FACC15]/10 text-[#FACC15]" : "border-[#22C55E]/25 bg-[#22C55E]/10 text-[#22C55E]")}>
                 {isManualAttendance ? "Humano" : "IA ativa"}
               </span>
             </div>
@@ -824,7 +866,7 @@ export default function ConversasPage() {
             <div className="mt-4 rounded-2xl border border-white/[0.08] bg-background/35 p-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-200/75">Direcionamento</div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-100/75">Direcionamento</div>
                   <p className="mt-1 text-sm font-extrabold">Enviar proposta objetiva</p>
                 </div>
                 <div className="text-right">
@@ -865,7 +907,7 @@ export default function ConversasPage() {
                   </div>
                   <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.08]">
                     <div
-                      className={cn("h-full rounded-full bg-gradient-to-r shadow-[0_0_18px_rgba(255,255,255,0.14)]", temperatureBar[active.lead.temperature].gradient)}
+                      className={cn("h-full rounded-full bg-gradient-to-r", temperatureBar[active.lead.temperature].gradient)}
                       style={{ width: temperatureBar[active.lead.temperature].width }}
                     />
                   </div>
@@ -885,7 +927,7 @@ export default function ConversasPage() {
                   </div>
                   <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.08]">
                     <div
-                      className={cn("h-full rounded-full bg-gradient-to-r shadow-[0_0_18px_rgba(255,255,255,0.14)]", sentimentBar[getLeadSentiment(active)].gradient)}
+                      className={cn("h-full rounded-full bg-gradient-to-r", sentimentBar[getLeadSentiment(active)].gradient)}
                       style={{ width: sentimentBar[getLeadSentiment(active)].width }}
                     />
                   </div>
@@ -1079,7 +1121,7 @@ export default function ConversasPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <section className="w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-card shadow-[0_28px_90px_rgba(0,0,0,0.48)]">
             <div className="flex items-start gap-4 border-b border-white/10 p-5">
-              <img src={active.lead.avatar} alt="" className="size-14 rounded-2xl" />
+              <LeadInitialAvatar name={active.lead.name} temperature={active.lead.temperature} size="xl" />
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-xl font-extrabold">{active.lead.name}</h2>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -1148,7 +1190,7 @@ export default function ConversasPage() {
 
 function Info({ label, value, compact = false }: { label: string; value: string; compact?: boolean }) {
   return (
-    <div className={cn(compact && "rounded-xl border border-white/[0.06] bg-background/25 px-2.5 py-2")}>
+    <div className={cn(compact && "rounded-xl border border-white/[0.06] bg-[#0B1120]/45 px-2.5 py-2")}>
       <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className={cn("mt-0.5 font-medium capitalize", compact ? "truncate text-xs" : "text-sm")}>{value}</div>
     </div>
@@ -1171,10 +1213,10 @@ function ExpandableSection({
   return (
     <details
       open={defaultOpen}
-      className="group rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3 transition hover:border-cyan-300/16 hover:bg-white/[0.05]"
+      className="group rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3 transition hover:border-[#0B5FA5]/30 hover:bg-white/[0.05]"
     >
       <summary className="flex cursor-pointer list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
-        <span className="grid size-9 shrink-0 place-items-center rounded-2xl border border-cyan-300/12 bg-cyan-300/10 text-cyan-200">
+        <span className="grid size-9 shrink-0 place-items-center rounded-2xl border border-[#0B5FA5]/25 bg-[#0B5FA5]/14 text-blue-100">
           <Icon className="size-4" />
         </span>
         <span className="min-w-0 flex-1">
@@ -1199,7 +1241,7 @@ function InsightPill({
 }) {
   return (
     <div className="flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-3 py-2">
-      <span className="grid size-7 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+      <span className="grid size-7 shrink-0 place-items-center rounded-xl bg-[#0B5FA5]/14 text-blue-100">
         <Icon className="size-3.5" />
       </span>
       <div className="min-w-0">

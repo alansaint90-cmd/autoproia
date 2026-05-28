@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  Activity,
   BadgeDollarSign,
   Bot,
   Clock3,
@@ -106,6 +105,9 @@ const interactivePanelClass =
 const chartSurfaceClass =
   "relative overflow-hidden rounded-[22px] border border-white/[0.08] bg-[radial-gradient(circle_at_78%_4%,rgba(250,204,21,0.14),transparent_32%),linear-gradient(145deg,rgba(17,24,39,0.78),rgba(11,17,32,0.9))] p-4";
 
+const neutralChartSurfaceClass =
+  "relative overflow-hidden rounded-[22px] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(17,24,39,0.78),rgba(11,17,32,0.92))] p-4";
+
 const commercialPulse = [
   { label: "Ana fechou matricula CNH B", time: "agora", icon: CarPulseIcon },
   { label: "IA qualificou 4 novos leads", time: "2 min", icon: BadgeDollarSign },
@@ -129,7 +131,21 @@ const monthlyConversion = [
   { month: "Dez", leads: 436, enrollments: 154 }
 ];
 
-const originDonutColors = ["#facc15", "#45bd50", "#159ff2", "#a78bfa", "#ff4c4c", "#12b9c7"];
+const designPalette = {
+  yellow: "#FACC15",
+  blue: "#0B5FA5",
+  green: "#22C55E",
+  graphite: "#1F2937"
+};
+
+const originDonutColors = [
+  "#D7B21D",
+  "#1A7F4B",
+  "#0B5FA5",
+  "#A88418",
+  "#2B5F96",
+  "#334155"
+];
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(value);
@@ -137,6 +153,7 @@ function formatCurrency(value: number) {
 
 export default function DashboardPage() {
   const bestSeller = sellerClosingExtended.reduce((best, seller) => (seller.closed > best.closed ? seller : best));
+  const rankedSellers = sellerClosingExtended.slice().sort((a, b) => b.closed - a.closed);
 
   return (
     <>
@@ -189,9 +206,8 @@ export default function DashboardPage() {
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[400px_1fr]">
-          <article className="relative overflow-hidden rounded-[22px] border border-primary/10 bg-[radial-gradient(circle_at_16%_0%,rgba(250,204,21,0.12),transparent_34%),linear-gradient(145deg,rgba(17,24,39,0.86),rgba(11,17,32,0.96))] p-5 shadow-panel">
-            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/55 to-transparent" />
-            <div className="pointer-events-none absolute -right-12 -top-16 size-44 rounded-full bg-primary/10 blur-3xl" />
+          <article className="relative overflow-hidden rounded-[22px] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(17,24,39,0.86),rgba(11,17,32,0.96))] p-5 shadow-panel">
+            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/20 to-transparent" />
 
             <div className="relative mb-6 flex items-start justify-between gap-4">
               <div>
@@ -202,7 +218,7 @@ export default function DashboardPage() {
                 <h2 className="text-lg font-extrabold tracking-normal">Pulso Comercial</h2>
                 <p className="mt-1 text-sm text-muted-foreground">Eventos comerciais em tempo real</p>
               </div>
-              <div className="group/health relative grid size-12 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-[0_0_24px_rgba(250,204,21,0.12)]">
+              <div className="group/health relative grid size-12 place-items-center rounded-2xl border border-cyan-300/15 bg-cyan-300/5 text-cyan-200">
                 <PulseHealthIcon />
                 <div className="pointer-events-none absolute right-0 top-14 z-30 w-72 translate-y-2 rounded-2xl border border-primary/15 bg-[#0b1120]/96 p-4 text-left opacity-0 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl transition-all duration-200 group-hover/health:translate-y-0 group-hover/health:opacity-100">
                   <div className="mb-3 flex items-center justify-between gap-3">
@@ -226,7 +242,7 @@ export default function DashboardPage() {
               {commercialPulse.map((event, index) => (
                 <div
                   key={event.label}
-                  className="group relative grid grid-cols-[34px_1fr_auto] items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.028] p-2.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/20 hover:bg-white/[0.055] hover:shadow-[0_18px_44px_rgba(250,204,21,0.10)]"
+                  className="group relative grid grid-cols-[34px_1fr_auto] items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.028] p-2.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-300/20 hover:bg-white/[0.055] hover:shadow-[0_18px_44px_rgba(0,0,0,0.22)]"
                 >
                   <div className="relative z-10 grid size-8 place-items-center rounded-xl border border-primary/15 bg-primary/10 text-primary transition duration-300 group-hover:border-primary/30 group-hover:bg-primary/15">
                     <event.icon size={15} />
@@ -247,48 +263,51 @@ export default function DashboardPage() {
             </div>
           </article>
 
-          <article className="group relative overflow-hidden rounded-[22px] border border-primary/[0.10] bg-[radial-gradient(circle_at_90%_0%,rgba(250,204,21,0.12),transparent_34%),linear-gradient(145deg,rgba(17,24,39,0.9),rgba(11,17,32,0.96))] p-5 shadow-panel transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_30px_80px_rgba(0,0,0,0.42),0_0_34px_rgba(250,204,21,0.08)]">
-            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-primary/45 to-transparent opacity-70" />
+          <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+          <article className="group relative overflow-hidden rounded-[22px] border border-white/[0.08] bg-[radial-gradient(circle_at_82%_0%,rgba(11,95,165,0.16),transparent_34%),linear-gradient(145deg,rgba(17,24,39,0.92),rgba(11,17,32,0.98))] p-5 shadow-panel transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_30px_80px_rgba(0,0,0,0.42)]">
+            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#0B5FA5]/45 to-transparent opacity-70" />
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary/80">Ranking comercial</p>
                 <h2 className="text-lg font-extrabold tracking-normal">Vendedor com mais fechamento</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {bestSeller.seller} lidera com {bestSeller.closed} matriculas no mes
+                  {bestSeller.seller} lidera a disputa com {bestSeller.closed} matriculas no mes
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <Link
-                  href="/relatorios"
-                  className="inline-flex h-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 px-3 text-xs font-black text-primary shadow-[0_0_22px_rgba(250,204,21,0.10)] transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/15"
-                >
-                  Abrir relatorio
-                </Link>
-                <div className="grid size-10 place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary shadow-[0_0_24px_rgba(250,204,21,0.12)]">
-                  <Trophy size={20} />
-                </div>
+              <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+                <Trophy size={20} />
               </div>
             </div>
 
-            <div className="grid max-h-[314px] gap-2.5 overflow-y-auto pr-1 [scrollbar-color:rgba(56,189,248,0.35)_transparent] [scrollbar-width:thin]">
-              {sellerClosingExtended
-                .slice()
-                .sort((a, b) => b.closed - a.closed)
-                .map((seller, index) => (
+            <div className="mb-4 grid grid-cols-3 gap-2">
+              {rankedSellers.slice(0, 3).map((seller, index) => (
+                <div
+                  key={seller.seller}
+                  className={cn(
+                    "relative overflow-hidden rounded-2xl border p-3 text-center",
+                    index === 0
+                      ? "border-[#FACC15]/35 bg-[#FACC15]/10"
+                      : index === 1
+                        ? "border-[#0B5FA5]/35 bg-[#0B5FA5]/14"
+                        : "border-[#22C55E]/30 bg-[#22C55E]/10"
+                  )}
+                >
+                  <div className="mx-auto grid size-8 place-items-center rounded-xl border border-white/10 bg-[#0B1120]/72 font-mono text-xs font-black">
+                    #{index + 1}
+                  </div>
+                  <p className="mt-2 truncate text-xs font-black">{seller.seller}</p>
+                  <p className="mt-1 font-mono text-lg font-black text-foreground">{seller.closed}</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.12em] text-muted-foreground">matriculas</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid max-h-[242px] gap-2.5 overflow-y-auto pr-1 [scrollbar-color:rgba(11,95,165,0.45)_transparent] [scrollbar-width:thin]">
+              {rankedSellers.map((seller, index) => (
                   <SellerRow key={seller.seller} seller={seller} position={index + 1} />
                 ))}
             </div>
           </article>
-        </section>
-
-        <section className="grid gap-6 xl:grid-cols-[1.1fr_0.95fr]">
-          <ChartPanel
-            title="Funil de conversao"
-            subtitle="De novo lead ate matricula fechada"
-            icon={Activity}
-          >
-            <Funnel />
-          </ChartPanel>
 
           <ChartPanel
             title="Desempenho da IA"
@@ -299,14 +318,17 @@ export default function DashboardPage() {
               {aiPerformance.map((item) => (
                 <div
                   key={item.metric}
-                  className="group relative rounded-lg border border-border bg-background/35 p-4 transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.01] hover:bg-background/55 hover:shadow-[0_18px_44px_oklch(0_0_0_/_0.28)]"
+                  className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(11,95,165,0.14),rgba(17,24,39,0.88))] p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-[#0B5FA5]/45 hover:bg-[linear-gradient(135deg,rgba(11,95,165,0.20),rgba(17,24,39,0.94))] hover:shadow-[0_18px_44px_rgba(0,0,0,0.28)]"
                 >
+                  <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-blue-200/30 to-transparent" />
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-medium">{item.metric}</p>
+                      <p className="font-extrabold">{item.metric}</p>
                       <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
                     </div>
-                    <span className="font-mono text-xl font-semibold text-primary">{item.value}%</span>
+                    <span className="rounded-xl border border-[#0B5FA5]/35 bg-[#0B5FA5]/18 px-2 py-1 font-mono text-lg font-black text-blue-100">
+                      {item.value}%
+                    </span>
                   </div>
                   <Meter percent={item.value} />
                   <Tooltip>
@@ -316,6 +338,7 @@ export default function DashboardPage() {
               ))}
             </div>
           </ChartPanel>
+          </div>
         </section>
       </main>
     </>
@@ -374,18 +397,27 @@ function SellerRow({
 }) {
   const maxClosed = Math.max(...sellerClosingExtended.map((item) => item.closed));
   const progress = Math.round((seller.closed / maxClosed) * 100);
+  const medal = position === 1 ? "Ouro" : position === 2 ? "Prata" : position === 3 ? "Bronze" : "Competidor";
   const rankTone =
     position === 1
-      ? "border-yellow-300/35 bg-yellow-300/12 text-yellow-200 shadow-[0_0_22px_rgba(250,204,21,0.12)]"
+      ? "border-[#FACC15]/45 bg-[#FACC15]/14 text-[#FACC15]"
       : position === 2
-        ? "border-sky-300/25 bg-sky-300/10 text-sky-200"
+        ? "border-[#0B5FA5]/40 bg-[#0B5FA5]/16 text-blue-100"
         : position === 3
-          ? "border-violet-300/25 bg-violet-300/10 text-violet-200"
+          ? "border-[#22C55E]/32 bg-[#22C55E]/12 text-[#22C55E]"
           : "border-white/10 bg-white/[0.04] text-muted-foreground";
+  const barTone =
+    position === 1
+      ? "from-[#FACC15] via-[#EAB308] to-[#22C55E]"
+      : position === 2
+        ? "from-[#0B5FA5] via-blue-400 to-[#22C55E]"
+        : position === 3
+          ? "from-[#22C55E] via-emerald-300 to-[#FACC15]"
+          : "from-[#1F2937] via-[#0B5FA5] to-[#22C55E]";
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/[0.075] bg-white/[0.032] p-3.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-300/18 hover:bg-white/[0.052] hover:shadow-[0_18px_50px_rgba(14,165,233,0.09)]">
-      <div className="pointer-events-none absolute inset-y-3 left-0 w-px bg-gradient-to-b from-transparent via-sky-300/45 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+    <div className="group relative overflow-hidden rounded-2xl border border-white/[0.075] bg-[linear-gradient(135deg,rgba(31,41,55,0.72),rgba(11,17,32,0.86))] p-3.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-[#0B5FA5]/35 hover:bg-[linear-gradient(135deg,rgba(11,95,165,0.14),rgba(11,17,32,0.92))] hover:shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
+      <div className="pointer-events-none absolute inset-y-3 left-0 w-px bg-gradient-to-b from-transparent via-[#0B5FA5]/55 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       <div className="flex items-center gap-3">
         <div className={cn("grid size-10 place-items-center rounded-xl border font-mono text-sm font-black", rankTone)}>
           #{position}
@@ -393,28 +425,28 @@ function SellerRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-black text-foreground">{seller.seller}</p>
-            {position === 1 ? (
-              <span className="rounded-full border border-yellow-300/20 bg-yellow-300/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-yellow-200">
-                lider
+            {position <= 3 ? (
+              <span className={cn("rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em]", rankTone)}>
+                {medal}
               </span>
             ) : null}
           </div>
           <p className="mt-0.5 text-xs font-semibold text-muted-foreground">{seller.revenue} em receita</p>
         </div>
         <div className="text-right">
-          <p className="font-mono text-xl font-black text-sky-100">{seller.closed}</p>
+          <p className="font-mono text-xl font-black text-foreground">{seller.closed}</p>
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">fech.</p>
         </div>
       </div>
 
       <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3">
-        <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
+        <div className="h-2.5 overflow-hidden rounded-full border border-white/[0.06] bg-[#0B1120]">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-sky-400 via-cyan-300 to-violet-400 shadow-[0_0_18px_rgba(56,189,248,0.24)] transition-all duration-500"
+            className={cn("h-full rounded-full bg-gradient-to-r transition-all duration-500", barTone)}
             style={{ width: `${progress}%` }}
           />
         </div>
-        <span className="font-mono text-xs font-black text-sky-200">{seller.conversion}%</span>
+        <span className="font-mono text-xs font-black text-blue-100">{seller.conversion}%</span>
       </div>
     </div>
   );
@@ -719,17 +751,19 @@ function TooltipMetric({ color, label, value }: { color: string; label: string; 
 
 function OriginDonut() {
   const [activeOrigin, setActiveOrigin] = useState<number | null>(null);
+  const [activeFunnel, setActiveFunnel] = useState<number | null>(null);
   const total = leadsByOrigin.reduce((sum, item) => sum + item.value, 0);
-  const active = activeOrigin === null ? null : leadsByOrigin[activeOrigin];
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
+  const funnelMax = Math.max(...funnelData.map((item) => item.value));
+  const funnelColors = ["#22D3EE", "#A78BFA", "#22C55E", "#FACC15", "#EF4444"];
   let accumulated = 0;
 
   return (
-    <div className={cn(chartSurfaceClass, "flex min-h-[260px] flex-col justify-center")}>
-      <div className="grid items-center gap-4 sm:grid-cols-[minmax(120px,0.85fr)_minmax(130px,1fr)]">
-        <div className="relative mx-auto grid size-36 place-items-center">
-          <svg viewBox="0 0 120 120" className="size-36 -rotate-90">
+    <div className={cn(neutralChartSurfaceClass, "flex h-full min-h-[260px] flex-col justify-between gap-3 bg-[linear-gradient(145deg,rgba(17,24,39,0.86),rgba(11,17,32,0.96))]")}>
+      <div className="grid items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.025] p-3 sm:grid-cols-[minmax(150px,1fr)_minmax(104px,0.74fr)]">
+        <div className="relative mx-auto grid size-44 place-items-center">
+          <svg viewBox="0 0 120 120" className="size-44 -rotate-90">
           <defs>
             <filter id="originGlow" x="-40%" y="-40%" width="180%" height="180%">
               <feGaussianBlur stdDeviation="3" result="coloredBlur" />
@@ -739,7 +773,7 @@ function OriginDonut() {
               </feMerge>
             </filter>
           </defs>
-            <circle cx="60" cy="60" r={radius} fill="none" stroke="rgba(255,255,255,0.055)" strokeWidth="20" />
+            <circle cx="60" cy="60" r={radius} fill="none" stroke="rgba(249,250,251,0.055)" strokeWidth="13" />
           {leadsByOrigin.map((origin, index) => {
               const percent = origin.value / total;
               const dash = percent * circumference;
@@ -755,7 +789,7 @@ function OriginDonut() {
                   r={radius}
                   fill="none"
                   stroke={originDonutColors[index]}
-                  strokeWidth={isActive ? "23" : "20"}
+                  strokeWidth={isActive ? "16" : "13"}
                   strokeLinecap="butt"
                   strokeDasharray={`${dash} ${circumference - dash}`}
                   strokeDashoffset={offset}
@@ -771,16 +805,16 @@ function OriginDonut() {
         </svg>
 
           <div className="absolute inset-0 grid place-items-center">
-            <div className="grid size-[72px] place-items-center rounded-full border border-white/[0.08] bg-[#0b1120]/92 text-center shadow-[inset_0_0_28px_rgba(0,0,0,0.35)]">
+            <div className="grid size-[82px] place-items-center rounded-full border border-[#0B5FA5]/20 bg-[#0b1120]/95 text-center shadow-[inset_0_0_28px_rgba(0,0,0,0.35)]">
               <span>
                 <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">Total</span>
-                <span className="block font-mono text-xl font-black text-primary">{total}</span>
+                <span className="block font-mono text-2xl font-black text-primary">{total}</span>
               </span>
             </div>
           </div>
         </div>
 
-        <div className="grid gap-2">
+        <div className="grid gap-1.5">
           {leadsByOrigin.map((origin, index) => {
             const percent = Math.round((origin.value / total) * 100);
             const isActive = activeOrigin === index;
@@ -793,14 +827,14 @@ function OriginDonut() {
                 onMouseLeave={() => setActiveOrigin(null)}
                 onClick={() => setActiveOrigin((current) => (current === index ? null : index))}
                 className={cn(
-                  "grid w-full grid-cols-[1fr_auto] items-center gap-3 rounded-xl border px-2.5 py-2 text-left transition duration-300 hover:-translate-y-0.5",
+                  "grid w-full grid-cols-[1fr_auto] items-center gap-2 rounded-xl border px-2 py-1.5 text-left transition duration-300 hover:-translate-y-0.5",
                   isActive
-                    ? "border-primary/35 bg-white/[0.075] shadow-[0_18px_44px_oklch(0_0_0_/_0.26)]"
-                    : "border-white/[0.08] bg-white/[0.025] hover:border-white/15 hover:bg-white/[0.055]"
+                    ? "border-[#FACC15]/35 bg-[#FACC15]/10 shadow-[0_18px_44px_rgba(0,0,0,0.26)]"
+                    : "border-white/[0.08] bg-[#111827]/58 hover:border-[#0B5FA5]/35 hover:bg-[#0B5FA5]/10"
                 )}
               >
-                <span className="inline-flex min-w-0 items-center gap-2 text-xs font-black">
-                  <span className="size-2.5 rounded-full shadow-[0_0_14px_currentColor]" style={{ backgroundColor: originDonutColors[index], color: originDonutColors[index] }} />
+                <span className="inline-flex min-w-0 items-center gap-2 text-[11px] font-black">
+                  <span className="size-2.5 rounded-full" style={{ backgroundColor: originDonutColors[index] }} />
                   <span className="truncate">{origin.label}</span>
                 </span>
                 <span className="font-mono text-xs font-black text-foreground">{percent}%</span>
@@ -810,8 +844,55 @@ function OriginDonut() {
         </div>
       </div>
 
-      <div className="mt-3 min-h-5 text-center text-[11px] font-semibold text-muted-foreground">
-        {active ? `${active.label}: ${active.value} leads captados` : "Passe o mouse para ver detalhes do canal"}
+      <div className="flex flex-1 flex-col justify-end rounded-2xl border border-[#0B5FA5]/18 bg-[linear-gradient(135deg,rgba(11,95,165,0.08),rgba(17,24,39,0.72))] p-3">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-black text-foreground">Funil de conversao</h3>
+            <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">De novo lead ate matricula fechada</p>
+          </div>
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-primary/15 bg-primary/10 text-primary">
+            <PulseHealthIcon />
+          </span>
+        </div>
+
+        <div className="grid gap-2">
+          {funnelData.map((item, index) => {
+            const percent = Math.round((item.value / funnelMax) * 100);
+            const funnelWidth = Math.max(26, 100 - index * 14);
+            const isActive = activeFunnel === index;
+
+            return (
+              <button
+                key={item.etapa}
+                type="button"
+                onMouseEnter={() => setActiveFunnel(index)}
+                onMouseLeave={() => setActiveFunnel(null)}
+                className="group/funnel rounded-xl border border-white/[0.08] bg-[#0B1120]/42 px-2.5 py-2 text-left transition duration-250 hover:border-white/[0.16] hover:bg-[#111827]/72"
+              >
+                <div className="mb-1.5 flex items-center justify-between gap-3">
+                  <span className="text-[11px] font-black text-foreground">{item.etapa}</span>
+                  <span className="font-mono text-[10px] font-bold text-muted-foreground">{item.value}</span>
+                </div>
+                <div className="relative h-7 overflow-hidden rounded-lg bg-white/[0.045]">
+                  <div
+                    className={cn(
+                      "absolute inset-y-0 left-1/2 grid -translate-x-1/2 place-items-center text-[10px] font-black text-[#0B1120] transition-all duration-300",
+                      isActive && "brightness-110"
+                    )}
+                    style={{
+                      width: `${funnelWidth}%`,
+                      background: `linear-gradient(90deg, ${funnelColors[index]}, color-mix(in srgb, ${funnelColors[index]} 62%, white))`,
+                      clipPath: "polygon(4% 0, 96% 0, 90% 100%, 10% 100%)",
+                      borderRadius: "8px"
+                    }}
+                  >
+                    {percent}%
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+          </div>
       </div>
     </div>
   );
@@ -841,52 +922,12 @@ function ChartPanel(props: {
 
 function Meter({ percent }: { percent: number }) {
   return (
-    <div className="h-3 overflow-hidden rounded-full bg-muted">
-      <div className="h-full rounded-full bg-primary shadow-glow" style={{ width: `${Math.min(percent, 100)}%` }} />
-    </div>
-  );
-}
-
-function Funnel() {
-  const max = Math.max(...funnelData.map((item) => item.value));
-  const funnelColors = [
-    "from-sky-400 to-cyan-300 shadow-[0_0_20px_rgba(56,189,248,0.18)]",
-    "from-violet-400 to-fuchsia-300 shadow-[0_0_20px_rgba(167,139,250,0.18)]",
-    "from-emerald-400 to-teal-300 shadow-[0_0_20px_rgba(52,211,153,0.18)]",
-    "from-yellow-300 to-amber-400 shadow-[0_0_20px_rgba(250,204,21,0.16)]",
-    "from-orange-400 to-rose-400 shadow-[0_0_20px_rgba(251,113,133,0.16)]",
-    "from-blue-400 to-indigo-400 shadow-[0_0_20px_rgba(96,165,250,0.16)]"
-  ];
-
-  return (
-    <div className="space-y-3">
-      {funnelData.map((item, index) => {
-        const width = Math.max((item.value / max) * 100, 26);
-        const color = funnelColors[index % funnelColors.length];
-
-        return (
-          <div key={item.etapa} className="group relative rounded-lg border border-border bg-background/35 p-3 transition-all duration-300 hover:-translate-y-0.5 hover:scale-[1.01] hover:bg-background/55">
-            <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-              <span className="font-medium">{item.etapa}</span>
-              <span className="font-mono text-muted-foreground">{item.value}</span>
-            </div>
-            <div className="flex justify-center">
-              <div
-                className={cn(
-                  "h-9 rounded-md bg-gradient-to-r text-center text-sm font-black leading-9 text-slate-950 transition-all duration-300 group-hover:brightness-110",
-                  color
-                )}
-                style={{ width: `${width}%`, opacity: Math.max(0.74, 1 - index * 0.045) }}
-              >
-                {Math.round((item.value / max) * 100)}%
-              </div>
-            </div>
-            <Tooltip>
-              {item.etapa}: {item.value} leads - {Math.round((item.value / max) * 100)}% do topo do funil
-            </Tooltip>
-          </div>
-        );
-      })}
+    <div className="relative h-3 overflow-hidden rounded-full border border-white/[0.06] bg-[#0B1120]">
+      <div
+        className="h-full rounded-full bg-gradient-to-r from-[#0B5FA5] via-[#22C55E] to-[#FACC15] shadow-[0_0_18px_rgba(11,95,165,0.20)]"
+        style={{ width: `${Math.min(percent, 100)}%` }}
+      />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.12),transparent)] opacity-40" />
     </div>
   );
 }

@@ -96,3 +96,10 @@ export const handoffEvents = pgTable("handoff_events", {
   ...baseAuditColumns,
   modified_by: uuid("modified_by").notNull().references(() => users.id, { onDelete: "restrict" })
 });
+
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").$type<Record<string, unknown>>().notNull().default({}),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+});
