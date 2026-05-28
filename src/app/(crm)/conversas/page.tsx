@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import {
   Bot,
   Camera,
   CalendarClock,
   CheckCircle2,
+  ChevronDown,
   Clock3,
   Gauge,
   ImageIcon,
@@ -808,27 +809,42 @@ export default function ConversasPage() {
         </section>
 
         <aside className="hidden min-h-0 flex-col gap-3 overflow-y-auto border-l border-white/[0.08] bg-card/45 p-4 backdrop-blur-xl scrollbar-thin xl:flex">
-          <div className="flex flex-col items-center rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 text-center shadow-[0_18px_42px_rgba(0,0,0,0.16)]">
-            <img src={active.lead.avatar} alt="" className="mb-2 size-14 rounded-2xl" />
-            <div className="font-bold">{active.lead.name}</div>
-            <div className="text-xs text-muted-foreground">{active.lead.phone}</div>
-            <div className="mt-2 grid w-full grid-cols-2 gap-2">
-              <div className="rounded-2xl border border-white/[0.08] bg-background/30 p-2">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Chance</div>
-                <div className="mt-1 font-mono text-lg font-black text-primary">{closingChanceByTemperature[active.lead.temperature]}%</div>
+          <section className="rounded-2xl border border-cyan-300/14 bg-gradient-to-br from-cyan-400/[0.08] via-white/[0.035] to-violet-500/[0.06] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.18)]">
+            <div className="flex items-center gap-3">
+              <img src={active.lead.avatar} alt="" className="size-12 rounded-2xl" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-extrabold">{active.lead.name}</div>
+                <div className="mt-0.5 truncate text-xs text-muted-foreground">{active.lead.phone}</div>
               </div>
-              <div className="rounded-2xl border border-white/[0.08] bg-background/30 p-2">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">IA</div>
-                <div className={cn("mt-1 text-sm font-black", isManualAttendance ? "text-primary" : "text-success")}>
-                  {isManualAttendance ? "Humano" : "Ativa"}
+              <span className={cn("rounded-full border px-2 py-1 text-[10px] font-black", isManualAttendance ? "border-primary/30 bg-primary/10 text-primary" : "border-emerald-400/25 bg-emerald-400/10 text-emerald-300")}>
+                {isManualAttendance ? "Humano" : "IA ativa"}
+              </span>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-white/[0.08] bg-background/35 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-200/75">Direcionamento</div>
+                  <p className="mt-1 text-sm font-extrabold">Enviar proposta objetiva</p>
+                </div>
+                <div className="text-right">
+                  <div className="font-mono text-2xl font-black text-primary">{closingChanceByTemperature[active.lead.temperature]}%</div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">fechamento</div>
                 </div>
               </div>
+              <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                Priorize uma resposta curta com horario disponivel e proximo passo claro.
+              </p>
             </div>
-          </div>
+          </section>
 
-          <section className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3">
-            <h3 className="text-sm font-extrabold">Inteligencia do lead</h3>
-            <div className="mt-3 space-y-3">
+          <ExpandableSection
+            title="Inteligencia do lead"
+            subtitle="Contexto aberto so quando precisar"
+            icon={Gauge}
+            defaultOpen
+          >
+            <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <Info label="Origem" value={`${originEmoji[active.lead.origin] ?? "📍"} ${active.lead.origin}`} compact />
                 <Info label="Etapa" value={`${stageEmoji[active.lead.stage] ?? "📌"} ${stageLabels[active.lead.stage] ?? active.lead.stage}`} compact />
@@ -876,11 +892,14 @@ export default function ConversasPage() {
                 </div>
               </div>
             </div>
-          </section>
+          </ExpandableSection>
 
-          <section className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3">
-            <h3 className="text-sm font-extrabold">Timeline operacional</h3>
-            <div className="mt-3 space-y-3">
+          <ExpandableSection
+            title="Timeline operacional"
+            subtitle="Historico resumido para auditoria rapida"
+            icon={CalendarClock}
+          >
+            <div className="space-y-3">
               {operationalTimeline.map((item) => {
                 const Icon = item.icon;
 
@@ -900,7 +919,7 @@ export default function ConversasPage() {
                 );
               })}
             </div>
-          </section>
+          </ExpandableSection>
 
           <button
             onClick={() => setShowLeadProfile(true)}
@@ -1133,6 +1152,39 @@ function Info({ label, value, compact = false }: { label: string; value: string;
       <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className={cn("mt-0.5 font-medium capitalize", compact ? "truncate text-xs" : "text-sm")}>{value}</div>
     </div>
+  );
+}
+
+function ExpandableSection({
+  title,
+  subtitle,
+  icon: Icon,
+  defaultOpen = false,
+  children
+}: {
+  title: string;
+  subtitle: string;
+  icon: ComponentType<{ className?: string }>;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className="group rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3 transition hover:border-cyan-300/16 hover:bg-white/[0.05]"
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
+        <span className="grid size-9 shrink-0 place-items-center rounded-2xl border border-cyan-300/12 bg-cyan-300/10 text-cyan-200">
+          <Icon className="size-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-extrabold">{title}</span>
+          <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{subtitle}</span>
+        </span>
+        <ChevronDown className="size-4 shrink-0 text-muted-foreground transition group-open:rotate-180" />
+      </summary>
+      <div className="mt-3 border-t border-white/[0.06] pt-3">{children}</div>
+    </details>
   );
 }
 
