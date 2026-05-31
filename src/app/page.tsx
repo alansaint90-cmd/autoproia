@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { LockKeyhole, Mail, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
+import { LoginForm } from "@/app/login-form";
 
 const metrics = [
   { value: "+38%", label: "Conversao" },
@@ -19,12 +20,12 @@ export default function LoginPage() {
         <header className="relative z-10 flex items-center gap-3">
           <BrandLogo size={34} />
           <div>
-            <div className="text-sm font-black uppercase tracking-wide">
-              <span className="text-slate-50">AUTO </span>
-              <span className="text-primary">PRO</span>
-              <span className="text-slate-50"> IA</span>
+            <div className="text-[13px] font-extrabold uppercase leading-none tracking-[0.18em]">
+              <span className="text-slate-50 drop-shadow-[0_0_10px_rgba(249,250,251,0.12)]">AUTO </span>
+              <span className="text-primary drop-shadow-[0_0_14px_rgba(250,204,21,0.24)]">PRO</span>
+              <span className="text-slate-50 drop-shadow-[0_0_10px_rgba(249,250,251,0.12)]"> IA</span>
             </div>
-            <div className="font-mono text-[10px] font-semibold text-muted-foreground">v1.1 CRM</div>
+            <div className="mt-1 font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">v1.1 CRM</div>
           </div>
         </header>
 
@@ -71,61 +72,14 @@ export default function LoginPage() {
             <p className="mt-2 text-base text-muted-foreground">Acesse seu painel comercial.</p>
           </div>
 
-          <form className="space-y-7">
-            <label className="block">
-              <span className="mb-3 block text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                Email
-              </span>
-              <span className="flex h-14 items-center gap-4 rounded-[18px] border border-border bg-input/55 px-4 transition focus-within:border-primary/60 focus-within:ring-4 focus-within:ring-primary/10">
-                <Mail className="size-5 shrink-0 text-muted-foreground" />
-                <input
-                  type="email"
-                  defaultValue="admin@autopro.ia"
-                  className="min-w-0 flex-1 bg-transparent text-base font-semibold text-foreground outline-none"
-                  aria-label="Email"
-                />
-              </span>
-            </label>
+          <LoginForm />
 
-            <label className="block">
-              <span className="mb-3 block text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                Senha
-              </span>
-              <span className="flex h-14 items-center gap-4 rounded-[18px] border border-border bg-input/55 px-4 transition focus-within:border-primary/60 focus-within:ring-4 focus-within:ring-primary/10">
-                <LockKeyhole className="size-5 shrink-0 text-muted-foreground" />
-                <input
-                  type="password"
-                  defaultValue="autoproia"
-                  className="min-w-0 flex-1 bg-transparent text-base font-semibold text-foreground outline-none"
-                  aria-label="Senha"
-                />
-              </span>
-            </label>
-
-            <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
-              <label className="inline-flex items-center gap-2">
-                <input type="checkbox" className="size-4 rounded border-border accent-primary" aria-label="Manter conectado" />
-                <span>Manter conectado</span>
-              </label>
-              <Link href="/configuracoes" className="font-semibold text-primary">
-                Esqueci minha senha
-              </Link>
-            </div>
-
-            <Link
-              href="/dashboard"
-              className="flex h-14 w-full items-center justify-center rounded-[20px] bg-primary px-5 text-base font-extrabold text-primary-foreground shadow-[0_18px_44px_oklch(0.86_0.17_95_/_0.28)] transition hover:brightness-105"
-            >
-              Entrar no painel
+          <p className="mt-7 text-center text-sm text-muted-foreground">
+            Novo por aqui?{" "}
+            <Link href="/dashboard" className="font-semibold text-primary">
+              Acessar demo
             </Link>
-
-            <p className="text-center text-sm text-muted-foreground">
-              Novo por aqui?{" "}
-              <Link href="/dashboard" className="font-semibold text-primary">
-                Acessar demo
-              </Link>
-            </p>
-          </form>
+          </p>
         </div>
       </section>
     </main>

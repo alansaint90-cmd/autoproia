@@ -1,10 +1,13 @@
-export type Role = "super_admin" | "admin" | "operador" | "visualizador";
+export type Role = "super_admin" | "admin" | "gerente" | "atendente" | "operador" | "visualizador" | "ia";
 
 const roleLevel: Record<Role, number> = {
   super_admin: 0,
   admin: 1,
-  operador: 2,
-  visualizador: 3
+  gerente: 2,
+  atendente: 3,
+  operador: 3,
+  visualizador: 4,
+  ia: 5
 };
 
 export function can(currentRole: Role, minimumRole: Role) {

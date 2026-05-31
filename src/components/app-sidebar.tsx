@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   BarChart3,
   KanbanSquare,
@@ -22,44 +23,135 @@ const items = [
   { href: "/configuracoes", label: "Configuracoes", icon: Settings }
 ];
 
+const SIDEBAR_COLLAPSED_KEY = "auto-pro-ia:sidebar-collapsed";
+
 export function AppSidebar() {
   const pathname = usePathname();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      setIsCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true");
+    } catch {
+      setIsCollapsed(false);
+    }
+  }, []);
+
+  function toggleSidebar() {
+    setIsCollapsed((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      } catch {
+        // Ignore storage failures and keep the UI responsive.
+      }
+      return next;
+    });
+  }
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-[linear-gradient(180deg,#060b13,#0b1120)] text-sidebar-foreground shadow-[18px_0_60px_rgba(0,0,0,0.22)] md:flex">
-      <div className="border-b border-sidebar-border px-5 py-5">
-        <Link href="/dashboard" className="flex items-center gap-3">
-          <BrandLogo size={36} />
-          <div>
-            <div className="text-sm font-black tracking-wide">
-              <span className="text-slate-50">AUTO </span>
-              <span className="text-primary">PRO</span>
-              <span className="text-slate-50"> IA</span>
+    <aside
+      className={cn(
+        "hidden shrink-0 flex-col border-r border-sidebar-border bg-[linear-gradient(180deg,#060b13,#0b1120)] text-sidebar-foreground shadow-[18px_0_60px_rgba(0,0,0,0.22)] transition-[width] duration-300 md:flex",
+        isCollapsed ? "w-[76px]" : "w-64"
+      )}
+    >
+      <div className={cn("relative border-b border-sidebar-border py-5", isCollapsed ? "px-3" : "px-5")}>
+        <div className={cn("flex items-center", isCollapsed ? "justify-center" : "justify-between gap-3")}>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-label={isCollapsed ? "Expandir menu" : "Recolher menu"}
+            title={isCollapsed ? "Expandir menu" : "Recolher menu"}
+            className={cn("flex min-w-0 items-center gap-3 text-left", isCollapsed && "justify-center")}
+          >
+            <BrandLogo size={36} />
+            <div className={cn("min-w-0 transition-opacity duration-200", isCollapsed && "hidden")}>
+              <div className="text-[13px] font-extrabold uppercase leading-none tracking-[0.16em]">
+                <span className="text-slate-50 drop-shadow-[0_0_10px_rgba(249,250,251,0.10)]">AUTO </span>
+                <span className="text-primary drop-shadow-[0_0_12px_rgba(250,204,21,0.22)]">PRO</span>
+                <span className="text-slate-50 drop-shadow-[0_0_10px_rgba(249,250,251,0.10)]"> IA</span>
+              </div>
+              <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground">v1.1 CRM</div>
             </div>
-            <div className="font-mono text-[10px] text-muted-foreground">v1.1 CRM</div>
-          </div>
-        </Link>
+          </button>
+        </div>
       </div>
 
-      <nav className="flex-1 space-y-1 p-3">
+      <nav className={cn("flex-1 space-y-1", isCollapsed ? "p-3" : "p-3")}>
         {items.map((item) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
+
+          if (isCollapsed) {
+            return (
+              <div key={item.href} className="group/navitem relative flex justify-center after:absolute after:left-full after:top-0 after:h-full after:w-4 after:content-['']">
+                <button
+                  type="button"
+                  aria-label={item.label}
+                  className={cn(
+                    "relative grid size-12 place-items-center rounded-[18px] border text-primary transition duration-200",
+                    active
+                      ? "border-primary/36 bg-[linear-gradient(145deg,rgba(250,204,21,0.18),rgba(17,24,39,0.72))] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_14px_32px_rgba(0,0,0,0.28)]"
+                      : "border-white/[0.08] bg-[linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] text-muted-foreground hover:border-primary/26 hover:bg-primary/[0.07] hover:text-primary"
+                  )}
+                >
+                  {active ? <span className="absolute -left-1 h-7 w-1 rounded-r-full bg-primary shadow-[0_0_16px_rgba(250,204,21,0.34)]" /> : null}
+                  <Icon className="size-6 transition-transform duration-200 group-hover/navitem:scale-105" strokeWidth={1.9} />
+                  {item.badge ? (
+                    <span className="absolute right-0.5 top-0.5 rounded-md bg-primary px-1 text-[9px] font-black text-primary-foreground">
+                      {item.badge}
+                    </span>
+                  ) : null}
+                </button>
+
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "pointer-events-none absolute left-[calc(100%+4px)] top-1/2 z-[120] flex h-11 min-w-44 -translate-y-1/2 translate-x-2 items-center gap-2 rounded-2xl border px-3 text-sm font-black opacity-0 shadow-[0_18px_46px_rgba(0,0,0,0.38)] backdrop-blur-xl transition-all duration-200 group-hover/navitem:pointer-events-auto group-hover/navitem:translate-x-0 group-hover/navitem:opacity-100",
+                    active
+                      ? "border-primary/30 bg-[#111827]/96 text-primary"
+                      : "border-white/10 bg-[#0b1120]/96 text-foreground hover:border-primary/30 hover:bg-[#111827]"
+                  )}
+                >
+                  <Icon className="size-4" />
+                  <span className="flex-1">{item.label}</span>
+                  {item.badge ? (
+                    <span className="rounded-md bg-[#0B1120]/18 px-1.5 py-0.5 text-[10px] font-black">{item.badge}</span>
+                  ) : null}
+                </Link>
+              </div>
+            );
+          }
 
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
-                active ? "ap-button-primary" : "text-muted-foreground hover:bg-white/[0.045] hover:text-foreground"
+                "group relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition duration-200",
+                active
+                  ? "border border-primary/28 bg-[linear-gradient(135deg,rgba(250,204,21,0.18),rgba(17,24,39,0.70))] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_14px_34px_rgba(0,0,0,0.18)]"
+                  : "border border-transparent text-muted-foreground hover:border-white/[0.10] hover:bg-white/[0.045] hover:text-foreground"
               )}
             >
-              {active ? <span className="absolute left-0 h-6 w-[3px] rounded-r bg-primary-foreground/75" /> : null}
-              <Icon className={cn("size-[18px] transition-colors", active ? "text-primary-foreground" : "text-primary/85")} />
+              {active ? <span className="absolute -left-1 h-7 w-1 rounded-r-full bg-primary shadow-[0_0_16px_rgba(250,204,21,0.34)]" /> : null}
+              <span
+                className={cn(
+                  "grid shrink-0 place-items-center rounded-[13px] border transition duration-200",
+                  "size-8",
+                  active
+                    ? "border-primary/35 bg-primary/[0.16] text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
+                    : "border-white/[0.08] bg-white/[0.035] text-muted-foreground group-hover:border-primary/28 group-hover:bg-primary/10 group-hover:text-primary"
+                )}
+              >
+                <Icon className="size-[17px] transition-transform duration-200 group-hover:scale-105" strokeWidth={1.9} />
+              </span>
               <span className="flex-1 font-medium">{item.label}</span>
               {item.badge ? (
-                <span className="rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+                <span
+                  className={cn("rounded-md px-1.5 py-0.5 text-[10px] font-bold", active ? "bg-primary/18 text-primary" : "bg-primary text-primary-foreground")}
+                >
                   {item.badge}
                 </span>
               ) : null}

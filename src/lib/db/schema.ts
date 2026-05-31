@@ -9,7 +9,7 @@ import {
   uuid
 } from "drizzle-orm/pg-core";
 
-export const roleEnum = pgEnum("role", ["super_admin", "admin", "operador", "visualizador"]);
+export const roleEnum = pgEnum("role", ["super_admin", "admin", "gerente", "atendente", "operador", "visualizador", "ia"]);
 export const conversationStatusEnum = pgEnum("conversation_status", ["ai", "human", "paused", "closed"]);
 export const messageRoleEnum = pgEnum("message_role", ["lead", "ai", "human", "system"]);
 export const channelEnum = pgEnum("channel", ["whatsapp"]);
@@ -26,6 +26,13 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   role: roleEnum("role").notNull().default("operador"),
+  password_hash: text("password_hash"),
+  password_set_at: timestamp("password_set_at", { withTimezone: true }),
+  email_verified_at: timestamp("email_verified_at", { withTimezone: true }),
+  invite_token_hash: text("invite_token_hash"),
+  invite_expires_at: timestamp("invite_expires_at", { withTimezone: true }),
+  invited_at: timestamp("invited_at", { withTimezone: true }),
+  last_login_at: timestamp("last_login_at", { withTimezone: true }),
   ...baseAuditColumns,
   modified_by: uuid("modified_by").notNull()
 });

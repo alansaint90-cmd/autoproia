@@ -52,6 +52,7 @@ type LeadRecord = {
   id: string;
   name: string;
   phone: string;
+  avatar?: string;
   origin: string;
   status: LeadStage;
   temperature: "quente" | "morno" | "frio" | "urgente";
@@ -216,7 +217,7 @@ function LeadInitialFrame({
   lead,
   size = "md"
 }: {
-  lead: Pick<LeadRecord, "initials" | "temperature">;
+  lead: Pick<LeadRecord, "initials" | "temperature" | "avatar">;
   size?: "md" | "lg";
 }) {
   const tone: Record<LeadRecord["temperature"], string> = {
@@ -226,19 +227,23 @@ function LeadInitialFrame({
     urgente: "border-[#22C55E]/50 bg-[linear-gradient(135deg,#22C55E,#0B5FA5)] text-[#0B1120]"
   };
   const sizes = {
-    md: "size-12 rounded-[14px] text-sm",
-    lg: "size-14 rounded-2xl text-base"
+    md: "size-12 text-sm",
+    lg: "size-14 text-base"
   };
 
   return (
     <div
       className={cn(
-        "relative grid shrink-0 place-items-center border font-mono font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_12px_30px_rgba(0,0,0,0.24)]",
-        tone[lead.temperature],
+        "relative grid shrink-0 place-items-center overflow-hidden rounded-full border font-mono font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_12px_30px_rgba(0,0,0,0.24)]",
+        lead.avatar ? "border-white/12 bg-[#111827]" : tone[lead.temperature],
         sizes[size]
       )}
     >
-      {lead.initials}
+      {lead.avatar ? (
+        <img src={lead.avatar} alt="" className="absolute inset-0 size-full object-cover" />
+      ) : (
+        <span className="relative z-10">{lead.initials}</span>
+      )}
     </div>
   );
 }
@@ -263,6 +268,7 @@ function createInitialLeads(): LeadRecord[] {
     lastMessage: quickMessages[index % quickMessages.length],
     lastInteraction: lead.lastInteraction,
     responsible: lead.responsible,
+    avatar: lead.avatar,
     initials: initialsFromName(lead.name),
     notes: lead.notes ?? "Sem observacoes adicionais.",
     interest: lead.interest
@@ -651,7 +657,6 @@ function LeadRow({
   onAskDelete: () => void;
 }) {
   const score = aiScore(lead);
-  const ai = aiStatusConfig[aiState(lead)];
 
   return (
     <article
@@ -666,21 +671,12 @@ function LeadRow({
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-2">
               <h3 className="truncate text-sm font-black">{lead.name}</h3>
-              <span className={cn("hidden rounded-full border px-2 py-0.5 text-[10px] font-black xl:inline-flex", ai.tone)}>
-                <span className={cn("mr-1.5 mt-1 size-1.5 rounded-full", ai.dot)} />
-                {ai.label}
-              </span>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-black", stageTone(lead.status))}>
-                {stageLabel(lead.status)}
-              </span>
-              <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-black", temperatureConfig[lead.temperature].tone)}>
-                {temperatureConfig[lead.temperature].label}
-              </span>
-              <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-2 py-0.5 text-[10px] font-bold text-sky-200">
-                {lead.origin}
-              </span>
+            <div className="group/lead-preview relative mt-1">
+              <p className="line-clamp-1 text-xs font-semibold text-muted-foreground">{lead.lastMessage}</p>
+              <div className="pointer-events-none absolute left-0 top-5 z-30 w-[min(340px,calc(100vw-2rem))] translate-y-1 rounded-xl border border-white/10 bg-[#0b1120]/96 p-3 text-xs leading-5 text-slate-200 opacity-0 shadow-[0_18px_48px_rgba(0,0,0,0.44)] backdrop-blur-xl transition-all duration-200 group-hover/lead-preview:translate-y-0 group-hover/lead-preview:opacity-100">
+                {lead.lastMessage}
+              </div>
             </div>
           </div>
         </div>
@@ -814,8 +810,8 @@ function LeadSidePanel({ lead, onClose }: { lead: LeadRecord; onClose: () => voi
   const ai = aiStatusConfig[aiState(lead)];
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/55 backdrop-blur-sm">
-      <aside className="h-full w-full max-w-2xl overflow-y-auto border-l border-white/10 bg-[#0b1422]/96 shadow-[0_30px_120px_rgba(0,0,0,0.6)] backdrop-blur-xl scrollbar-thin">
+    <div className="fixed inset-0 z-[140] flex justify-end bg-black/55 backdrop-blur-sm">
+      <aside className="flex h-dvh w-full max-w-2xl flex-col overflow-hidden border-l border-white/10 bg-[#0b1422]/96 shadow-[0_30px_120px_rgba(0,0,0,0.6)] backdrop-blur-xl">
         <div className="sticky top-0 z-10 border-b border-white/10 bg-[#0b1422]/92 p-5 backdrop-blur-xl">
           <div className="flex items-start gap-4">
             <LeadInitialFrame lead={lead} size="lg" />
@@ -844,7 +840,8 @@ function LeadSidePanel({ lead, onClose }: { lead: LeadRecord; onClose: () => voi
           </div>
         </div>
 
-        <div className="grid gap-4 p-5">
+        <div className="min-h-0 flex-1 overflow-y-auto p-5 scrollbar-thin">
+        <div className="grid gap-4">
           <section className="rounded-3xl border border-primary/20 bg-primary/[0.06] p-5">
             <div className="flex items-start gap-3">
               <span className="grid size-10 place-items-center rounded-2xl bg-primary/15 text-primary">
@@ -886,7 +883,10 @@ function LeadSidePanel({ lead, onClose }: { lead: LeadRecord; onClose: () => voi
             <p className="text-sm leading-6 text-muted-foreground">{lead.notes}</p>
           </DrawerSection>
 
-          <div className="grid gap-2 sm:grid-cols-2">
+        </div>
+        </div>
+
+          <div className="grid gap-2 border-t border-white/10 bg-[#0b1422]/98 p-5 sm:grid-cols-2">
             <Link
               href={`/conversas?lead=${lead.id}`}
               className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-extrabold text-primary-foreground shadow-glow transition hover:-translate-y-0.5"
@@ -899,7 +899,6 @@ function LeadSidePanel({ lead, onClose }: { lead: LeadRecord; onClose: () => voi
               Criar tarefa
             </button>
           </div>
-        </div>
       </aside>
     </div>
   );
@@ -914,15 +913,15 @@ function DrawerSection({
 }: {
   title: string;
   subtitle: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   defaultOpen?: boolean;
   children: ReactNode;
 }) {
   return (
-    <details open={defaultOpen} className="group rounded-3xl border border-white/10 bg-white/[0.035] p-4">
+    <details open={defaultOpen} className="group rounded-[22px] border border-white/10 bg-white/[0.035] p-4">
       <summary className="flex cursor-pointer list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
-        <span className="grid size-9 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
-          <Icon className="size-4" />
+        <span className="grid size-9 shrink-0 place-items-center rounded-[14px] border border-primary/20 bg-[linear-gradient(145deg,rgba(250,204,21,0.16),rgba(255,255,255,0.035))] text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+          <Icon className="size-4" strokeWidth={1.9} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-black">{title}</span>
@@ -939,10 +938,12 @@ function Badge({ className, children }: { className: string; children: ReactNode
   return <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-black", className)}>{children}</span>;
 }
 
-function Insight({ label, value, icon: Icon }: { label: string; value: string; icon: React.ComponentType<{ className?: string }> }) {
+function Insight({ label, value, icon: Icon }: { label: string; value: string; icon: React.ComponentType<{ className?: string; strokeWidth?: number }> }) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-4">
-      <Icon className="size-4 text-primary" />
+    <div className="rounded-[22px] border border-white/10 bg-white/[0.035] p-4">
+      <span className="grid size-9 place-items-center rounded-[14px] border border-primary/20 bg-primary/10 text-primary">
+        <Icon className="size-4" strokeWidth={1.9} />
+      </span>
       <p className="mt-3 font-mono text-xl font-black">{value}</p>
       <p className="mt-1 text-xs font-semibold text-muted-foreground">{label}</p>
     </div>
@@ -961,11 +962,11 @@ function TimelineItem({ title, detail, active }: { title: string; detail: string
   );
 }
 
-function PanelInfo({ label, value, icon: Icon }: { label: string; value: string; icon: React.ComponentType<{ className?: string }> }) {
+function PanelInfo({ label, value, icon: Icon }: { label: string; value: string; icon: React.ComponentType<{ className?: string; strokeWidth?: number }> }) {
   return (
-    <div className="flex items-center gap-3 rounded-3xl border border-white/10 bg-white/[0.035] p-4">
-      <span className="grid size-10 place-items-center rounded-2xl bg-primary/10 text-primary">
-        <Icon className="size-4" />
+    <div className="flex items-center gap-3 rounded-[22px] border border-white/10 bg-white/[0.035] p-4">
+      <span className="grid size-10 place-items-center rounded-[14px] border border-primary/20 bg-[linear-gradient(145deg,rgba(250,204,21,0.16),rgba(255,255,255,0.035))] text-primary">
+        <Icon className="size-4" strokeWidth={1.9} />
       </span>
       <div className="min-w-0">
         <p className="text-xs font-black uppercase tracking-[0.12em] text-muted-foreground">{label}</p>

@@ -33,6 +33,34 @@
   --ap-blue: #0b5fa5;
 }
 
+[data-theme="light"] {
+  --background: #f4f7fb;
+  --foreground: #0b1120;
+  --card: #ffffff;
+  --card-foreground: #0b1120;
+  --muted: #e8eef7;
+  --muted-foreground: #5b6778;
+  --accent: #eef3fb;
+  --input: #ffffff;
+  --ring: #eab308;
+  --primary: #facc15;
+  --primary-foreground: #0b1120;
+  --success: #16a34a;
+  --danger: #dc2626;
+  --border: #d7e0ec;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0b1120;
+  --sidebar-border: #d7e0ec;
+  --sidebar-accent: #facc15;
+  --warning: #ca8a04;
+  --tech: #dfe7f2;
+  --trust: #0b5fa5;
+  --ap-black: #f4f7fb;
+  --ap-panel: #ffffff;
+  --ap-graphite: #e8eef7;
+  --ap-white: #0b1120;
+}
+
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -70,6 +98,26 @@ body {
     linear-gradient(135deg, #05070d 0%, var(--background) 48%, #080d16 100%);
   color: var(--foreground);
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+[data-theme="light"] body {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(250, 204, 21, 0.14), transparent 30%),
+    radial-gradient(circle at 82% 8%, rgba(11, 95, 165, 0.12), transparent 34%),
+    linear-gradient(135deg, #f8fbff 0%, var(--background) 52%, #eef4fb 100%);
+}
+
+[data-theme="light"] .ap-panel,
+[data-theme="light"] .ap-surface {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(244, 247, 251, 0.90));
+  border-color: rgba(11, 17, 32, 0.10);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
+}
+
+[data-theme="light"] .kanban-input {
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--foreground);
 }
 
 ::selection {
@@ -212,6 +260,27 @@ body {
   filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.72));
 }
 
+.ai-active-dot {
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.58), 0 0 12px rgba(34, 197, 94, 0.75);
+  animation: aiActiveDotPulse 1.8s ease-in-out infinite;
+}
+
+.ai-status-orbit::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  background: conic-gradient(from 0deg, transparent 0deg 292deg, rgba(56, 189, 248, 0.22) 304deg, rgba(125, 211, 252, 1) 322deg, rgba(56, 189, 248, 0.30) 340deg, transparent 356deg 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: 2px;
+  animation: aiStatusOrbit 2.2s linear infinite;
+  filter: drop-shadow(0 0 7px rgba(56, 189, 248, 0.76));
+  pointer-events: none;
+}
+
 @keyframes businessPulseTrace {
   0% {
     stroke-dashoffset: 54;
@@ -239,6 +308,29 @@ body {
   45% {
     transform: scale(1.22);
     opacity: 1;
+  }
+}
+
+@keyframes aiActiveDotPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.52), 0 0 10px rgba(34, 197, 94, 0.72);
+    transform: scale(1);
+  }
+
+  50% {
+    box-shadow: 0 0 0 5px rgba(34, 197, 94, 0), 0 0 18px rgba(34, 197, 94, 0.95);
+    transform: scale(1.12);
+  }
+}
+
+@keyframes aiStatusOrbit {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
   }
 }
 

@@ -909,7 +909,7 @@ export default function KanbanPage() {
                           onDragStart={() => setDraggedId(lead.id)}
                           onDragEnd={() => setDraggedId(null)}
                           className={cn(
-                            "group relative cursor-grab overflow-hidden rounded-2xl border border-white/[0.075] bg-[linear-gradient(135deg,rgba(17,24,39,0.82),rgba(11,17,32,0.7))] px-3 py-2.5 backdrop-blur-md transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-white/[0.15] hover:bg-[#111827]/90 active:cursor-grabbing active:scale-[0.99]",
+                            "group relative cursor-grab overflow-visible rounded-2xl border border-white/[0.075] bg-[linear-gradient(135deg,rgba(17,24,39,0.82),rgba(11,17,32,0.7))] px-3 py-2.5 backdrop-blur-md transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-white/[0.15] hover:bg-[#111827]/90 active:cursor-grabbing active:scale-[0.99]",
                             movedLeadId === lead.id && "animate-[pulse_420ms_ease-out]"
                           )}
                         >
@@ -958,14 +958,19 @@ export default function KanbanPage() {
                                 {lead.phone}
                               </p>
                               {!isExpanded ? (
-                                <p className="line-clamp-1 text-[11px] font-semibold leading-4 text-muted-foreground">
-                                  {kanbanNextAction(lead.status)}
-                                </p>
+                                <div className="group/message relative">
+                                  <p className="line-clamp-1 text-[11px] font-semibold leading-4 text-muted-foreground">
+                                    {lead.lastMessage}
+                                  </p>
+                                  <div className="pointer-events-none absolute left-0 top-5 z-30 w-[min(280px,calc(100vw-2rem))] translate-y-1 rounded-xl border border-white/10 bg-[#0b1120]/96 p-3 text-xs leading-5 text-slate-200 opacity-0 shadow-[0_18px_48px_rgba(0,0,0,0.44)] backdrop-blur-xl transition-all duration-200 group-hover/message:translate-y-0 group-hover/message:opacity-100">
+                                    {lead.lastMessage}
+                                  </div>
+                                </div>
                               ) : null}
                             </div>
                           </div>
 
-                          {!isExpanded ? (
+                          {false ? (
                             <div className="mt-2 grid grid-cols-3 gap-1.5 pl-1.5 text-[9px]">
                               <span className={cn("inline-flex min-w-0 items-center justify-center gap-1 rounded-lg border px-1.5 py-1 font-bold capitalize", temperatureClasses[lead.temperature])}>
                                 <span aria-hidden="true">{temperatureEmoji[lead.temperature]}</span>

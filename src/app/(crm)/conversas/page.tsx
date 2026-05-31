@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType, type MouseEvent, type ReactNode } from "react";
 import {
+  Archive,
+  Ban,
   Bot,
   Camera,
   CalendarClock,
@@ -10,19 +12,23 @@ import {
   Clock3,
   Gauge,
   ImageIcon,
+  LockKeyhole,
   MessageSquareText,
   Mic,
   Music2,
   Pencil,
   Pause,
+  Pin,
   Phone,
   Plus,
   Search,
   Send,
   Smile,
+  Star,
   Sparkles,
   Target,
   Trash2,
+  VolumeX,
   UserCheck,
   Video,
   WandSparkles,
@@ -41,6 +47,10 @@ type QuickReply = {
   attachment?: QuickReplyAttachment;
 };
 
+type InboxView = "all" | "favorites" | "locked" | "archived";
+type PreviewTooltip = { text: string; top: number; left: number } | null;
+const inboxListsStorageKey = "auto-pro-ia:inbox-lists";
+
 type QuickReplyAttachment = {
   name: string;
   type: "audio" | "image" | "video";
@@ -52,6 +62,7 @@ type KanbanStoredLead = {
   id: string;
   name: string;
   phone: string;
+  avatar?: string;
   origin: string;
   status?: string;
   temperature?: string;
@@ -218,38 +229,95 @@ function initialsFromName(name: string) {
     .join("");
 }
 
+function ConversationInboxMenu({
+  onArchive,
+  onClose
+}: {
+  onArchive: () => void;
+  onClose: () => void;
+}) {
+  const actions = [
+    { label: "Arquivar conversa", icon: Archive, action: onArchive },
+    { label: "Silenciar notificacoes", icon: VolumeX, action: onClose, hasSubmenu: true },
+    { label: "Fixar conversa", icon: Pin, action: onClose },
+    { label: "Marcar como nao lida", icon: MessageSquareText, action: onClose },
+    { label: "Adicionar aos Favoritos", icon: Star, action: onClose },
+    { label: "Adicionar a lista", icon: Plus, action: onClose },
+    { label: "Bloquear", icon: Ban, action: onClose, danger: true },
+    { label: "Limpar conversa", icon: X, action: onClose },
+    { label: "Apagar conversa", icon: Trash2, action: onArchive, danger: true }
+  ];
+
+  return (
+    <div className="absolute right-2 top-9 z-[90] w-60 overflow-hidden rounded-2xl border border-white/10 bg-[#0b1120]/98 p-1.5 shadow-[0_24px_70px_rgba(0,0,0,0.48)] backdrop-blur-xl">
+      {actions.map((item, index) => {
+        const Icon = item.icon;
+        const separated = index === 6;
+
+        return (
+          <button
+            key={item.label}
+            type="button"
+            onClick={item.action}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-semibold transition hover:bg-white/[0.06]",
+              separated && "mt-1 border-t border-white/10 pt-3",
+              item.danger ? "text-red-200 hover:bg-red-500/10" : "text-slate-100"
+            )}
+          >
+            <Icon className="size-4 shrink-0" />
+            <span className="flex-1">{item.label}</span>
+            {item.hasSubmenu ? <ChevronDown className="-rotate-90 size-3.5 text-muted-foreground" /> : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function LeadInitialAvatar({
   name,
+  avatar,
   temperature,
-  size = "md"
+  size = "md",
+  neutral = false
 }: {
   name: string;
+  avatar?: string;
   temperature: Conversation["lead"]["temperature"];
   size?: "sm" | "md" | "lg" | "xl";
+  neutral?: boolean;
 }) {
-  const tone: Record<Conversation["lead"]["temperature"], string> = {
-    quente: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
-    morno: "border-[#0B5FA5]/60 bg-[linear-gradient(135deg,#0B5FA5,#1F2937)] text-blue-50",
-    frio: "border-white/18 bg-[linear-gradient(135deg,#1F2937,#0B1120)] text-slate-100",
-    urgente: "border-[#22C55E]/50 bg-[linear-gradient(135deg,#22C55E,#0B5FA5)] text-[#0B1120]"
-  };
+  const avatarTones = [
+    "border-[#0B5FA5]/42 bg-[linear-gradient(135deg,rgba(11,95,165,0.72),rgba(17,24,39,0.96))] text-blue-50",
+    "border-[#FACC15]/34 bg-[linear-gradient(135deg,rgba(250,204,21,0.72),rgba(31,41,55,0.96))] text-[#0B1120]",
+    "border-white/14 bg-[linear-gradient(135deg,rgba(31,41,55,0.98),rgba(11,17,32,0.98))] text-slate-100",
+    "border-[#64748B]/34 bg-[linear-gradient(135deg,rgba(51,65,85,0.92),rgba(15,23,42,0.98))] text-slate-100",
+    "border-[#38BDF8]/28 bg-[linear-gradient(135deg,rgba(14,116,144,0.62),rgba(17,24,39,0.96))] text-cyan-50"
+  ];
+  const seed = `${name}-${temperature}-${neutral ? "soft" : "solid"}`;
+  const toneIndex = Array.from(seed).reduce((total, char) => total + char.charCodeAt(0), 0) % avatarTones.length;
   const sizes = {
-    sm: "size-9 rounded-[10px] text-xs",
-    md: "size-10 rounded-xl text-sm",
-    lg: "size-12 rounded-[14px] text-base",
-    xl: "size-14 rounded-2xl text-lg"
+    sm: "size-9 text-xs",
+    md: "size-10 text-sm",
+    lg: "size-12 text-base",
+    xl: "size-14 text-lg"
   };
 
   return (
     <span
       className={cn(
-        "relative grid shrink-0 place-items-center border font-mono font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_24px_rgba(0,0,0,0.24)]",
-        tone[temperature],
+        "relative grid shrink-0 place-items-center overflow-hidden rounded-full border font-mono font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_24px_rgba(0,0,0,0.24)]",
+        avatar ? "border-white/12 bg-[#111827]" : avatarTones[toneIndex],
         sizes[size]
       )}
       aria-hidden="true"
     >
-      <span className="relative z-10">{initialsFromName(name)}</span>
+      {avatar ? (
+        <img src={avatar} alt="" className="absolute inset-0 size-full object-cover" />
+      ) : (
+        <span className="relative z-10">{initialsFromName(name)}</span>
+      )}
     </span>
   );
 }
@@ -283,7 +351,7 @@ function createConversationFromKanbanLead(lead: KanbanStoredLead): Conversation 
       temperature: normalizeTemperature(lead.temperature),
       lastInteraction: lead.lastInteraction || "agora",
       responsible: lead.responsible || "Equipe comercial",
-      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(lead.name)}`,
+      avatar: lead.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(lead.name)}`,
       stage: normalizeStage(lead.status),
       interest: "carro",
       notes: lead.notes,
@@ -316,6 +384,14 @@ export default function ConversasPage() {
   const [manualConversationIds, setManualConversationIds] = useState<string[]>([]);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>(defaultQuickReplies);
   const [conversationQuery, setConversationQuery] = useState("");
+  const [inboxView, setInboxView] = useState<InboxView>("all");
+  const [showInboxLists, setShowInboxLists] = useState(false);
+  const [inboxLists, setInboxLists] = useState<string[]>(["Clientes auto escola", "Prospeccao quente", "Retorno financeiro"]);
+  const [newInboxListName, setNewInboxListName] = useState("");
+  const [editingInboxList, setEditingInboxList] = useState<string | null>(null);
+  const [editingInboxListName, setEditingInboxListName] = useState("");
+  const [activeInboxList, setActiveInboxList] = useState<string | null>(null);
+  const [previewTooltip, setPreviewTooltip] = useState<PreviewTooltip>(null);
   const [manageReplies, setManageReplies] = useState(false);
   const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
   const [replyName, setReplyName] = useState("");
@@ -326,14 +402,22 @@ export default function ConversasPage() {
   const [showLeadProfile, setShowLeadProfile] = useState(false);
   const [deleteReplyId, setDeleteReplyId] = useState<string | null>(null);
   const [replyFeedback, setReplyFeedback] = useState("");
+  const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
   const draftTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const filteredConversations = useMemo(() => {
     const normalized = conversationQuery.trim().toLowerCase();
+    const visibleByView = availableConversations.filter((conversation, index) => {
+      if (inboxView === "favorites") return conversation.lead.temperature === "quente" || index === 0;
+      if (inboxView === "locked") return manualConversationIds.includes(conversation.lead.id) || conversation.status === "human";
+      if (inboxView === "archived") return false;
+      return true;
+    });
+
     if (!normalized) {
-      return availableConversations;
+      return visibleByView;
     }
 
-    return availableConversations.filter((conversation) =>
+    return visibleByView.filter((conversation) =>
       [
         conversation.lead.name,
         conversation.lead.phone,
@@ -344,12 +428,31 @@ export default function ConversasPage() {
         conversation.messages.map((message) => message.text).join(" ")
       ].some((value) => value.toLowerCase().includes(normalized))
     );
-  }, [availableConversations, conversationQuery]);
+  }, [availableConversations, conversationQuery, inboxView, manualConversationIds]);
   const active = availableConversations.find((conversation) => conversation.lead.id === activeId) ?? availableConversations[0] ?? conversations[0];
   const editingReply = quickReplies.find((reply) => reply.id === editingReplyId);
   const canSendDraft = draftMessage.trim().length > 0 || Boolean(draftAttachment);
   const isManualAttendance = manualConversationIds.includes(active.lead.id) || active.status === "human";
   const currentAgent = "Carla Vendas";
+  const favoriteCount = availableConversations.filter((conversation, index) => conversation.lead.temperature === "quente" || index === 0).length;
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(inboxListsStorageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setInboxLists(parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0));
+        }
+      }
+    } catch {
+      setInboxLists(["Clientes auto escola", "Prospeccao quente", "Retorno financeiro"]);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(inboxListsStorageKey, JSON.stringify(inboxLists));
+  }, [inboxLists]);
 
   useEffect(() => {
     let mergedConversations = conversations;
@@ -546,16 +649,81 @@ export default function ConversasPage() {
     event.target.style.height = `${Math.min(event.target.scrollHeight, 72)}px`;
   }
 
+  function selectInboxView(view: InboxView) {
+    setInboxView(view);
+    setActiveInboxList(null);
+  }
+
+  function selectInboxList(listName: string) {
+    setActiveInboxList(listName);
+    setInboxView("all");
+    setShowInboxLists(false);
+  }
+
+  function createInboxList() {
+    const listName = newInboxListName.trim();
+    if (!listName) return;
+
+    setInboxLists((current) => (current.some((item) => item.toLowerCase() === listName.toLowerCase()) ? current : [listName, ...current]));
+    setNewInboxListName("");
+  }
+
+  function startEditInboxList(listName: string) {
+    setEditingInboxList(listName);
+    setEditingInboxListName(listName);
+  }
+
+  function saveEditedInboxList() {
+    const nextName = editingInboxListName.trim();
+    if (!editingInboxList || !nextName) return;
+
+    setInboxLists((current) =>
+      current.map((item) => (item === editingInboxList ? nextName : item)).filter((item, index, array) => array.findIndex((value) => value.toLowerCase() === item.toLowerCase()) === index)
+    );
+    if (activeInboxList === editingInboxList) {
+      setActiveInboxList(nextName);
+    }
+    setEditingInboxList(null);
+    setEditingInboxListName("");
+  }
+
+  function deleteInboxList(listName: string) {
+    const confirmed = window.confirm(`Deseja apagar a lista "${listName}"?`);
+    if (!confirmed) return;
+
+    setInboxLists((current) => current.filter((item) => item !== listName));
+    if (activeInboxList === listName) {
+      setActiveInboxList(null);
+      setInboxView("all");
+    }
+  }
+
+  function showPreviewTooltip(event: MouseEvent<HTMLElement>, text: string) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setPreviewTooltip({
+      text,
+      top: Math.max(84, rect.top + rect.height / 2),
+      left: Math.min(window.innerWidth - 360, rect.right + 18)
+    });
+  }
+
   return (
     <>
       <Topbar title="Central de Atendimento" subtitle="WhatsApp + IA com intervencao humana sem perda de contexto" />
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden bg-[radial-gradient(circle_at_42%_0%,rgba(11,95,165,0.10),transparent_34%),linear-gradient(180deg,rgba(250,204,21,0.035),transparent_24%),#0B1120] md:grid-cols-[320px_1fr] xl:grid-cols-[320px_minmax(560px,0.9fr)_340px]">
+      {previewTooltip ? (
+        <div
+          className="pointer-events-none fixed z-[220] w-[min(340px,calc(100vw-2rem))] -translate-y-1/2 rounded-xl border border-white/10 bg-[#0b1120]/98 p-3 text-xs leading-5 text-slate-100 opacity-100 shadow-[0_24px_70px_rgba(0,0,0,0.56)] backdrop-blur-xl"
+          style={{ top: previewTooltip.top, left: previewTooltip.left }}
+        >
+          {previewTooltip.text}
+        </div>
+      ) : null}
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden bg-[radial-gradient(circle_at_42%_0%,rgba(11,95,165,0.10),transparent_34%),linear-gradient(180deg,rgba(250,204,21,0.035),transparent_24%),#0B1120] md:grid-cols-[380px_1fr] xl:grid-cols-[380px_minmax(460px,0.78fr)_320px]">
         <aside className="flex min-h-0 flex-col overflow-hidden border-r border-white/[0.08] bg-[#111827]/72 backdrop-blur-xl">
           <div className="border-b border-white/[0.08] p-3">
             <div className="mb-2.5 flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-extrabold">Inbox inteligente</h2>
-                <p className="mt-0.5 text-xs text-muted-foreground">Conversas priorizadas pela IA</p>
+                <h2 className="text-sm font-extrabold">Caixa de entrada</h2>
               </div>
               <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">
                 {availableConversations.length} ativos
@@ -570,30 +738,211 @@ export default function ConversasPage() {
                 className="h-10 w-full rounded-2xl border border-white/10 bg-white/[0.045] pl-10 pr-3 text-sm outline-none transition placeholder:text-muted-foreground/70 hover:border-white/[0.16] focus:border-primary/55 focus:ring-4 focus:ring-primary/10"
               />
             </div>
+            <div className="mt-3 flex items-center gap-1.5">
+              <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                {[
+                  { id: "all" as const, label: "Tudo", count: availableConversations.length },
+                  { id: "favorites" as const, label: "Favoritos", count: favoriteCount }
+                ].map((item) => {
+                  const active = !activeInboxList && inboxView === item.id;
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => selectInboxView(item.id)}
+                      className={cn(
+                        "h-8 shrink-0 rounded-full border px-3 text-xs font-bold transition",
+                        active
+                          ? "border-primary/45 bg-primary/18 text-primary"
+                          : "border-white/10 bg-white/[0.035] text-muted-foreground hover:border-white/20 hover:text-foreground"
+                      )}
+                    >
+                      <span>{item.label}</span>
+                      <span className={cn("ml-1 rounded-full px-1.5 py-0.5 text-[10px]", active ? "bg-[#0B1120]/18" : "bg-white/[0.06]")}>{item.count}</span>
+                    </button>
+                  );
+                })}
+                {activeInboxList ? (
+                  <button
+                    type="button"
+                    className="h-8 shrink-0 rounded-full border border-primary/45 bg-primary/18 px-3 text-xs font-bold text-primary"
+                  >
+                    {activeInboxList}
+                  </button>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowInboxLists(true);
+                  setEditingInboxList(null);
+                }}
+                className="grid size-8 shrink-0 place-items-center rounded-full border border-primary/30 bg-primary/12 text-primary transition hover:bg-primary/20"
+                aria-label="Criar nova lista"
+              >
+                <Plus className="size-4" />
+              </button>
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowInboxLists((current) => !current)}
+                  className={cn(
+                    "grid size-8 place-items-center rounded-full border transition",
+                    showInboxLists
+                      ? "border-primary/40 bg-primary/14 text-primary"
+                      : "border-white/10 bg-white/[0.035] text-muted-foreground hover:border-white/20 hover:text-foreground"
+                  )}
+                  aria-label="Abrir listas da caixa de entrada"
+                >
+                  <ChevronDown className={cn("size-4 transition", showInboxLists && "rotate-180")} />
+                </button>
+                {showInboxLists ? (
+                  <div className="absolute right-0 top-9 z-[120] w-72 overflow-hidden rounded-2xl border border-white/10 bg-[#0B1120]/[0.98] p-2 shadow-[0_24px_70px_rgba(0,0,0,0.52)] backdrop-blur-xl">
+                    <div className="rounded-xl border border-white/10 bg-white/[0.035] p-2">
+                      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">Cadastrar lista</p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={newInboxListName}
+                          onChange={(event) => setNewInboxListName(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              createInboxList();
+                            }
+                          }}
+                          placeholder="Nome da nova lista"
+                          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#111827] px-3 py-2 text-xs font-semibold text-white outline-none placeholder:text-muted-foreground focus:border-primary/50"
+                        />
+                        <button
+                          type="button"
+                          onClick={createInboxList}
+                          className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground transition hover:brightness-105"
+                          aria-label="Cadastrar nova lista"
+                        >
+                          <Plus className="size-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-2 max-h-44 overflow-y-auto pr-1 scrollbar-thin">
+                      {inboxLists.map((listName) => (
+                        <div
+                          key={listName}
+                          className={cn(
+                            "group/list flex w-full items-center gap-2 rounded-xl px-2 py-1.5 transition hover:bg-white/[0.06]",
+                            activeInboxList === listName ? "text-primary" : "text-slate-100"
+                          )}
+                        >
+                          {editingInboxList === listName ? (
+                            <input
+                              value={editingInboxListName}
+                              onChange={(event) => setEditingInboxListName(event.target.value)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  saveEditedInboxList();
+                                }
+                                if (event.key === "Escape") {
+                                  setEditingInboxList(null);
+                                  setEditingInboxListName("");
+                                }
+                              }}
+                              className="min-w-0 flex-1 rounded-lg border border-primary/30 bg-[#111827] px-2 py-1.5 text-xs font-bold text-white outline-none"
+                              autoFocus
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => selectInboxList(listName)}
+                              className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 text-left text-xs font-bold"
+                            >
+                              <Star className="size-4 shrink-0 text-muted-foreground" />
+                              <span className="min-w-0 flex-1 truncate">{listName}</span>
+                              <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-muted-foreground">0</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => (editingInboxList === listName ? saveEditedInboxList() : startEditInboxList(listName))}
+                            className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground opacity-70 transition hover:bg-primary/10 hover:text-primary group-hover/list:opacity-100"
+                            aria-label={`Editar lista ${listName}`}
+                          >
+                            <Pencil className="size-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteInboxList(listName)}
+                            className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground opacity-70 transition hover:bg-red-500/10 hover:text-red-300 group-hover/list:opacity-100"
+                            aria-label={`Apagar lista ${listName}`}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="my-1 border-t border-white/10" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        selectInboxView("locked");
+                        setShowInboxLists(false);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-slate-100 transition hover:bg-white/[0.06]"
+                    >
+                      <LockKeyhole className="size-4 text-muted-foreground" />
+                      Conversas trancadas
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        selectInboxView("archived");
+                        setShowInboxLists(false);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-slate-100 transition hover:bg-white/[0.06]"
+                    >
+                      <Archive className="size-4 text-muted-foreground" />
+                      Arquivadas
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
-          <div className="min-h-0 max-h-[calc(100vh-238px)] flex-1 space-y-1.5 overflow-y-auto overscroll-contain p-2.5 pr-3 scrollbar-thin">
+          <div className="min-h-0 max-h-[calc(100vh-238px)] flex-1 space-y-1.5 overflow-x-hidden overflow-y-auto overscroll-contain p-2.5 pr-3 scrollbar-thin">
             {filteredConversations.map((conversation) => {
               const selected = conversation.lead.id === activeId;
               const chance = closingChanceByTemperature[conversation.lead.temperature];
 
               return (
-                <button
+                <div
                   key={conversation.lead.id}
-                  onClick={() => setActiveId(conversation.lead.id)}
                   className={cn(
-                    "group flex w-full items-start gap-2.5 rounded-2xl border border-white/[0.08] bg-[#111827]/88 p-2.5 text-left shadow-[0_12px_28px_rgba(0,0,0,0.18)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#0B5FA5]/45 hover:bg-[#132033]",
-                    selected && "border-[#FACC15]/42 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(17,24,39,0.96))] shadow-[0_18px_42px_rgba(0,0,0,0.24)]"
+                    "group relative flex w-full items-start gap-2.5 rounded-2xl border border-white/[0.08] bg-[#111827]/88 p-2.5 text-left shadow-[0_12px_28px_rgba(0,0,0,0.18)] transition-all duration-200 hover:z-[85] hover:-translate-y-0.5 hover:border-[#0B5FA5]/45 hover:bg-[#132033]",
+                    selected && "border-[#FACC15]/42 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(17,24,39,0.96))] shadow-[0_18px_42px_rgba(0,0,0,0.24)]",
+                    openConversationMenuId === conversation.lead.id && "z-[80]"
                   )}
                 >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveId(conversation.lead.id);
+                      setOpenConversationMenuId(null);
+                    }}
+                    className="flex min-w-0 flex-1 items-start gap-2.5 text-left"
+                  >
                   <div className="relative shrink-0">
-                    <LeadInitialAvatar name={conversation.lead.name} temperature={conversation.lead.temperature} size="sm" />
+                    <LeadInitialAvatar name={conversation.lead.name} avatar={conversation.lead.avatar} temperature={conversation.lead.temperature} size="sm" neutral />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="truncate text-[13px] font-extrabold">{conversation.lead.name}</span>
                       <span className="shrink-0 text-[10px] text-muted-foreground">{conversation.lead.lastInteraction}</span>
                     </div>
-                    <div className="mt-0.5 flex items-center gap-1.5">
+                    <div
+                      className="group/preview relative mt-0.5 flex items-center gap-1.5"
+                      onMouseEnter={(event) => showPreviewTooltip(event, conversation.preview)}
+                      onMouseLeave={() => setPreviewTooltip(null)}
+                    >
                       <p className="flex-1 truncate text-[11px] text-muted-foreground">{conversation.preview}</p>
                       {conversation.unread > 0 ? (
                         <span className="rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
@@ -601,6 +950,7 @@ export default function ConversasPage() {
                         </span>
                       ) : null}
                     </div>
+                    {false ? (
                     <div className="mt-1.5 flex flex-wrap items-center gap-1">
                       <span className={cn("rounded-full border px-1.5 py-0.5 text-[9px] font-bold capitalize", temperatureClasses[conversation.lead.temperature])}>
                         {temperatureEmoji[conversation.lead.temperature]} {conversation.lead.temperature}
@@ -612,8 +962,30 @@ export default function ConversasPage() {
                         {chance}%
                       </span>
                     </div>
+                    ) : null}
                   </div>
-                </button>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOpenConversationMenuId((current) => (current === conversation.lead.id ? null : conversation.lead.id))}
+                    className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground opacity-0 transition hover:bg-white/[0.08] hover:text-foreground group-hover:opacity-100"
+                    aria-label="Acoes da conversa"
+                  >
+                    <ChevronDown className={cn("size-4 transition", openConversationMenuId === conversation.lead.id && "rotate-180")} />
+                  </button>
+                  {openConversationMenuId === conversation.lead.id ? (
+                    <ConversationInboxMenu
+                      onClose={() => setOpenConversationMenuId(null)}
+                      onArchive={() => {
+                        setAvailableConversations((current) => current.filter((item) => item.lead.id !== conversation.lead.id));
+                        if (activeId === conversation.lead.id) {
+                          const next = availableConversations.find((item) => item.lead.id !== conversation.lead.id);
+                          if (next) setActiveId(next.lead.id);
+                        }
+                      }}
+                    />
+                  ) : null}
+                </div>
               );
             })}
             {filteredConversations.length === 0 ? (
@@ -627,79 +999,51 @@ export default function ConversasPage() {
         <section className="flex min-h-0 flex-col bg-[#0B1120]/74">
           <div className="border-b border-white/[0.08] bg-[#111827]/72 px-4 py-3 backdrop-blur-xl">
             <div className="flex items-center gap-3">
-            <LeadInitialAvatar name={active.lead.name} temperature={active.lead.temperature} size="lg" />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span className="truncate text-base font-extrabold">{active.lead.name}</span>
-                {active.online ? (
-                  <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-bold text-success">online</span>
-                ) : null}
+              <LeadInitialAvatar name={active.lead.name} avatar={active.lead.avatar} temperature={active.lead.temperature} size="lg" />
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-base font-extrabold">{active.lead.name}</span>
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  <Phone className="size-3" />
-                  {active.lead.phone}
-                </span>
-                <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-bold capitalize", temperatureClasses[active.lead.temperature])}>
-                  {temperatureEmoji[active.lead.temperature]} {active.lead.temperature}
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.045] px-2 py-0.5 font-bold text-foreground/80">
-                  <Gauge className="size-3 text-primary" />
-                  {closingChanceByTemperature[active.lead.temperature]}% fechamento
-                </span>
-              </div>
-            </div>
-            <span
-              className={cn(
-                "hidden items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold sm:inline-flex",
-                isManualAttendance
-                  ? "border-success/30 bg-success/15 text-success"
-                  : "border-primary/30 bg-primary/15 text-primary"
-              )}
-            >
-              {isManualAttendance ? <UserCheck className="size-3" /> : <Sparkles className="size-3" />}
-              {isManualAttendance ? `Humano: ${currentAgent}` : "IA conduzindo"}
-            </span>
-            <button
-              onClick={isManualAttendance ? returnConversationToAi : assumeConversation}
-              className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.035] px-3 text-xs font-bold transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-primary/10"
-            >
-              {isManualAttendance ? <Sparkles className="size-3.5" /> : <Pause className="size-3.5" />}
-              {isManualAttendance ? "Devolver para IA" : "Pausar IA"}
-            </button>
-            <button
-              onClick={assumeConversation}
-              disabled={isManualAttendance}
-              className={cn(
-                "inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold shadow-glow transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0",
-                isManualAttendance ? "bg-success text-background" : "bg-primary text-primary-foreground"
-              )}
-            >
-              <UserCheck className="size-3.5" />
-              {isManualAttendance ? "Assumido" : "Assumir"}
-            </button>
-            </div>
-
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              <InsightPill icon={WandSparkles} label="Insight IA" value="Prioridade alta" />
-              <InsightPill icon={Clock3} label="SLA" value="Responder em 4 min" />
-              <InsightPill icon={Target} label="Proxima acao" value="Enviar proposta" />
+              <span
+                className={cn(
+                  "hidden items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold sm:inline-flex",
+                  isManualAttendance
+                    ? "border-[#FACC15]/40 bg-[#FACC15]/14 text-[#FACC15] shadow-[0_0_20px_rgba(250,204,21,0.12)]"
+                    : "border-[#0B5FA5]/50 bg-[#0B5FA5]/18 text-blue-100 shadow-[0_0_22px_rgba(11,95,165,0.16)]"
+                )}
+              >
+                {isManualAttendance ? <UserCheck className="size-3" /> : <Sparkles className="size-3" />}
+                {isManualAttendance ? `Piloto: ${currentAgent}` : "IA conduzindo"}
+              </span>
+              <button
+                onClick={isManualAttendance ? returnConversationToAi : assumeConversation}
+                className={cn(
+                  "inline-flex h-10 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition hover:-translate-y-0.5",
+                  isManualAttendance
+                    ? "border-[#0B5FA5]/50 bg-[#0B5FA5]/16 text-blue-100 shadow-[0_0_22px_rgba(11,95,165,0.14)] hover:border-[#38BDF8]/45 hover:bg-[#0B5FA5]/24"
+                    : "border-[#0B5FA5]/35 bg-[#0B5FA5]/10 text-blue-100 hover:border-[#0B5FA5]/55 hover:bg-[#0B5FA5]/18"
+                )}
+              >
+                {isManualAttendance ? <Sparkles className="size-3.5" /> : <Pause className="size-3.5" />}
+                {isManualAttendance ? "Devolver para IA" : "Pausar IA"}
+              </button>
+              <button
+                onClick={assumeConversation}
+                disabled={isManualAttendance}
+                className={cn(
+                  "inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold shadow-glow transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0",
+                  isManualAttendance
+                    ? "border border-[#FACC15]/45 bg-[#FACC15]/16 text-[#FACC15] shadow-[0_0_24px_rgba(250,204,21,0.14)]"
+                    : "bg-primary text-primary-foreground"
+                )}
+              >
+                <UserCheck className="size-3.5" />
+                {isManualAttendance ? "Assumido" : "Assumir"}
+              </button>
             </div>
           </div>
 
           <div className="whatsapp-chat-bg flex-1 overflow-y-auto p-4 scrollbar-thin">
             <div className="flex w-full flex-col space-y-4">
-            <div className="rounded-2xl border border-[#0B5FA5]/35 bg-[#0B5FA5]/14 p-4 shadow-[0_18px_45px_rgba(0,0,0,0.22)]">
-              <div className="flex items-start gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-2xl border border-[#0B5FA5]/40 bg-[#0B5FA5]/20 text-blue-100">
-                  <Bot className="size-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-extrabold text-blue-100">Sugestao da IA para este atendimento</p>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">{aiSuggestion.hint}</p>
-                </div>
-              </div>
-            </div>
             {active.messages.map((message) => {
               const isCompany = message.from !== "lead";
 
@@ -708,9 +1052,9 @@ export default function ConversasPage() {
                   <div
                     className={cn(
                       "min-w-[300px] max-w-[78%] rounded-2xl border px-4 py-3 text-sm shadow-[0_14px_34px_rgba(0,0,0,0.16)] backdrop-blur transition hover:-translate-y-0.5 md:min-w-[460px]",
-                      message.from === "ia" && "border-primary/30 bg-primary/[0.12]",
-                      message.from === "human" && "border-success/30 bg-success/[0.12]",
-                      message.from === "lead" && "border-white/10 bg-card/82"
+                      isCompany
+                        ? "border-primary/30 bg-primary/[0.14]"
+                        : "border-white/10 bg-card/86"
                     )}
                   >
                     {message.from === "ia" ? (
@@ -853,13 +1197,13 @@ export default function ConversasPage() {
         <aside className="hidden min-h-0 flex-col gap-3 overflow-y-auto border-l border-white/[0.08] bg-[#111827]/72 p-4 backdrop-blur-xl scrollbar-thin xl:flex">
           <section className="rounded-2xl border border-[#0B5FA5]/22 bg-[linear-gradient(145deg,rgba(11,95,165,0.10),rgba(17,24,39,0.78))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.18)]">
             <div className="flex items-center gap-3">
-              <LeadInitialAvatar name={active.lead.name} temperature={active.lead.temperature} size="lg" />
+              <LeadInitialAvatar name={active.lead.name} avatar={active.lead.avatar} temperature={active.lead.temperature} size="lg" />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-extrabold">{active.lead.name}</div>
                 <div className="mt-0.5 truncate text-xs text-muted-foreground">{active.lead.phone}</div>
               </div>
               <span className={cn("rounded-full border px-2 py-1 text-[10px] font-black", isManualAttendance ? "border-[#FACC15]/30 bg-[#FACC15]/10 text-[#FACC15]" : "border-[#22C55E]/25 bg-[#22C55E]/10 text-[#22C55E]")}>
-                {isManualAttendance ? "Humano" : "IA ativa"}
+                {isManualAttendance ? "Piloto" : "IA ativa"}
               </span>
             </div>
 
@@ -1121,7 +1465,7 @@ export default function ConversasPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <section className="w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-card shadow-[0_28px_90px_rgba(0,0,0,0.48)]">
             <div className="flex items-start gap-4 border-b border-white/10 p-5">
-              <LeadInitialAvatar name={active.lead.name} temperature={active.lead.temperature} size="xl" />
+              <LeadInitialAvatar name={active.lead.name} avatar={active.lead.avatar} temperature={active.lead.temperature} size="xl" />
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-xl font-extrabold">{active.lead.name}</h2>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">

@@ -164,9 +164,9 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
 
   return (
     <>
-      <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-white/[0.08] bg-card/86 px-6 shadow-[0_12px_46px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+      <header className="sticky top-0 z-[100] flex h-16 items-center gap-4 border-b border-white/[0.08] bg-card/86 px-6 shadow-[0_12px_46px_rgba(0,0,0,0.18)] backdrop-blur-xl">
         <div className="group/title relative min-w-0">
-          <h1 className="truncate text-lg font-bold leading-none">{title}</h1>
+          <h1 className="truncate pb-0.5 text-lg font-bold leading-tight">{title}</h1>
           {subtitle ? (
             <div className="pointer-events-none absolute left-0 top-8 z-40 w-max max-w-[320px] translate-y-1 rounded-2xl border border-white/10 bg-[#0b1120]/95 px-3 py-2 text-xs font-semibold leading-5 text-slate-200 opacity-0 shadow-[0_18px_55px_rgba(0,0,0,0.42)] backdrop-blur-xl transition-all duration-200 group-hover/title:translate-y-0 group-hover/title:opacity-100">
               {subtitle}
@@ -204,25 +204,25 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
           <div className="group/ai-status relative">
             <button
               type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-2xl border border-[#FACC15]/35 bg-[#FACC15]/10 px-3 text-xs font-black text-foreground transition duration-200 hover:-translate-y-0.5 hover:border-primary/55 hover:bg-primary/15 active:translate-y-0"
+              className="relative inline-flex h-10 items-center gap-2 overflow-hidden rounded-2xl border border-[#38BDF8]/35 bg-[#0B5FA5]/15 px-3 text-xs font-black text-blue-50 shadow-[inset_0_0_18px_rgba(56,189,248,0.08),0_0_0_1px_rgba(56,189,248,0.04)] transition duration-200 hover:-translate-y-0.5 hover:border-[#38BDF8]/60 hover:bg-[#0B5FA5]/22 active:translate-y-0"
               aria-label="Status da IA"
             >
-              <Bot className="size-4 text-primary" />
-              Status da IA
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[10px] font-black">
-                <span className="size-2 rounded-full bg-[#22C55E]" />
+              <Bot className="relative z-10 size-4 text-[#38BDF8]" />
+              <span className="relative z-10">Status da IA</span>
+              <span className="relative z-10 inline-flex items-center gap-1.5 rounded-full border border-[#38BDF8]/20 bg-[#061427]/72 px-2 py-0.5 text-[10px] font-black text-blue-50">
+                <span className="ai-active-dot size-2 rounded-full bg-[#22C55E]" />
                 Ativo
               </span>
             </button>
-            <div className="pointer-events-none absolute right-0 top-10 z-30 w-72 translate-y-2 pt-2 opacity-0 transition-all duration-200 group-hover/ai-status:pointer-events-auto group-hover/ai-status:translate-y-0 group-hover/ai-status:opacity-100">
-              <div className="rounded-2xl border border-[#FACC15]/25 bg-[#0b1120]/96 p-3 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+            <div className="pointer-events-none absolute right-0 top-10 z-[120] w-72 translate-y-2 pt-2 opacity-0 transition-all duration-200 group-hover/ai-status:pointer-events-auto group-hover/ai-status:translate-y-0 group-hover/ai-status:opacity-100">
+              <div className="rounded-2xl border border-[#38BDF8]/25 bg-[#07111f]/96 p-3 shadow-[0_24px_70px_rgba(0,0,0,0.42),0_0_36px_rgba(56,189,248,0.10)] backdrop-blur-xl">
                 <div className="flex items-center justify-between gap-3">
                   <span className="inline-flex items-center gap-2 text-xs font-black">
-                    <Bot className="size-4 text-primary" />
+                    <Bot className="size-4 text-[#38BDF8]" />
                     Status da IA
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[10px] font-black">
-                    <span className="size-2 rounded-full bg-[#22C55E]" />
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[#38BDF8]/20 bg-[#0B5FA5]/16 px-2 py-0.5 text-[10px] font-black">
+                    <span className="ai-active-dot size-2 rounded-full bg-[#22C55E]" />
                     Ativo
                   </span>
                 </div>
@@ -241,8 +241,8 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
               <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-danger" />
             </button>
 
-            <div className="pointer-events-none absolute right-0 top-10 z-30 w-80 translate-y-2 pt-2 opacity-0 transition-all duration-200 group-hover/notifications:pointer-events-auto group-hover/notifications:translate-y-0 group-hover/notifications:opacity-100">
-              <div className="ap-surface rounded-2xl p-3 shadow-[0_24px_70px_rgba(0,0,0,0.42)]">
+            <div className="pointer-events-none absolute right-0 top-10 z-[120] w-80 translate-y-2 pt-2 opacity-0 transition-all duration-200 group-hover/notifications:pointer-events-auto group-hover/notifications:translate-y-0 group-hover/notifications:opacity-100">
+              <div className="rounded-2xl border border-white/10 bg-[#0B1120]/[0.98] p-3 shadow-[0_24px_70px_rgba(0,0,0,0.54)] backdrop-blur-xl">
                 <div className="mb-2 flex items-center justify-between px-1">
                   <p className="text-sm font-bold">Notificacoes</p>
                   <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">
@@ -290,8 +290,8 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
               )}
             </button>
 
-            <div className="pointer-events-none absolute right-0 top-10 z-30 w-64 translate-y-2 pt-2 opacity-0 transition-all duration-200 group-hover/profile:pointer-events-auto group-hover/profile:translate-y-0 group-hover/profile:opacity-100">
-              <div className="ap-surface overflow-hidden rounded-2xl p-2 shadow-[0_24px_70px_rgba(0,0,0,0.42)]">
+            <div className="pointer-events-none absolute right-0 top-10 z-[120] w-64 translate-y-2 pt-2 opacity-0 transition-all duration-200 group-hover/profile:pointer-events-auto group-hover/profile:translate-y-0 group-hover/profile:opacity-100">
+              <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0B1120]/[0.98] p-2 shadow-[0_24px_70px_rgba(0,0,0,0.54)] backdrop-blur-xl">
                 <div className="flex items-center gap-3 border-b border-white/10 px-3 py-3">
                   <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-2xl bg-primary text-xs font-bold text-primary-foreground">
                     {companyProfile.logo ? (

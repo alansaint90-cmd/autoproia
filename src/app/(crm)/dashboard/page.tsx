@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   BadgeDollarSign,
   Bot,
+  ChevronDown,
   Clock3,
   Flame,
   MessageCircleMore,
@@ -152,6 +153,7 @@ function formatCurrency(value: number) {
 }
 
 export default function DashboardPage() {
+  const [secondaryExpanded, setSecondaryExpanded] = useState(false);
   const bestSeller = sellerClosingExtended.reduce((best, seller) => (seller.closed > best.closed ? seller : best));
   const rankedSellers = sellerClosingExtended.slice().sort((a, b) => b.closed - a.closed);
 
@@ -196,74 +198,31 @@ export default function DashboardPage() {
             <MonthlyConversionChart />
           </article>
 
-          <article className={cn(interactivePanelClass, "flex h-full flex-col self-stretch")}>
-            <div className="mb-5">
-              <h2 className="text-lg font-extrabold tracking-normal">Leads por Origem</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Ultimos 30 dias</p>
-            </div>
-            <OriginDonut />
-          </article>
+          <BusinessPulsePanel />
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[400px_1fr]">
-          <article className="relative overflow-hidden rounded-[22px] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(17,24,39,0.86),rgba(11,17,32,0.96))] p-5 shadow-panel">
-            <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/20 to-transparent" />
+        <div className="relative -my-1 h-4">
+          <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-transparent via-border to-transparent" />
+          <button
+            type="button"
+            onClick={() => setSecondaryExpanded((value) => !value)}
+            className="absolute right-0 top-1/2 z-10 grid size-9 -translate-y-1/2 place-items-center rounded-xl border border-white/10 bg-[#0b1120]/95 text-muted-foreground shadow-[0_12px_34px_rgba(0,0,0,0.32)] transition hover:border-primary/35 hover:bg-primary/10 hover:text-primary"
+            aria-label={secondaryExpanded ? "Recolher graficos secundarios" : "Expandir graficos secundarios"}
+          >
+            <ChevronDown className={cn("size-4 transition-transform", !secondaryExpanded && "-rotate-90")} />
+          </button>
+        </div>
 
-            <div className="relative mb-6 flex items-start justify-between gap-4">
-              <div>
-                <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-primary">
-                  <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.95)]" />
-                  IA Ativa
-                </div>
-                <h2 className="text-lg font-extrabold tracking-normal">Pulso Comercial</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Eventos comerciais em tempo real</p>
+        {secondaryExpanded ? (
+        <section className="grid items-stretch gap-6 xl:grid-cols-[320px_minmax(0,1fr)_360px]">
+            <article className={cn(interactivePanelClass, "flex h-full flex-col self-stretch")}>
+              <div className="mb-5">
+                <h2 className="text-lg font-extrabold tracking-normal">Leads por Origem</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Ultimos 30 dias</p>
               </div>
-              <div className="group/health relative grid size-12 place-items-center rounded-2xl border border-cyan-300/15 bg-cyan-300/5 text-cyan-200">
-                <PulseHealthIcon />
-                <div className="pointer-events-none absolute right-0 top-14 z-30 w-72 translate-y-2 rounded-2xl border border-primary/15 bg-[#0b1120]/96 p-4 text-left opacity-0 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl transition-all duration-200 group-hover/health:translate-y-0 group-hover/health:opacity-100">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-primary">
-                      <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.95)]" />
-                      Saude comercial
-                    </span>
-                    <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200">
-                      87%
-                    </span>
-                  </div>
-                  <p className="text-sm font-black text-foreground">Operacao saudavel e em aceleracao</p>
-                  <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                    IA: matriculas e qualificacoes estao subindo agora. Priorize os leads quentes e mantenha o follow-up ativo para nao perder conversao.
-                  </p>
-                </div>
-              </div>
-            </div>
+              <OriginDonut />
+            </article>
 
-            <div className="relative space-y-3">
-              {commercialPulse.map((event, index) => (
-                <div
-                  key={event.label}
-                  className="group relative grid grid-cols-[34px_1fr_auto] items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.028] p-2.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-300/20 hover:bg-white/[0.055] hover:shadow-[0_18px_44px_rgba(0,0,0,0.22)]"
-                >
-                  <div className="relative z-10 grid size-8 place-items-center rounded-xl border border-primary/15 bg-primary/10 text-primary transition duration-300 group-hover:border-primary/30 group-hover:bg-primary/15">
-                    <event.icon size={15} />
-                    {index === 0 ? <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" /> : null}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-extrabold">{event.label}</p>
-                    <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
-                      {index === 0 ? "Evento confirmado no funil" : "Sincronizado com IA comercial"}
-                    </p>
-                  </div>
-                  <span className="rounded-full border border-white/10 bg-background/40 px-2 py-1 text-[10px] font-black text-primary">
-                    {event.time}
-                  </span>
-                  <Tooltip>{event.time} - evento comercial em tempo real</Tooltip>
-                </div>
-              ))}
-            </div>
-          </article>
-
-          <div className="grid min-w-0 gap-6 lg:grid-cols-2">
           <article className="group relative overflow-hidden rounded-[22px] border border-white/[0.08] bg-[radial-gradient(circle_at_82%_0%,rgba(11,95,165,0.16),transparent_34%),linear-gradient(145deg,rgba(17,24,39,0.92),rgba(11,17,32,0.98))] p-5 shadow-panel transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_30px_80px_rgba(0,0,0,0.42)]">
             <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#0B5FA5]/45 to-transparent opacity-70" />
             <div className="mb-5 flex items-start justify-between gap-4">
@@ -338,10 +297,73 @@ export default function DashboardPage() {
               ))}
             </div>
           </ChartPanel>
-          </div>
         </section>
+        ) : null}
       </main>
     </>
+  );
+}
+
+function BusinessPulsePanel() {
+  return (
+    <article className="relative flex h-full flex-col self-stretch overflow-hidden rounded-[22px] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(17,24,39,0.86),rgba(11,17,32,0.96))] p-5 shadow-panel transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.01] hover:shadow-[0_30px_80px_oklch(0_0_0_/_0.42)]">
+      <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/20 to-transparent" />
+
+      <div className="relative mb-6 flex items-start justify-between gap-4">
+        <div>
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-primary">
+            <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.95)]" />
+            IA Ativa
+          </div>
+          <h2 className="text-lg font-extrabold tracking-normal">Pulso Comercial</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Eventos comerciais em tempo real</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="group/health relative grid size-12 place-items-center rounded-2xl border border-cyan-300/15 bg-cyan-300/5 text-cyan-200">
+            <PulseHealthIcon />
+            <div className="pointer-events-none absolute right-0 top-14 z-30 w-72 translate-y-2 rounded-2xl border border-primary/15 bg-[#0b1120]/96 p-4 text-left opacity-0 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl transition-all duration-200 group-hover/health:translate-y-0 group-hover/health:opacity-100">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-primary">
+                  <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.95)]" />
+                  Saude comercial
+                </span>
+                <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200">
+                  87%
+                </span>
+              </div>
+              <p className="text-sm font-black text-foreground">Operacao saudavel e em aceleracao</p>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                IA: matriculas e qualificacoes estao subindo agora. Priorize os leads quentes e mantenha o follow-up ativo para nao perder conversao.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="relative space-y-3">
+        {commercialPulse.map((event, index) => (
+          <div
+            key={event.label}
+            className="group relative grid grid-cols-[34px_1fr_auto] items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.028] p-2.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-300/20 hover:bg-white/[0.055] hover:shadow-[0_18px_44px_rgba(0,0,0,0.22)]"
+          >
+            <div className="relative z-10 grid size-8 place-items-center rounded-xl border border-primary/15 bg-primary/10 text-primary transition duration-300 group-hover:border-primary/30 group-hover:bg-primary/15">
+              <event.icon size={15} />
+              {index === 0 ? <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" /> : null}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-extrabold">{event.label}</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
+                {index === 0 ? "Evento confirmado no funil" : "Sincronizado com IA comercial"}
+              </p>
+            </div>
+            <span className="rounded-full border border-white/10 bg-background/40 px-2 py-1 text-[10px] font-black text-primary">
+              {event.time}
+            </span>
+            <Tooltip>{event.time} - evento comercial em tempo real</Tooltip>
+          </div>
+        ))}
+      </div>
+    </article>
   );
 }
 
@@ -756,7 +778,13 @@ function OriginDonut() {
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
   const funnelMax = Math.max(...funnelData.map((item) => item.value));
-  const funnelColors = ["#22D3EE", "#A78BFA", "#22C55E", "#FACC15", "#EF4444"];
+  const funnelColors = [
+    ["#38BDF8", "#0B5FA5"],
+    ["#FACC15", "#EAB308"],
+    ["#64748B", "#1F2937"],
+    ["#0B5FA5", "#111827"],
+    ["#334155", "#0B1120"]
+  ];
   let accumulated = 0;
 
   return (
@@ -850,9 +878,6 @@ function OriginDonut() {
             <h3 className="text-sm font-black text-foreground">Funil de conversao</h3>
             <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">De novo lead ate matricula fechada</p>
           </div>
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-primary/15 bg-primary/10 text-primary">
-            <PulseHealthIcon />
-          </span>
         </div>
 
         <div className="grid gap-2">
@@ -881,7 +906,8 @@ function OriginDonut() {
                     )}
                     style={{
                       width: `${funnelWidth}%`,
-                      background: `linear-gradient(90deg, ${funnelColors[index]}, color-mix(in srgb, ${funnelColors[index]} 62%, white))`,
+                      background: `linear-gradient(90deg, ${funnelColors[index][0]}, ${funnelColors[index][1]})`,
+                      boxShadow: isActive ? `0 14px 34px color-mix(in srgb, ${funnelColors[index][0]} 22%, transparent)` : "inset 0 1px 0 rgba(255,255,255,0.16)",
                       clipPath: "polygon(4% 0, 96% 0, 90% 100%, 10% 100%)",
                       borderRadius: "8px"
                     }}

@@ -12,17 +12,19 @@ import {
   HardDrive,
   ImagePlus,
   KeyRound,
+  Moon,
   Plus,
   Plug,
   Server,
   Settings,
   ShieldCheck,
+  Sun,
   Trash2,
   UserCheck,
   Users
 } from "lucide-react";
 import { Topbar } from "@/components/topbar";
-import { defaultAiBusinessSettings, type AiBusinessSettings } from "@/lib/ai-business-settings";
+import { aiBusinessSettingsKey, defaultAiBusinessSettings, type AiBusinessSettings } from "@/lib/ai-business-settings";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 
@@ -49,6 +51,9 @@ type CompanyProfile = {
 
 const COMPANY_PROFILE_STORAGE_KEY = "auto-pro-ia:company-profile";
 const INTEGRATIONS_STORAGE_KEY = "auto-pro-ia:integrations";
+const THEME_STORAGE_KEY = "auto-pro-ia:theme";
+const USERS_STORAGE_KEY = "auto-pro-ia:users";
+const PREFERENCES_STORAGE_KEY = "auto-pro-ia:preferences";
 
 const defaultCompanyProfile: CompanyProfile = {
   name: "AutoEscola Pro",
@@ -113,22 +118,41 @@ const roles: Array<{
   description: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
 }> = [
-  { id: "admin", label: "Admin", description: "Controle total da autoescola.", icon: ShieldCheck },
-  { id: "gerente", label: "Gerente Comercial", description: "Coordena funil, equipe e relatorios.", icon: BriefcaseBusiness },
-  { id: "closer", label: "Closer", description: "Fecha matriculas e assume conversas.", icon: UserCheck },
-  { id: "sdr", label: "SDR", description: "Qualifica leads e agenda proximos passos.", icon: Users },
-  { id: "financeiro", label: "Financeiro", description: "Acompanha vendas, pagamentos e receita.", icon: DollarSign },
-  { id: "bot", label: "Bot/IA", description: "Usuario tecnico para automacoes.", icon: Bot }
+  { id: "admin", label: "Superadmin", description: "Controle total da autoescola.", icon: ShieldCheck },
+  { id: "gerente", label: "Gerente", description: "Coordena funil, equipe e relatorios. Limite: 4 cadastros.", icon: BriefcaseBusiness },
+  { id: "sdr", label: "Atendente", description: "Atende leads, assume conversas e faz follow-up. Limite: 4 cadastros.", icon: UserCheck },
+  { id: "bot", label: "IA", description: "Usuario tecnico da inteligencia artificial.", icon: Bot }
 ];
 
 const defaultUsers: UserRecord[] = [
-  { initials: "AD", name: "Administrador", email: "admin@autopro.ia", phone: "+55 75 99999-0001", role: "admin", position: "Dono / gestor", scope: "Todos os leads", status: "Ativo" },
-  { initials: "CV", name: "Carla Vendas", email: "carla@autopro.ia", phone: "+55 75 99999-0002", role: "gerente", position: "Gerente comercial", scope: "Todos os leads", status: "Ativo" },
-  { initials: "MC", name: "Marcos Closer", email: "marcos@autopro.ia", phone: "+55 75 99999-0003", role: "closer", position: "Closer", scope: "Somente atribuídos", status: "Ativo" },
-  { initials: "JO", name: "Julio Operador", email: "julio@autopro.ia", phone: "+55 75 99999-0004", role: "sdr", position: "Pre-atendimento", scope: "Somente atribuídos", status: "Inativo" },
-  { initials: "FN", name: "Fernanda Financeiro", email: "financeiro@autopro.ia", phone: "+55 75 99999-0005", role: "financeiro", position: "Financeiro", scope: "Financeiro", status: "Ativo" },
-  { initials: "IA", name: "Ricardo IA", email: "ia@autopro.ia", phone: "Sistema", role: "bot", position: "Automacao", scope: "Sistema", status: "Ativo" }
+  { initials: "SA", name: "Superadmin", email: "admin@autopro.ia", phone: "+55 75 99999-0001", role: "admin", position: "Dono / gestor", scope: "Todos os leads", status: "Ativo" },
+  { initials: "GV", name: "Carla Vendas", email: "gerente1@autopro.ia", phone: "+55 75 99999-0002", role: "gerente", position: "Gerente", scope: "Todos os leads", status: "Ativo" },
+  { initials: "AT", name: "Julio Operador", email: "atendente1@autopro.ia", phone: "+55 75 99999-0003", role: "sdr", position: "Atendente / SDR", scope: "Somente atribuídos", status: "Ativo" },
+  { initials: "IA", name: defaultAiBusinessSettings.agentName, email: "ia@autopro.ia", phone: "Sistema", role: "bot", position: "IA", scope: "Sistema", status: "Ativo" }
 ];
+
+function initialsFromName(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "US";
+}
+
+function aiNameFromStorage() {
+  try {
+    const stored = window.localStorage.getItem(aiBusinessSettingsKey);
+    if (stored) {
+      const parsed = JSON.parse(stored) as Partial<AiBusinessSettings>;
+      return parsed.agentName?.trim() || defaultAiBusinessSettings.agentName;
+    }
+  } catch {
+    return defaultAiBusinessSettings.agentName;
+  }
+
+  return defaultAiBusinessSettings.agentName;
+}
 
 const defaultPermissions: PermissionRecord[] = [
   { key: "viewLeads", module: "Leads", label: "Ver leads", description: "Acessar lista, Kanban e perfil do lead.", admin: true, gerente: true, closer: true, sdr: true, financeiro: false, bot: true },
@@ -383,29 +407,86 @@ function EmpresaPanel() {
 }
 
 function UsuariosPanel() {
-  const [teamUsers, setTeamUsers] = useState(defaultUsers);
+  const [teamUsers, setTeamUsers] = useState<UserRecord[]>(defaultUsers);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(USERS_STORAGE_KEY);
+      const parsed = stored ? (JSON.parse(stored) as UserRecord[]) : defaultUsers;
+      const users = Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultUsers;
+      const agentName = aiNameFromStorage();
+      setTeamUsers(syncIaUser(users, agentName));
+    } catch {
+      setTeamUsers(syncIaUser(defaultUsers, aiNameFromStorage()));
+    }
+  }, []);
+
+  function syncIaUser(users: UserRecord[], agentName: string) {
+    const allowedRoles: RoleId[] = ["admin", "gerente", "sdr", "bot"];
+    const normalized = users
+      .filter((user) => allowedRoles.includes(user.role))
+      .map((user) => ({
+        ...user,
+        role: user.role === "closer" ? "sdr" : user.role,
+        initials: initialsFromName(user.name)
+      }));
+    const withoutIa = normalized.filter((user) => user.role !== "bot");
+    return [
+      ...withoutIa,
+      { initials: "IA", name: agentName, email: "ia@autopro.ia", phone: "Sistema", role: "bot" as RoleId, position: "IA", scope: "Sistema" as UserRecord["scope"], status: "Ativo" as const }
+    ];
+  }
+
+  function persistUsers(nextUsers: UserRecord[]) {
+    const agentName = aiNameFromStorage();
+    const synced = syncIaUser(nextUsers, agentName);
+    setTeamUsers(synced);
+    window.localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(synced));
+    setSaved(true);
+  }
 
   function updateUser(email: string, key: keyof UserRecord, value: string) {
     setTeamUsers((current) =>
-      current.map((user) => (user.email === email ? { ...user, [key]: value } : user))
+      current.map((user) => {
+        if (user.email !== email || user.role === "admin" || user.role === "bot") return user;
+        const updated = { ...user, [key]: value };
+        return key === "name" ? { ...updated, initials: initialsFromName(value) } : updated;
+      })
     );
+    setSaved(false);
   }
 
-  function addUser() {
-    setTeamUsers((current) => [
-      ...current,
-      {
-        initials: "NU",
-        name: "Novo Usuario",
-        email: `novo${current.length + 1}@autopro.ia`,
-        phone: "+55 75 99999-0000",
-        role: "sdr",
-        position: "Novo colaborador",
-        scope: "Somente atribuídos",
-        status: "Ativo"
-      }
-    ]);
+  function addUser(role: "gerente" | "sdr") {
+    setTeamUsers((current) => {
+      const roleCount = current.filter((user) => user.role === role).length;
+      if (roleCount >= 4) return current;
+      const label = role === "gerente" ? "Gerente" : "Atendente";
+      return [
+        ...current.filter((user) => user.role !== "bot"),
+        {
+          initials: role === "gerente" ? "GE" : "AT",
+          name: `${label} ${roleCount + 1}`,
+          email: `${role}${roleCount + 1}@autopro.ia`,
+          phone: "+55 75 99999-0000",
+          role,
+          position: role === "gerente" ? "Gerente" : "Atendente / SDR",
+          scope: role === "gerente" ? "Todos os leads" : "Somente atribuídos",
+          status: "Ativo"
+        },
+        current.find((user) => user.role === "bot") ?? defaultUsers.find((user) => user.role === "bot")!
+      ];
+    });
+    setSaved(false);
   }
+
+  function removeUser(email: string) {
+    setTeamUsers((current) => current.filter((user) => user.email !== email || user.role === "admin" || user.role === "bot"));
+    setSaved(false);
+  }
+
+  const gerenteCount = teamUsers.filter((user) => user.role === "gerente").length;
+  const atendenteCount = teamUsers.filter((user) => user.role === "sdr").length;
 
   return (
     <section className="rounded-[22px] border border-border bg-card/72 p-6 shadow-panel">
@@ -414,10 +495,16 @@ function UsuariosPanel() {
           <h2 className="text-lg font-extrabold tracking-normal">Usuarios e papeis</h2>
           <p className="mt-1 text-sm text-muted-foreground">Defina quem acessa o CRM e qual papel cada pessoa possui.</p>
         </div>
-        <button onClick={addUser} className="inline-flex h-10 items-center gap-2 rounded-[14px] bg-primary px-5 text-sm font-extrabold text-primary-foreground shadow-glow">
-          <Plus size={16} />
-          Adicionar
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => addUser("gerente")} disabled={gerenteCount >= 4} className="inline-flex h-10 items-center gap-2 rounded-[14px] bg-primary px-4 text-sm font-extrabold text-primary-foreground shadow-glow disabled:cursor-not-allowed disabled:opacity-50">
+            <Plus size={16} />
+            Gerente {gerenteCount}/4
+          </button>
+          <button type="button" onClick={() => addUser("sdr")} disabled={atendenteCount >= 4} className="inline-flex h-10 items-center gap-2 rounded-[14px] border border-primary/30 px-4 text-sm font-extrabold text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50">
+            <Plus size={16} />
+            Atendente {atendenteCount}/4
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-3">
@@ -427,15 +514,31 @@ function UsuariosPanel() {
 
           return (
           <div key={user.email} className="rounded-[20px] border border-white/[0.08] bg-white/[0.035] p-4">
-            <div className="grid items-center gap-4 xl:grid-cols-[1.1fr_0.9fr_0.8fr_0.6fr]">
+            <div className="grid items-center gap-4 xl:grid-cols-[1.1fr_0.8fr_0.8fr_0.6fr_auto]">
             <div className="flex min-w-0 items-center gap-3">
               <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-primary font-mono text-sm font-extrabold text-primary-foreground shadow-glow">
                 {user.initials}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-extrabold">{user.name}</p>
+                {user.role === "admin" || user.role === "bot" ? (
+                  <p className="truncate text-sm font-extrabold">{user.name}</p>
+                ) : (
+                  <input
+                    value={user.name}
+                    onChange={(event) => updateUser(user.email, "name", event.target.value)}
+                    className="h-9 w-full rounded-[12px] border border-border bg-input/65 px-3 text-sm font-extrabold outline-none focus:border-primary/60"
+                  />
+                )}
                 <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-                <p className="truncate text-xs text-muted-foreground">{user.phone}</p>
+                {user.role === "admin" || user.role === "bot" ? (
+                  <p className="truncate text-xs text-muted-foreground">{user.phone}</p>
+                ) : (
+                  <input
+                    value={user.phone}
+                    onChange={(event) => updateUser(user.email, "phone", event.target.value)}
+                    className="mt-1 h-8 w-full rounded-[10px] border border-border bg-input/45 px-3 text-xs font-semibold outline-none focus:border-primary/60"
+                  />
+                )}
               </div>
             </div>
 
@@ -446,6 +549,7 @@ function UsuariosPanel() {
                 <select
                   value={user.role}
                   onChange={(event) => updateUser(user.email, "role", event.target.value)}
+                  disabled={user.role === "admin" || user.role === "bot"}
                   className="h-10 w-full rounded-[14px] border border-border bg-input/65 pl-9 pr-3 text-sm font-bold outline-none focus:border-primary/60"
                 >
                   {roles.map((item) => (
@@ -483,10 +587,25 @@ function UsuariosPanel() {
                 <option>Inativo</option>
               </select>
             </label>
+            <button
+              type="button"
+              onClick={() => removeUser(user.email)}
+              disabled={user.role === "admin" || user.role === "bot"}
+              className="inline-flex h-10 items-center justify-center rounded-[14px] border border-red-500/25 px-3 text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-30"
+              aria-label="Remover usuario"
+            >
+              <Trash2 size={16} />
+            </button>
             </div>
           </div>
           );
         })}
+      </div>
+      <div className="mt-5 flex items-center gap-3">
+        <button type="button" onClick={() => persistUsers(teamUsers)} className="inline-flex h-10 items-center justify-center rounded-[14px] bg-primary px-5 text-sm font-extrabold text-primary-foreground shadow-glow">
+          Salvar usuarios
+        </button>
+        {saved ? <span className="text-sm font-semibold text-success">Usuarios salvos</span> : null}
       </div>
     </section>
   );
@@ -872,6 +991,14 @@ function IaComercialPanel() {
 
   useEffect(() => {
     let active = true;
+    try {
+      const stored = window.localStorage.getItem(aiBusinessSettingsKey);
+      if (stored) {
+        setSettings({ ...defaultAiBusinessSettings, ...(JSON.parse(stored) as Partial<AiBusinessSettings>) });
+      }
+    } catch {
+      setSettings(defaultAiBusinessSettings);
+    }
 
     fetch("/api/settings/ai-business")
       .then((response) => response.json())
@@ -914,9 +1041,14 @@ function IaComercialPanel() {
 
       const data = (await response.json()) as { settings: AiBusinessSettings };
       setSettings(data.settings);
+      window.localStorage.setItem(aiBusinessSettingsKey, JSON.stringify(data.settings));
+      window.dispatchEvent(new Event("auto-pro-ia:preferences-updated"));
       setSaved(true);
     } catch {
-      setError("Nao foi possivel salvar. Verifique se o banco foi atualizado com drizzle push.");
+      window.localStorage.setItem(aiBusinessSettingsKey, JSON.stringify(settings));
+      window.dispatchEvent(new Event("auto-pro-ia:preferences-updated"));
+      setSaved(true);
+      setError("Salvo localmente. O banco nao confirmou a gravacao.");
     }
   }
 
@@ -1018,40 +1150,167 @@ function IaComercialPanel() {
 
 function PreferenciasPanel() {
   const [rules, setRules] = useState(defaultPreferences);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [aiSettings, setAiSettings] = useState<AiBusinessSettings>(defaultAiBusinessSettings);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY) === "light" ? "light" : "dark";
+    setTheme(storedTheme);
+    applyTheme(storedTheme);
+    try {
+      const storedPreferences = window.localStorage.getItem(PREFERENCES_STORAGE_KEY);
+      if (storedPreferences) {
+        const parsed = JSON.parse(storedPreferences) as typeof defaultPreferences;
+        if (Array.isArray(parsed)) {
+          setRules(defaultPreferences.map((rule) => parsed.find((item) => item.key === rule.key) ?? rule));
+        }
+      }
+
+      const storedAiSettings = window.localStorage.getItem(aiBusinessSettingsKey);
+      if (storedAiSettings) {
+        setAiSettings({ ...defaultAiBusinessSettings, ...(JSON.parse(storedAiSettings) as Partial<AiBusinessSettings>) });
+      }
+    } catch {
+      setRules(defaultPreferences);
+      setAiSettings(defaultAiBusinessSettings);
+    }
+  }, []);
+
+  function applyTheme(nextTheme: "dark" | "light") {
+    document.documentElement.dataset.theme = nextTheme;
+    document.documentElement.style.colorScheme = nextTheme === "light" ? "light" : "dark";
+    window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+  }
+
+  function changeTheme(nextTheme: "dark" | "light") {
+    setTheme(nextTheme);
+    applyTheme(nextTheme);
+    setSaved(false);
+  }
 
   function toggleRule(ruleKey: string) {
     setRules((current) =>
       current.map((rule) => (rule.key === ruleKey ? { ...rule, enabled: !rule.enabled } : rule))
     );
+    setSaved(false);
+  }
+
+  function updateAiPreference(key: keyof AiBusinessSettings, value: string) {
+    setAiSettings((current) => ({ ...current, [key]: value }));
+    setSaved(false);
+  }
+
+  function savePreferences() {
+    window.localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(rules));
+    window.localStorage.setItem(aiBusinessSettingsKey, JSON.stringify(aiSettings));
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme === "light" ? "light" : "dark";
+
+    const storedUsers = window.localStorage.getItem(USERS_STORAGE_KEY);
+    const parsedUsers = storedUsers ? (JSON.parse(storedUsers) as UserRecord[]) : defaultUsers;
+    const syncedUsers = parsedUsers.map((user) =>
+      user.role === "bot" ? { ...user, name: aiSettings.agentName, initials: "IA" } : user
+    );
+    window.localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(syncedUsers));
+    window.dispatchEvent(new Event("auto-pro-ia:preferences-updated"));
+    setSaved(true);
   }
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-[22px] border border-border bg-card/72 p-6 shadow-panel">
-        <h2 className="text-lg font-extrabold tracking-normal">Regras operacionais do RBAC</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Defina regras gerais que complementam os papeis e permissoes da equipe.
-        </p>
+    <div className="space-y-5">
+      <section className="overflow-hidden rounded-[22px] border border-border bg-card/72 shadow-panel">
+        <div className="flex flex-col gap-5 border-b border-border p-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Experiencia</p>
+            <h2 className="mt-2 text-lg font-extrabold tracking-normal">Preferencias do sistema</h2>
+            <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground">
+              Ajuste visual, operacao e regras leves para reduzir ruido no atendimento diario.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={savePreferences}
+            className="inline-flex h-11 items-center justify-center rounded-[14px] bg-primary px-5 text-sm font-extrabold text-primary-foreground shadow-glow"
+          >
+            Salvar preferencias
+          </button>
+          <div className="grid grid-cols-2 gap-2 rounded-[18px] border border-white/10 bg-white/[0.035] p-1.5">
+            {[
+              { id: "dark" as const, label: "Escuro", icon: Moon },
+              { id: "light" as const, label: "Claro", icon: Sun }
+            ].map((option) => {
+              const Icon = option.icon;
+              const active = theme === option.id;
 
-        <div className="mt-6 divide-y divide-border">
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => changeTheme(option.id)}
+                  aria-pressed={active}
+                  className={cn(
+                    "inline-flex h-11 items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-extrabold transition",
+                    active
+                      ? "bg-primary text-primary-foreground shadow-glow"
+                      : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"
+                  )}
+                >
+                  <Icon size={16} />
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid gap-4 border-b border-border p-4 md:grid-cols-2">
+          <label className="block rounded-[18px] border border-white/[0.08] bg-white/[0.035] p-4">
+            <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">Nome da IA</span>
+            <input
+              value={aiSettings.agentName}
+              onChange={(event) => updateAiPreference("agentName", event.target.value)}
+              className="kanban-input"
+              placeholder="Ana"
+            />
+            <span className="mt-2 block text-xs leading-5 text-muted-foreground">Esse nome aparece no usuario IA e alimenta o prompt automatico.</span>
+          </label>
+          <label className="block rounded-[18px] border border-white/[0.08] bg-white/[0.035] p-4">
+            <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">Horario padrao</span>
+            <input
+              value={aiSettings.hours}
+              onChange={(event) => updateAiPreference("hours", event.target.value)}
+              className="kanban-input"
+              placeholder="Segunda a sexta, das 8h as 18h"
+            />
+            <span className="mt-2 block text-xs leading-5 text-muted-foreground">Aplicado imediatamente nas orientacoes da IA.</span>
+          </label>
+          {saved ? <p className="md:col-span-2 text-sm font-semibold text-success">Preferencias salvas e aplicadas.</p> : null}
+        </div>
+
+        <div className="grid gap-3 p-4 md:grid-cols-2">
           {rules.map((preference) => (
-            <div key={preference.title} className="flex items-center justify-between gap-6 py-4 first:pt-0 last:pb-0">
-              <div>
-                <p className="text-sm font-extrabold">{preference.title}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{preference.description}</p>
+            <div
+              key={preference.title}
+              className="flex min-h-24 items-center justify-between gap-5 rounded-[18px] border border-white/[0.08] bg-white/[0.035] p-4 transition hover:border-primary/25 hover:bg-white/[0.055]"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-extrabold leading-5">{preference.title}</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">{preference.description}</p>
               </div>
               <button
                 type="button"
                 onClick={() => toggleRule(preference.key)}
                 aria-pressed={preference.enabled}
                 className={cn(
-                  "relative h-6 w-11 shrink-0 rounded-full transition",
-                  preference.enabled ? "bg-primary" : "bg-input"
+                  "relative h-7 w-12 shrink-0 rounded-full border transition",
+                  preference.enabled ? "border-primary/40 bg-primary" : "border-white/10 bg-input"
                 )}
               >
                 <span
                   className={cn(
-                    "absolute top-1 size-4 rounded-full bg-background transition",
+                    "absolute top-1 size-5 rounded-full bg-background shadow-sm transition",
                     preference.enabled ? "left-6" : "left-1"
                   )}
                 />
