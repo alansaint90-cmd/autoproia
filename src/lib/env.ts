@@ -18,7 +18,7 @@ const envSchema = z.object({
   SUPERADMIN_EMAIL: z.string().email().default("admin@autopro.ia"),
   SUPERADMIN_NAME: z.string().default("Superadmin"),
   RESEND_API_KEY: z.string().optional(),
-  AUTH_EMAIL_FROM: z.string().email().default("Auto Pro IA <noreply@autoproia.site>")
+  AUTH_EMAIL_FROM: z.string().min(1).default("Auto Pro IA <noreply@autoproia.site>")
 });
 
 type Env = z.infer<typeof envSchema>;
