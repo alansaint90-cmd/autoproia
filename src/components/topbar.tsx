@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Bell, Bot, CheckCircle2, LogOut, MessageCircle, Search, TrendingUp, UserRound, X } from "lucide-react";
 
 const KANBAN_STORAGE_KEY = "auto-pro-ia:kanban-leads";
@@ -79,9 +79,10 @@ type TopbarProps = {
   searchValue?: string;
   onSearchChange?: (value: string) => void;
   onNewLead?: () => void;
+  extraControls?: ReactNode;
 };
 
-export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead }: TopbarProps) {
+export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead, extraControls }: TopbarProps) {
   const hasInteractiveSearch = typeof onSearchChange === "function";
   const [globalSearch, setGlobalSearch] = useState("");
   const [showFallbackModal, setShowFallbackModal] = useState(false);
@@ -164,17 +165,18 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
 
   return (
     <>
-      <header className="sticky top-0 z-[100] flex h-16 items-center gap-4 border-b border-white/[0.08] bg-card/86 px-6 shadow-[0_12px_46px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-        <div className="group/title relative min-w-0">
-          <h1 className="truncate pb-0.5 text-lg font-bold leading-tight">{title}</h1>
+      <header className="sticky top-0 z-[100] border-b border-white/[0.06] bg-[#080d16]/88 px-4 py-3 shadow-[0_18px_58px_rgba(0,0,0,0.24)] backdrop-blur-xl lg:px-6">
+        <div className="flex min-h-[76px] items-center gap-4 rounded-[26px] border border-white/[0.07] bg-[linear-gradient(135deg,rgba(17,24,39,0.82),rgba(8,13,22,0.92))] px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] lg:px-5">
+        <div className="min-w-[180px] flex-1">
+          <h1 className="truncate text-[22px] font-black leading-tight tracking-[-0.01em] text-foreground">{title}</h1>
           {subtitle ? (
-            <div className="pointer-events-none absolute left-0 top-8 z-40 w-max max-w-[320px] translate-y-1 rounded-2xl border border-white/10 bg-[#0b1120]/95 px-3 py-2 text-xs font-semibold leading-5 text-slate-200 opacity-0 shadow-[0_18px_55px_rgba(0,0,0,0.42)] backdrop-blur-xl transition-all duration-200 group-hover/title:translate-y-0 group-hover/title:opacity-100">
-              {subtitle}
-            </div>
+            <p className="mt-1 truncate text-sm font-semibold text-slate-300/78">{subtitle}</p>
           ) : null}
         </div>
 
-        <div className="ml-6 hidden max-w-md flex-1 lg:block">
+        {extraControls ? <div className="hidden shrink-0 items-center lg:flex">{extraControls}</div> : null}
+
+        <div className="hidden w-full max-w-[520px] lg:block">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-primary/80" />
             {hasInteractiveSearch ? (
@@ -182,7 +184,7 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
                 value={searchValue ?? ""}
                 onChange={(event) => onSearchChange(event.target.value)}
                 placeholder="Buscar leads, conversas, clientes..."
-                className="h-10 w-full rounded-xl border border-white/10 bg-[#111827]/70 pl-10 pr-4 text-sm text-foreground outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-white/[0.18] focus:border-primary/55 focus:bg-[#111827] focus:ring-4 focus:ring-primary/10"
+                className="h-11 w-full rounded-2xl border border-white/10 bg-[#0B1120]/82 pl-10 pr-4 text-sm text-foreground outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-white/[0.18] focus:border-primary/55 focus:bg-[#111827] focus:ring-4 focus:ring-primary/10"
               />
             ) : (
               <input
@@ -194,7 +196,7 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
                   }
                 }}
                 placeholder="Buscar leads, conversas, clientes..."
-                className="h-10 w-full rounded-xl border border-white/10 bg-[#111827]/70 pl-10 pr-4 text-sm text-foreground outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-white/[0.18] focus:border-primary/55 focus:bg-[#111827] focus:ring-4 focus:ring-primary/10"
+                className="h-11 w-full rounded-2xl border border-white/10 bg-[#0B1120]/82 pl-10 pr-4 text-sm text-foreground outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-white/[0.18] focus:border-primary/55 focus:bg-[#111827] focus:ring-4 focus:ring-primary/10"
               />
             )}
           </div>
@@ -324,6 +326,7 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
               </div>
             </div>
           </div>
+        </div>
         </div>
       </header>
 

@@ -47,9 +47,10 @@ type QuickReply = {
   attachment?: QuickReplyAttachment;
 };
 
-type InboxView = "all" | "favorites" | "locked" | "archived";
+type InboxView = "all" | "favorites" | "locked" | "archived" | "muted";
 type PreviewTooltip = { text: string; top: number; left: number } | null;
 const inboxListsStorageKey = "auto-pro-ia:inbox-lists";
+const inboxStateStorageKey = "auto-pro-ia:inbox-state";
 
 type QuickReplyAttachment = {
   name: string;
@@ -231,21 +232,39 @@ function initialsFromName(name: string) {
 
 function ConversationInboxMenu({
   onArchive,
+  onBlock,
+  onClear,
+  onDelete,
+  onMute,
+  onPin,
+  isArchived,
+  isBlocked,
+  isMuted,
+  isPinned,
   onClose
 }: {
   onArchive: () => void;
+  onBlock: () => void;
+  onClear: () => void;
+  onDelete: () => void;
+  onMute: () => void;
+  onPin: () => void;
+  isArchived: boolean;
+  isBlocked: boolean;
+  isMuted: boolean;
+  isPinned: boolean;
   onClose: () => void;
 }) {
   const actions = [
-    { label: "Arquivar conversa", icon: Archive, action: onArchive },
-    { label: "Silenciar notificacoes", icon: VolumeX, action: onClose, hasSubmenu: true },
-    { label: "Fixar conversa", icon: Pin, action: onClose },
+    { label: isArchived ? "Desarquivar conversa" : "Arquivar conversa", icon: Archive, action: onArchive },
+    { label: isMuted ? "Ativar notificacoes" : "Silenciar notificacoes", icon: VolumeX, action: onMute },
+    { label: isPinned ? "Desfixar conversa" : "Fixar conversa", icon: Pin, action: onPin },
     { label: "Marcar como nao lida", icon: MessageSquareText, action: onClose },
     { label: "Adicionar aos Favoritos", icon: Star, action: onClose },
     { label: "Adicionar a lista", icon: Plus, action: onClose },
-    { label: "Bloquear", icon: Ban, action: onClose, danger: true },
-    { label: "Limpar conversa", icon: X, action: onClose },
-    { label: "Apagar conversa", icon: Trash2, action: onArchive, danger: true }
+    { label: isBlocked ? "Desbloquear" : "Bloquear", icon: Ban, action: onBlock, danger: true },
+    { label: "Limpar conversa", icon: X, action: onClear },
+    { label: "Apagar conversa", icon: Trash2, action: onDelete, danger: true }
   ];
 
   return (
@@ -267,7 +286,6 @@ function ConversationInboxMenu({
           >
             <Icon className="size-4 shrink-0" />
             <span className="flex-1">{item.label}</span>
-            {item.hasSubmenu ? <ChevronDown className="-rotate-90 size-3.5 text-muted-foreground" /> : null}
           </button>
         );
       })}
@@ -288,15 +306,7 @@ function LeadInitialAvatar({
   size?: "sm" | "md" | "lg" | "xl";
   neutral?: boolean;
 }) {
-  const avatarTones = [
-    "border-[#0B5FA5]/42 bg-[linear-gradient(135deg,rgba(11,95,165,0.72),rgba(17,24,39,0.96))] text-blue-50",
-    "border-[#FACC15]/34 bg-[linear-gradient(135deg,rgba(250,204,21,0.72),rgba(31,41,55,0.96))] text-[#0B1120]",
-    "border-white/14 bg-[linear-gradient(135deg,rgba(31,41,55,0.98),rgba(11,17,32,0.98))] text-slate-100",
-    "border-[#64748B]/34 bg-[linear-gradient(135deg,rgba(51,65,85,0.92),rgba(15,23,42,0.98))] text-slate-100",
-    "border-[#38BDF8]/28 bg-[linear-gradient(135deg,rgba(14,116,144,0.62),rgba(17,24,39,0.96))] text-cyan-50"
-  ];
-  const seed = `${name}-${temperature}-${neutral ? "soft" : "solid"}`;
-  const toneIndex = Array.from(seed).reduce((total, char) => total + char.charCodeAt(0), 0) % avatarTones.length;
+  const displayAvatar = avatar && !avatar.includes("api.dicebear.com/7.x/initials") ? avatar : undefined;
   const sizes = {
     sm: "size-9 text-xs",
     md: "size-10 text-sm",
@@ -308,13 +318,13 @@ function LeadInitialAvatar({
     <span
       className={cn(
         "relative grid shrink-0 place-items-center overflow-hidden rounded-full border font-mono font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_24px_rgba(0,0,0,0.24)]",
-        avatar ? "border-white/12 bg-[#111827]" : avatarTones[toneIndex],
+        displayAvatar ? "border-white/12 bg-[#111827]" : "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120] shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_0_18px_rgba(250,204,21,0.16),0_10px_24px_rgba(0,0,0,0.24)]",
         sizes[size]
       )}
       aria-hidden="true"
     >
-      {avatar ? (
-        <img src={avatar} alt="" className="absolute inset-0 size-full object-cover" />
+      {displayAvatar ? (
+        <img src={displayAvatar} alt="" className="absolute inset-0 size-full object-cover" />
       ) : (
         <span className="relative z-10">{initialsFromName(name)}</span>
       )}
@@ -351,7 +361,7 @@ function createConversationFromKanbanLead(lead: KanbanStoredLead): Conversation 
       temperature: normalizeTemperature(lead.temperature),
       lastInteraction: lead.lastInteraction || "agora",
       responsible: lead.responsible || "Equipe comercial",
-      avatar: lead.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(lead.name)}`,
+      avatar: lead.avatar,
       stage: normalizeStage(lead.status),
       interest: "carro",
       notes: lead.notes,
@@ -385,6 +395,13 @@ export default function ConversasPage() {
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>(defaultQuickReplies);
   const [conversationQuery, setConversationQuery] = useState("");
   const [inboxView, setInboxView] = useState<InboxView>("all");
+  const [archivedConversationIds, setArchivedConversationIds] = useState<string[]>([]);
+  const [blockedConversationIds, setBlockedConversationIds] = useState<string[]>([]);
+  const [mutedConversationIds, setMutedConversationIds] = useState<string[]>([]);
+  const [pinnedConversationIds, setPinnedConversationIds] = useState<string[]>([]);
+  const [favoriteConversationIds, setFavoriteConversationIds] = useState<string[]>([]);
+  const [temporaryMessageIds, setTemporaryMessageIds] = useState<string[]>([]);
+  const [privacyConversationIds, setPrivacyConversationIds] = useState<string[]>([]);
   const [showInboxLists, setShowInboxLists] = useState(false);
   const [inboxLists, setInboxLists] = useState<string[]>(["Clientes auto escola", "Prospeccao quente", "Retorno financeiro"]);
   const [newInboxListName, setNewInboxListName] = useState("");
@@ -399,7 +416,7 @@ export default function ConversasPage() {
   const [replyAttachment, setReplyAttachment] = useState<QuickReplyAttachment | undefined>();
   const [draftMessage, setDraftMessage] = useState("");
   const [draftAttachment, setDraftAttachment] = useState<QuickReplyAttachment | undefined>();
-  const [showLeadProfile, setShowLeadProfile] = useState(false);
+  const [showLeadProfile, setShowLeadProfile] = useState(true);
   const [deleteReplyId, setDeleteReplyId] = useState<string | null>(null);
   const [replyFeedback, setReplyFeedback] = useState("");
   const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
@@ -407,11 +424,17 @@ export default function ConversasPage() {
   const filteredConversations = useMemo(() => {
     const normalized = conversationQuery.trim().toLowerCase();
     const visibleByView = availableConversations.filter((conversation, index) => {
-      if (inboxView === "favorites") return conversation.lead.temperature === "quente" || index === 0;
-      if (inboxView === "locked") return manualConversationIds.includes(conversation.lead.id) || conversation.status === "human";
-      if (inboxView === "archived") return false;
+      const isArchived = archivedConversationIds.includes(conversation.lead.id);
+      const isBlocked = blockedConversationIds.includes(conversation.lead.id);
+      const isMuted = mutedConversationIds.includes(conversation.lead.id);
+
+      if (inboxView === "archived") return isArchived;
+      if (inboxView === "muted") return isMuted && !isArchived;
+      if (isArchived) return false;
+      if (inboxView === "favorites") return favoriteConversationIds.includes(conversation.lead.id) || conversation.lead.temperature === "quente" || index === 0;
+      if (inboxView === "locked") return isBlocked || manualConversationIds.includes(conversation.lead.id) || conversation.status === "human";
       return true;
-    });
+    }).sort((a, b) => Number(pinnedConversationIds.includes(b.lead.id)) - Number(pinnedConversationIds.includes(a.lead.id)));
 
     if (!normalized) {
       return visibleByView;
@@ -428,13 +451,29 @@ export default function ConversasPage() {
         conversation.messages.map((message) => message.text).join(" ")
       ].some((value) => value.toLowerCase().includes(normalized))
     );
-  }, [availableConversations, conversationQuery, inboxView, manualConversationIds]);
+  }, [archivedConversationIds, availableConversations, blockedConversationIds, conversationQuery, favoriteConversationIds, inboxView, manualConversationIds, mutedConversationIds, pinnedConversationIds]);
   const active = availableConversations.find((conversation) => conversation.lead.id === activeId) ?? availableConversations[0] ?? conversations[0];
   const editingReply = quickReplies.find((reply) => reply.id === editingReplyId);
   const canSendDraft = draftMessage.trim().length > 0 || Boolean(draftAttachment);
   const isManualAttendance = manualConversationIds.includes(active.lead.id) || active.status === "human";
+  const isActiveFavorite = favoriteConversationIds.includes(active.lead.id);
+  const isActiveMuted = mutedConversationIds.includes(active.lead.id);
+  const hasTemporaryMessages = temporaryMessageIds.includes(active.lead.id);
+  const hasAdvancedPrivacy = privacyConversationIds.includes(active.lead.id);
   const currentAgent = "Carla Vendas";
-  const favoriteCount = availableConversations.filter((conversation, index) => conversation.lead.temperature === "quente" || index === 0).length;
+  const favoriteCount = availableConversations.filter((conversation, index) => favoriteConversationIds.includes(conversation.lead.id) || conversation.lead.temperature === "quente" || index === 0).length;
+  const archivedCount = archivedConversationIds.length;
+  const mutedCount = mutedConversationIds.filter((id) => !archivedConversationIds.includes(id)).length;
+
+  useEffect(() => {
+    if (!conversationQuery.trim() || filteredConversations.length === 0) {
+      return;
+    }
+
+    if (!filteredConversations.some((conversation) => conversation.lead.id === activeId)) {
+      setActiveId(filteredConversations[0].lead.id);
+    }
+  }, [activeId, conversationQuery, filteredConversations]);
 
   useEffect(() => {
     try {
@@ -453,6 +492,68 @@ export default function ConversasPage() {
   useEffect(() => {
     window.localStorage.setItem(inboxListsStorageKey, JSON.stringify(inboxLists));
   }, [inboxLists]);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(inboxStateStorageKey);
+      if (!stored) return;
+
+      const parsed = JSON.parse(stored) as {
+        archived?: unknown;
+        blocked?: unknown;
+        muted?: unknown;
+        pinned?: unknown;
+        favorites?: unknown;
+        temporary?: unknown;
+        privacy?: unknown;
+      };
+
+      if (Array.isArray(parsed.archived)) {
+        setArchivedConversationIds(parsed.archived.filter((item): item is string => typeof item === "string"));
+      }
+      if (Array.isArray(parsed.blocked)) {
+        setBlockedConversationIds(parsed.blocked.filter((item): item is string => typeof item === "string"));
+      }
+      if (Array.isArray(parsed.muted)) {
+        setMutedConversationIds(parsed.muted.filter((item): item is string => typeof item === "string"));
+      }
+      if (Array.isArray(parsed.pinned)) {
+        setPinnedConversationIds(parsed.pinned.filter((item): item is string => typeof item === "string"));
+      }
+      if (Array.isArray(parsed.favorites)) {
+        setFavoriteConversationIds(parsed.favorites.filter((item): item is string => typeof item === "string"));
+      }
+      if (Array.isArray(parsed.temporary)) {
+        setTemporaryMessageIds(parsed.temporary.filter((item): item is string => typeof item === "string"));
+      }
+      if (Array.isArray(parsed.privacy)) {
+        setPrivacyConversationIds(parsed.privacy.filter((item): item is string => typeof item === "string"));
+      }
+    } catch {
+      setArchivedConversationIds([]);
+      setBlockedConversationIds([]);
+      setMutedConversationIds([]);
+      setPinnedConversationIds([]);
+      setFavoriteConversationIds([]);
+      setTemporaryMessageIds([]);
+      setPrivacyConversationIds([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      inboxStateStorageKey,
+      JSON.stringify({
+        archived: archivedConversationIds,
+        blocked: blockedConversationIds,
+        muted: mutedConversationIds,
+        pinned: pinnedConversationIds,
+        favorites: favoriteConversationIds,
+        temporary: temporaryMessageIds,
+        privacy: privacyConversationIds
+      })
+    );
+  }, [archivedConversationIds, blockedConversationIds, favoriteConversationIds, mutedConversationIds, pinnedConversationIds, privacyConversationIds, temporaryMessageIds]);
 
   useEffect(() => {
     let mergedConversations = conversations;
@@ -660,6 +761,103 @@ export default function ConversasPage() {
     setShowInboxLists(false);
   }
 
+  function selectNextConversationAfter(currentId: string) {
+    const next = availableConversations.find((conversation) => conversation.lead.id !== currentId && !archivedConversationIds.includes(conversation.lead.id));
+    if (next) {
+      setActiveId(next.lead.id);
+    }
+  }
+
+  function toggleArchiveConversation(conversationId: string) {
+    const isArchived = archivedConversationIds.includes(conversationId);
+
+    setArchivedConversationIds((ids) => (isArchived ? ids.filter((id) => id !== conversationId) : [conversationId, ...ids]));
+    setOpenConversationMenuId(null);
+
+    if (!isArchived && activeId === conversationId) {
+      selectNextConversationAfter(conversationId);
+    }
+  }
+
+  function toggleMuteConversation(conversationId: string) {
+    setMutedConversationIds((ids) => (ids.includes(conversationId) ? ids.filter((id) => id !== conversationId) : [conversationId, ...ids]));
+    setOpenConversationMenuId(null);
+  }
+
+  function togglePinConversation(conversationId: string) {
+    setPinnedConversationIds((ids) => (ids.includes(conversationId) ? ids.filter((id) => id !== conversationId) : [conversationId, ...ids]));
+    setOpenConversationMenuId(null);
+  }
+
+  function toggleFavoriteConversation(conversationId: string) {
+    setFavoriteConversationIds((ids) => (ids.includes(conversationId) ? ids.filter((id) => id !== conversationId) : [conversationId, ...ids]));
+  }
+
+  function toggleTemporaryMessages(conversationId: string) {
+    setTemporaryMessageIds((ids) => (ids.includes(conversationId) ? ids.filter((id) => id !== conversationId) : [conversationId, ...ids]));
+  }
+
+  function togglePrivacyConversation(conversationId: string) {
+    setPrivacyConversationIds((ids) => (ids.includes(conversationId) ? ids.filter((id) => id !== conversationId) : [conversationId, ...ids]));
+  }
+
+  function toggleBlockConversation(conversationId: string) {
+    const isBlocked = blockedConversationIds.includes(conversationId);
+    const confirmed = window.confirm(isBlocked ? "Deseja desbloquear esta conversa?" : "Deseja bloquear esta conversa?");
+    if (!confirmed) return;
+
+    setBlockedConversationIds((ids) => (isBlocked ? ids.filter((id) => id !== conversationId) : [conversationId, ...ids]));
+    setAvailableConversations((items) =>
+      items.map((conversation) =>
+        conversation.lead.id === conversationId
+          ? {
+              ...conversation,
+              status: "human",
+              preview: isBlocked ? "Conversa desbloqueada." : "Conversa bloqueada."
+            }
+          : conversation
+      )
+    );
+    setOpenConversationMenuId(null);
+  }
+
+  function clearConversation(conversationId: string) {
+    const confirmed = window.confirm("Deseja limpar o historico desta conversa?");
+    if (!confirmed) return;
+
+    setAvailableConversations((items) =>
+      items.map((conversation) =>
+        conversation.lead.id === conversationId
+          ? {
+              ...conversation,
+              unread: 0,
+              preview: "Conversa limpa.",
+              messages: []
+            }
+          : conversation
+      )
+    );
+    setOpenConversationMenuId(null);
+  }
+
+  function deleteConversation(conversationId: string) {
+    const confirmed = window.confirm("Deseja apagar esta conversa da caixa de entrada?");
+    if (!confirmed) return;
+
+    setAvailableConversations((items) => items.filter((conversation) => conversation.lead.id !== conversationId));
+    setArchivedConversationIds((ids) => ids.filter((id) => id !== conversationId));
+    setBlockedConversationIds((ids) => ids.filter((id) => id !== conversationId));
+    setMutedConversationIds((ids) => ids.filter((id) => id !== conversationId));
+    setPinnedConversationIds((ids) => ids.filter((id) => id !== conversationId));
+    if (activeId === conversationId) {
+      const next = availableConversations.find((conversation) => conversation.lead.id !== conversationId);
+      if (next) {
+        setActiveId(next.lead.id);
+      }
+    }
+    setOpenConversationMenuId(null);
+  }
+
   function createInboxList() {
     const listName = newInboxListName.trim();
     if (!listName) return;
@@ -709,7 +907,12 @@ export default function ConversasPage() {
 
   return (
     <>
-      <Topbar title="Central de Atendimento" subtitle="WhatsApp + IA com intervencao humana sem perda de contexto" />
+      <Topbar
+        title="Central de Atendimento"
+        subtitle="WhatsApp + IA com intervencao humana sem perda de contexto"
+        searchValue={conversationQuery}
+        onSearchChange={setConversationQuery}
+      />
       {previewTooltip ? (
         <div
           className="pointer-events-none fixed z-[220] w-[min(340px,calc(100vw-2rem))] -translate-y-1/2 rounded-xl border border-white/10 bg-[#0b1120]/98 p-3 text-xs leading-5 text-slate-100 opacity-100 shadow-[0_24px_70px_rgba(0,0,0,0.56)] backdrop-blur-xl"
@@ -718,9 +921,14 @@ export default function ConversasPage() {
           {previewTooltip.text}
         </div>
       ) : null}
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden bg-[radial-gradient(circle_at_42%_0%,rgba(11,95,165,0.10),transparent_34%),linear-gradient(180deg,rgba(250,204,21,0.035),transparent_24%),#0B1120] md:grid-cols-[380px_1fr] xl:grid-cols-[380px_minmax(460px,0.78fr)_320px]">
-        <aside className="flex min-h-0 flex-col overflow-hidden border-r border-white/[0.08] bg-[#111827]/72 backdrop-blur-xl">
-          <div className="border-b border-white/[0.08] p-3">
+      <div
+        className={cn(
+          "grid min-h-0 flex-1 grid-cols-1 overflow-hidden bg-[radial-gradient(circle_at_42%_0%,rgba(11,95,165,0.10),transparent_34%),linear-gradient(180deg,rgba(250,204,21,0.035),transparent_24%),#0B1120] md:grid-cols-[380px_1fr]",
+          showLeadProfile ? "xl:grid-cols-[380px_minmax(0,1fr)_300px]" : "xl:grid-cols-[380px_minmax(0,1fr)]"
+        )}
+      >
+        <aside className="flex min-h-0 flex-col overflow-hidden border-r border-white/[0.08] bg-[#060a12]/95 shadow-[inset_-18px_0_42px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+          <div className="border-b border-white/[0.08] bg-[#080d16]/92 p-3">
             <div className="mb-2.5 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-extrabold">Caixa de entrada</h2>
@@ -895,30 +1103,47 @@ export default function ConversasPage() {
                     <button
                       type="button"
                       onClick={() => {
+                        selectInboxView("muted");
+                        setShowInboxLists(false);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-slate-100 transition hover:bg-white/[0.06]"
+                    >
+                      <VolumeX className="size-4 text-muted-foreground" />
+                      <span className="min-w-0 flex-1">Silenciadas</span>
+                      <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-muted-foreground">{mutedCount}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
                         selectInboxView("archived");
                         setShowInboxLists(false);
                       }}
                       className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-slate-100 transition hover:bg-white/[0.06]"
                     >
                       <Archive className="size-4 text-muted-foreground" />
-                      Arquivadas
+                      <span className="min-w-0 flex-1">Arquivadas</span>
+                      <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-muted-foreground">{archivedCount}</span>
                     </button>
                   </div>
                 ) : null}
               </div>
             </div>
           </div>
-          <div className="min-h-0 max-h-[calc(100vh-238px)] flex-1 space-y-1.5 overflow-x-hidden overflow-y-auto overscroll-contain p-2.5 pr-3 scrollbar-thin">
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-scroll overscroll-contain bg-[radial-gradient(circle_at_50%_0%,rgba(11,95,165,0.07),transparent_30%),#050912] px-2 py-2 pr-3 [scrollbar-gutter:stable] scrollbar-thin">
             {filteredConversations.map((conversation) => {
               const selected = conversation.lead.id === activeId;
               const chance = closingChanceByTemperature[conversation.lead.temperature];
+              const isArchived = archivedConversationIds.includes(conversation.lead.id);
+              const isBlocked = blockedConversationIds.includes(conversation.lead.id);
+              const isMuted = mutedConversationIds.includes(conversation.lead.id);
+              const isPinned = pinnedConversationIds.includes(conversation.lead.id);
 
               return (
                 <div
                   key={conversation.lead.id}
                   className={cn(
-                    "group relative flex w-full items-start gap-2.5 rounded-2xl border border-white/[0.08] bg-[#111827]/88 p-2.5 text-left shadow-[0_12px_28px_rgba(0,0,0,0.18)] transition-all duration-200 hover:z-[85] hover:-translate-y-0.5 hover:border-[#0B5FA5]/45 hover:bg-[#132033]",
-                    selected && "border-[#FACC15]/42 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(17,24,39,0.96))] shadow-[0_18px_42px_rgba(0,0,0,0.24)]",
+                    "group relative flex w-full items-center gap-2.5 border-b border-white/[0.06] px-2 py-2.5 text-left transition-all duration-200 last:border-b-0 hover:z-[85] hover:bg-[#101827]/88",
+                    selected && "rounded-xl border-b-transparent bg-[#111827] shadow-[inset_3px_0_0_#FACC15,0_12px_30px_rgba(0,0,0,0.26)]",
                     openConversationMenuId === conversation.lead.id && "z-[80]"
                   )}
                 >
@@ -928,14 +1153,19 @@ export default function ConversasPage() {
                       setActiveId(conversation.lead.id);
                       setOpenConversationMenuId(null);
                     }}
-                    className="flex min-w-0 flex-1 items-start gap-2.5 text-left"
+                    className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                   >
                   <div className="relative shrink-0">
                     <LeadInitialAvatar name={conversation.lead.name} avatar={conversation.lead.avatar} temperature={conversation.lead.temperature} size="sm" neutral />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="truncate text-[13px] font-extrabold">{conversation.lead.name}</span>
+                      <span className="inline-flex min-w-0 items-center gap-1.5">
+                        {isPinned ? <Pin className="size-3 shrink-0 text-primary" /> : null}
+                        {isBlocked ? <Ban className="size-3 shrink-0 text-red-200" /> : null}
+                        {isMuted ? <VolumeX className="size-3 shrink-0 text-muted-foreground" /> : null}
+                        <span className="truncate text-[13px] font-extrabold">{conversation.lead.name}</span>
+                      </span>
                       <span className="shrink-0 text-[10px] text-muted-foreground">{conversation.lead.lastInteraction}</span>
                     </div>
                     <div
@@ -976,13 +1206,16 @@ export default function ConversasPage() {
                   {openConversationMenuId === conversation.lead.id ? (
                     <ConversationInboxMenu
                       onClose={() => setOpenConversationMenuId(null)}
-                      onArchive={() => {
-                        setAvailableConversations((current) => current.filter((item) => item.lead.id !== conversation.lead.id));
-                        if (activeId === conversation.lead.id) {
-                          const next = availableConversations.find((item) => item.lead.id !== conversation.lead.id);
-                          if (next) setActiveId(next.lead.id);
-                        }
-                      }}
+                      onArchive={() => toggleArchiveConversation(conversation.lead.id)}
+                      onBlock={() => toggleBlockConversation(conversation.lead.id)}
+                      onClear={() => clearConversation(conversation.lead.id)}
+                      onDelete={() => deleteConversation(conversation.lead.id)}
+                      onMute={() => toggleMuteConversation(conversation.lead.id)}
+                      onPin={() => togglePinConversation(conversation.lead.id)}
+                      isArchived={isArchived}
+                      isBlocked={isBlocked}
+                      isMuted={isMuted}
+                      isPinned={isPinned}
                     />
                   ) : null}
                 </div>
@@ -999,10 +1232,18 @@ export default function ConversasPage() {
         <section className="flex min-h-0 flex-col bg-[#0B1120]/74">
           <div className="border-b border-white/[0.08] bg-[#111827]/72 px-4 py-3 backdrop-blur-xl">
             <div className="flex items-center gap-3">
-              <LeadInitialAvatar name={active.lead.name} avatar={active.lead.avatar} temperature={active.lead.temperature} size="lg" />
-              <div className="min-w-0 flex-1">
-                <span className="block truncate text-base font-extrabold">{active.lead.name}</span>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowLeadProfile((current) => !current)}
+                className="group flex min-w-0 flex-1 items-center gap-3 rounded-2xl px-1.5 py-1 text-left transition hover:bg-white/[0.035]"
+                title={showLeadProfile ? "Fechar dados do contato" : "Abrir dados do contato"}
+                aria-label={`${showLeadProfile ? "Fechar" : "Abrir"} dados do contato ${active.lead.name}`}
+              >
+                <LeadInitialAvatar name={active.lead.name} avatar={active.lead.avatar} temperature={active.lead.temperature} size="lg" />
+                <span className="min-w-0 flex-1 truncate text-base font-extrabold transition group-hover:text-primary">
+                  {active.lead.name}
+                </span>
+              </button>
               <span
                 className={cn(
                   "hidden items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold sm:inline-flex",
@@ -1194,41 +1435,63 @@ export default function ConversasPage() {
           </div>
         </section>
 
-        <aside className="hidden min-h-0 flex-col gap-3 overflow-y-auto border-l border-white/[0.08] bg-[#111827]/72 p-4 backdrop-blur-xl scrollbar-thin xl:flex">
-          <section className="rounded-2xl border border-[#0B5FA5]/22 bg-[linear-gradient(145deg,rgba(11,95,165,0.10),rgba(17,24,39,0.78))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.18)]">
-            <div className="flex items-center gap-3">
-              <LeadInitialAvatar name={active.lead.name} avatar={active.lead.avatar} temperature={active.lead.temperature} size="lg" />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-extrabold">{active.lead.name}</div>
-                <div className="mt-0.5 truncate text-xs text-muted-foreground">{active.lead.phone}</div>
+        {showLeadProfile ? (
+        <aside className="hidden min-h-0 flex-col gap-2.5 overflow-y-auto border-l border-white/[0.06] bg-[#070c14]/92 p-3 backdrop-blur-xl scrollbar-thin xl:flex">
+          <section className="relative rounded-2xl border border-white/[0.08] bg-[linear-gradient(145deg,rgba(17,24,39,0.72),rgba(8,13,22,0.92))] p-4 shadow-[0_16px_42px_rgba(0,0,0,0.20)]">
+            <div className="absolute right-3 top-3">
+              <button
+                type="button"
+                onClick={() => setShowLeadProfile(false)}
+                className="grid size-7 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.035] text-slate-400 transition hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+                aria-label="Fechar painel do lead"
+                title="Fechar painel do lead"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+            <div className="flex flex-col items-center pt-1 text-center">
+              <LeadInitialAvatar name={active.lead.name} avatar={active.lead.avatar} temperature={active.lead.temperature} size="xl" />
+              <div className="mt-3 min-w-0">
+                <div className="max-w-[230px] truncate text-sm font-extrabold text-slate-100">{active.lead.name}</div>
+                <div className="mt-1 truncate text-[11px] text-muted-foreground">{active.lead.phone}</div>
               </div>
-              <span className={cn("rounded-full border px-2 py-1 text-[10px] font-black", isManualAttendance ? "border-[#FACC15]/30 bg-[#FACC15]/10 text-[#FACC15]" : "border-[#22C55E]/25 bg-[#22C55E]/10 text-[#22C55E]")}>
+              <button
+                type="button"
+                className="mt-3 grid size-9 place-items-center rounded-full border border-white/[0.08] bg-white/[0.045] text-slate-300 transition hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+                title="Pesquisar na conversa"
+                aria-label="Pesquisar na conversa"
+              >
+                <Search className="size-4" />
+              </button>
+              <div className="mt-3 max-w-full text-left">
+                <div className="text-[10px] font-semibold text-slate-500">Recado</div>
+                <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-300">{active.lead.notes ?? active.preview}</p>
+              </div>
+              <span className={cn("mt-3 rounded-lg border px-2 py-1 text-[9px] font-black", isManualAttendance ? "border-[#FACC15]/28 bg-[#FACC15]/8 text-[#FACC15]" : "border-[#0B5FA5]/26 bg-[#0B5FA5]/10 text-sky-100")}>
                 {isManualAttendance ? "Piloto" : "IA ativa"}
               </span>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-white/[0.08] bg-background/35 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-100/75">Direcionamento</div>
-                  <p className="mt-1 text-sm font-extrabold">Enviar proposta objetiva</p>
-                </div>
-                <div className="text-right">
-                  <div className="font-mono text-2xl font-black text-primary">{closingChanceByTemperature[active.lead.temperature]}%</div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">fechamento</div>
-                </div>
-              </div>
-              <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                Priorize uma resposta curta com horario disponivel e proximo passo claro.
-              </p>
+            <div className="mt-3 grid gap-2">
+              <CompactLeadMeter
+                label="Termometro"
+                value={active.lead.temperature}
+                helper={temperatureBar[active.lead.temperature].label}
+                width={temperatureBar[active.lead.temperature].width}
+              />
+              <CompactLeadMeter
+                label="Sentimento"
+                value={getLeadSentiment(active)}
+                helper={sentimentBar[getLeadSentiment(active)].label}
+                width={sentimentBar[getLeadSentiment(active)].width}
+              />
             </div>
           </section>
 
           <ExpandableSection
-            title="Inteligencia do lead"
-            subtitle="Contexto aberto so quando precisar"
+            title="Dados do lead"
+            subtitle="Abrir quando precisar"
             icon={Gauge}
-            defaultOpen
           >
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
@@ -1238,10 +1501,10 @@ export default function ConversasPage() {
                 <Info label="Responsavel" value={active.lead.responsible} compact />
               </div>
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Termometro do cliente</div>
-                <div className="mt-1.5 rounded-2xl border border-white/[0.08] bg-background/35 p-2.5">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Termometro do cliente</div>
+                <div className="mt-1.5 rounded-2xl border border-white/[0.07] bg-[#0B1120]/58 p-2.5">
                   <div className="mb-1.5 flex items-center justify-between gap-3">
-                    <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-bold capitalize", temperatureClasses[active.lead.temperature])}>
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.035] px-2 py-0.5 text-[10px] font-bold capitalize text-slate-200">
                       <span aria-hidden="true">{temperatureEmoji[active.lead.temperature]}</span>
                       {active.lead.temperature}
                     </span>
@@ -1249,19 +1512,19 @@ export default function ConversasPage() {
                       {temperatureBar[active.lead.temperature].label}
                     </span>
                   </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.08]">
+                  <div className="h-2 overflow-hidden rounded-full bg-white/[0.07]">
                     <div
-                      className={cn("h-full rounded-full bg-gradient-to-r", temperatureBar[active.lead.temperature].gradient)}
+                      className="h-full rounded-full bg-gradient-to-r from-[#0B5FA5] via-[#38BDF8] to-[#FACC15]"
                       style={{ width: temperatureBar[active.lead.temperature].width }}
                     />
                   </div>
                 </div>
               </div>
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sentimento do cliente</div>
-                <div className="mt-1.5 rounded-2xl border border-white/[0.08] bg-background/35 p-2.5">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Sentimento do cliente</div>
+                <div className="mt-1.5 rounded-2xl border border-white/[0.07] bg-[#0B1120]/58 p-2.5">
                   <div className="mb-1.5 flex items-center justify-between gap-3">
-                    <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-bold capitalize", sentimentClasses[getLeadSentiment(active)])}>
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.035] px-2 py-0.5 text-[10px] font-bold capitalize text-slate-200">
                       <span aria-hidden="true">{sentimentEmoji[getLeadSentiment(active)]}</span>
                       {getLeadSentiment(active)}
                     </span>
@@ -1269,9 +1532,9 @@ export default function ConversasPage() {
                       {sentimentBar[getLeadSentiment(active)].label}
                     </span>
                   </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.08]">
+                  <div className="h-2 overflow-hidden rounded-full bg-white/[0.07]">
                     <div
-                      className={cn("h-full rounded-full bg-gradient-to-r", sentimentBar[getLeadSentiment(active)].gradient)}
+                      className="h-full rounded-full bg-gradient-to-r from-[#1F2937] via-[#0B5FA5] to-[#FACC15]"
                       style={{ width: sentimentBar[getLeadSentiment(active)].width }}
                     />
                   </div>
@@ -1280,32 +1543,41 @@ export default function ConversasPage() {
             </div>
           </ExpandableSection>
 
-          <ExpandableSection
-            title="Timeline operacional"
-            subtitle="Historico resumido para auditoria rapida"
-            icon={CalendarClock}
-          >
-            <div className="space-y-3">
-              {operationalTimeline.map((item) => {
-                const Icon = item.icon;
-
-                return (
-                  <div key={item.title} className="flex gap-3">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
-                      <Icon className="size-4" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-xs font-bold">{item.title}</p>
-                        <span className="shrink-0 text-[10px] text-muted-foreground">{item.time}</span>
-                      </div>
-                      <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{item.detail}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </ExpandableSection>
+          <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[linear-gradient(145deg,rgba(17,24,39,0.58),rgba(8,13,22,0.88))] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+            <ContactPanelRow icon={ImageIcon} label="Midia, links e docs" value="5" />
+            <ContactPanelRow
+              icon={Star}
+              label="Mensagens favoritas"
+              onClick={() => toggleFavoriteConversation(active.lead.id)}
+              active={isActiveFavorite}
+            />
+            <ContactPanelRow
+              icon={VolumeX}
+              label="Silenciar notificacoes"
+              onClick={() => toggleMuteConversation(active.lead.id)}
+              active={isActiveMuted}
+              toggle
+            />
+            <ContactPanelRow
+              icon={Clock3}
+              label="Mensagens temporarias"
+              detail={hasTemporaryMessages ? "Ativadas" : "Desativadas"}
+              onClick={() => toggleTemporaryMessages(active.lead.id)}
+              active={hasTemporaryMessages}
+            />
+            <ContactPanelRow
+              icon={LockKeyhole}
+              label="Privacidade avancada"
+              detail={hasAdvancedPrivacy ? "Ativada" : "Desativada"}
+              onClick={() => togglePrivacyConversation(active.lead.id)}
+              active={hasAdvancedPrivacy}
+            />
+            <ContactPanelRow
+              icon={LockKeyhole}
+              label="Criptografia"
+              detail="Mensagens protegidas de ponta a ponta."
+            />
+          </section>
 
           <button
             onClick={() => setShowLeadProfile(true)}
@@ -1315,6 +1587,7 @@ export default function ConversasPage() {
             Ver perfil completo
           </button>
         </aside>
+        ) : null}
       </div>
 
       {deleteReplyId ? (
@@ -1461,14 +1734,14 @@ export default function ConversasPage() {
         </div>
       ) : null}
 
-      {showLeadProfile ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <section className="w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-card shadow-[0_28px_90px_rgba(0,0,0,0.48)]">
-            <div className="flex items-start gap-4 border-b border-white/10 p-5">
+      {false ? (
+        <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/55 backdrop-blur-sm">
+          <section className="flex h-dvh w-full max-w-[430px] flex-col overflow-hidden border-l border-white/10 bg-[#f9fafb] text-[#111827] shadow-[0_28px_90px_rgba(0,0,0,0.48)]">
+            <div className="relative border-b border-slate-200 bg-white p-6 text-center">
               <LeadInitialAvatar name={active.lead.name} avatar={active.lead.avatar} temperature={active.lead.temperature} size="xl" />
-              <div className="min-w-0 flex-1">
-                <h2 className="truncate text-xl font-extrabold">{active.lead.name}</h2>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <div className="mx-auto mt-3 min-w-0">
+                <h2 className="truncate text-lg font-medium text-slate-950">{active.lead.name}</h2>
+                <div className="mt-1 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500">
                   <span className="inline-flex items-center gap-1">
                     <Phone className="size-3.5" />
                     {active.lead.phone}
@@ -1480,14 +1753,75 @@ export default function ConversasPage() {
               <button
                 type="button"
                 onClick={() => setShowLeadProfile(false)}
-                className="grid size-9 place-items-center rounded-xl text-muted-foreground transition hover:bg-white/[0.06] hover:text-foreground"
+                className="absolute left-3 top-3 grid size-8 place-items-center rounded-lg text-slate-700 transition hover:bg-slate-100"
                 aria-label="Fechar perfil do cliente"
               >
                 <X className="size-4" />
               </button>
+              <button
+                type="button"
+                className="absolute right-3 top-3 grid size-8 place-items-center rounded-lg text-slate-700 transition hover:bg-slate-100"
+                aria-label="Editar contato"
+              >
+                <Pencil className="size-4" />
+              </button>
             </div>
 
-            <div className="grid max-h-[72vh] gap-5 overflow-y-auto p-5 scrollbar-thin lg:grid-cols-[1fr_1.1fr]">
+            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 scrollbar-thin">
+              <div className="flex justify-center">
+                <button className="grid size-10 place-items-center rounded-full border border-slate-200 bg-slate-50 text-slate-700 transition hover:bg-slate-100">
+                  <Search className="size-4" />
+                </button>
+              </div>
+              <section className="rounded-2xl border border-slate-200 bg-white p-4">
+                <p className="text-[11px] text-slate-500">Recado</p>
+                <p className="mt-1 text-sm leading-6 text-slate-800">{active.lead.notes ?? active.preview}</p>
+              </section>
+              <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <ContactPanelRow icon={ImageIcon} label="Midia, links e docs" value="5" />
+                <div className="grid grid-cols-2 gap-4 border-t border-slate-200 px-10 py-8">
+                  <button className="mx-auto grid size-11 place-items-center rounded-full bg-slate-200 text-slate-500 transition hover:bg-slate-300">
+                    <Archive className="size-5" />
+                  </button>
+                  <button className="mx-auto grid size-11 place-items-center rounded-full bg-slate-200 text-slate-500 transition hover:bg-slate-300">
+                    <ImageIcon className="size-5" />
+                  </button>
+                </div>
+              </section>
+              <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <ContactPanelRow
+                  icon={Star}
+                  label="Mensagens favoritas"
+                  onClick={() => toggleFavoriteConversation(active.lead.id)}
+                  active={isActiveFavorite}
+                />
+                <ContactPanelRow
+                  icon={VolumeX}
+                  label="Silenciar notificacoes"
+                  onClick={() => toggleMuteConversation(active.lead.id)}
+                  active={isActiveMuted}
+                  toggle
+                />
+                <ContactPanelRow
+                  icon={Clock3}
+                  label="Mensagens temporarias"
+                  detail={hasTemporaryMessages ? "Ativadas" : "Desativadas"}
+                  onClick={() => toggleTemporaryMessages(active.lead.id)}
+                  active={hasTemporaryMessages}
+                />
+                <ContactPanelRow
+                  icon={LockKeyhole}
+                  label="Privacidade avancada da conversa"
+                  detail={hasAdvancedPrivacy ? "Ativada" : "Desativada"}
+                  onClick={() => togglePrivacyConversation(active.lead.id)}
+                  active={hasAdvancedPrivacy}
+                />
+                <ContactPanelRow
+                  icon={LockKeyhole}
+                  label="Criptografia"
+                  detail="As mensagens sao protegidas com criptografia de ponta a ponta. Clique para verificar."
+                />
+              </section>
               <div className="space-y-4">
                 <section className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
                   <h3 className="text-sm font-extrabold">Resumo comercial</h3>
@@ -1532,11 +1866,64 @@ export default function ConversasPage() {
   );
 }
 
+function CompactLeadMeter({ label, value, helper, width }: { label: string; value: string; helper: string; width: string }) {
+  return (
+    <div className="rounded-xl border border-white/[0.07] bg-[#0B1120]/58 px-2.5 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">{label}</span>
+        <span className="truncate text-[10px] font-bold capitalize text-slate-200">{value}</span>
+      </div>
+      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
+        <div className="h-full rounded-full bg-gradient-to-r from-[#0B5FA5] via-[#38BDF8] to-[#FACC15]" style={{ width }} />
+      </div>
+      <p className="mt-1 truncate text-[10px] font-semibold text-muted-foreground">{helper}</p>
+    </div>
+  );
+}
+
+function ContactPanelRow({
+  icon: Icon,
+  label,
+  detail,
+  value,
+  active = false,
+  toggle = false,
+  onClick
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  detail?: string;
+  value?: string;
+  active?: boolean;
+  toggle?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-3 border-b border-white/[0.06] px-3 py-2.5 text-left transition last:border-b-0 hover:bg-white/[0.045]"
+    >
+      <Icon className={cn("size-4 shrink-0", active ? "text-primary" : "text-slate-400")} />
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-bold text-slate-200">{label}</span>
+        {detail ? <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">{detail}</span> : null}
+      </span>
+      {value ? <span className="text-xs font-bold text-muted-foreground">{value}</span> : null}
+      {toggle ? (
+        <span className={cn("relative h-5 w-9 rounded-full border transition", active ? "border-primary/40 bg-primary/25" : "border-white/[0.08] bg-white/[0.045]")}>
+          <span className={cn("absolute top-0.5 size-4 rounded-full bg-slate-200 shadow transition", active ? "left-4" : "left-0.5")} />
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
 function Info({ label, value, compact = false }: { label: string; value: string; compact?: boolean }) {
   return (
-    <div className={cn(compact && "rounded-xl border border-white/[0.06] bg-[#0B1120]/45 px-2.5 py-2")}>
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={cn("mt-0.5 font-medium capitalize", compact ? "truncate text-xs" : "text-sm")}>{value}</div>
+    <div className={cn(compact && "rounded-xl border border-white/[0.07] bg-[#0B1120]/58 px-2.5 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]")}>
+      <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500">{label}</div>
+      <div className={cn("mt-0.5 font-semibold capitalize text-slate-200", compact ? "truncate text-xs" : "text-sm")}>{value}</div>
     </div>
   );
 }
@@ -1557,14 +1944,14 @@ function ExpandableSection({
   return (
     <details
       open={defaultOpen}
-      className="group rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3 transition hover:border-[#0B5FA5]/30 hover:bg-white/[0.05]"
+      className="group rounded-2xl border border-white/[0.07] bg-[linear-gradient(145deg,rgba(17,24,39,0.62),rgba(8,13,22,0.82))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] transition hover:border-[#0B5FA5]/24 hover:bg-white/[0.045]"
     >
       <summary className="flex cursor-pointer list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
-        <span className="grid size-9 shrink-0 place-items-center rounded-2xl border border-[#0B5FA5]/25 bg-[#0B5FA5]/14 text-blue-100">
+        <span className="grid size-8 shrink-0 place-items-center rounded-xl border border-white/[0.08] bg-[#0B1120]/70 text-slate-300">
           <Icon className="size-4" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-extrabold">{title}</span>
+          <span className="block text-sm font-extrabold text-slate-100">{title}</span>
           <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{subtitle}</span>
         </span>
         <ChevronDown className="size-4 shrink-0 text-muted-foreground transition group-open:rotate-180" />

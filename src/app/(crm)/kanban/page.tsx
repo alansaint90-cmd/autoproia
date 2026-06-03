@@ -230,17 +230,17 @@ const sentimentEmoji: Record<LeadCard["sentiment"], string> = {
 };
 
 const avatarClasses: Record<PipelineStage, string> = {
-  novo: "border-[#FACC15]/35 bg-[#FACC15]/12 text-[#FACC15]",
-  ia: "border-[#0B5FA5]/45 bg-[#0B5FA5]/16 text-blue-100",
-  qualificado: "border-[#22C55E]/35 bg-[#22C55E]/12 text-[#22C55E]",
-  atendimento: "border-white/12 bg-white/[0.045] text-slate-200",
-  orcamento: "border-[#FACC15]/35 bg-[#FACC15]/12 text-[#FACC15]",
-  negociacao: "border-[#EAB308]/30 bg-[#EAB308]/10 text-[#EAB308]",
-  interessado: "border-[#0B5FA5]/45 bg-[#0B5FA5]/16 text-blue-100",
-  followup: "border-[#0B5FA5]/45 bg-[#0B5FA5]/16 text-blue-100",
-  perdido: "border-red-400/30 bg-red-400/10 text-red-200",
-  matricula_pendente: "border-[#FACC15]/35 bg-[#FACC15]/12 text-[#FACC15]",
-  matricula_realizada: "border-[#22C55E]/35 bg-[#22C55E]/12 text-[#22C55E]"
+  novo: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
+  ia: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
+  qualificado: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
+  atendimento: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
+  orcamento: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
+  negociacao: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
+  interessado: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
+  followup: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
+  perdido: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
+  matricula_pendente: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
+  matricula_realizada: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]"
 };
 
 const cardStripeClasses: Record<PipelineStage, string> = {
@@ -757,6 +757,9 @@ export default function KanbanPage() {
               const isCollapsed = collapsedStages.includes(stage.id);
               const groupStageIds = pipelineStages.filter((item) => item.group === stage.group).map((item) => item.id);
               const isGroupCollapsed = groupStageIds.every((stageId) => collapsedStages.includes(stageId));
+              const previousStage = stagesToRender[index - 1];
+              const previousIsCollapsedInSameGroup =
+                previousStage?.group === stage.group && collapsedStages.includes(previousStage.id);
 
               if (isGroupCollapsed) {
                 if (!showGroupLabel) {
@@ -798,8 +801,71 @@ export default function KanbanPage() {
                               onClick={() => toggleStageCollapse(groupStage.id)}
                               className="flex w-full items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.035] px-3 py-3 text-left transition hover:border-primary/25 hover:bg-white/[0.06]"
                             >
-                              <span className={cn("size-2.5 rounded-full shadow-[0_0_14px_currentColor]", groupStage.dot)} />
+                              <span className={cn("size-3 rounded-full ring-4 ring-white/[0.035] shadow-[0_0_22px_currentColor,0_0_8px_currentColor]", groupStage.dot)} />
                               <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-100">{groupStage.title}</span>
+                              <span className="rounded-full border border-white/[0.08] bg-white/[0.055] px-2 py-0.5 font-mono text-[10px] font-bold text-muted-foreground">
+                                {count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (isCollapsed) {
+                if (previousIsCollapsedInSameGroup) {
+                  return null;
+                }
+
+                const collapsedRunStages = stagesToRender.slice(index).filter((item, runIndex) => {
+                  if (item.group !== stage.group || !collapsedStages.includes(item.id)) {
+                    return false;
+                  }
+
+                  const previousInRun = stagesToRender[index + runIndex - 1];
+                  return runIndex === 0 || (previousInRun?.group === stage.group && collapsedStages.includes(previousInRun.id));
+                });
+
+                return (
+                  <div key={`${stage.id}-collapsed-list`} className="flex h-full min-h-0 w-[250px] shrink-0 flex-col">
+                    <div className="mb-2 h-6 px-2">
+                      {showGroupLabel ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleGroupCollapse(stage.group)}
+                          title={`Recolher ${stage.group}`}
+                          className="inline-flex items-center rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground transition-all duration-200 hover:border-primary/35 hover:bg-primary/10 hover:text-primary"
+                        >
+                          {stage.group}
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <div className="rounded-[24px] border border-white/10 bg-card/[0.54] p-3 shadow-[0_18px_42px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+                      <div className="mb-3 flex items-center justify-between border-b border-white/[0.06] pb-3">
+                        <div>
+                          <p className="text-xs font-black text-foreground">Etapas recolhidas</p>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">Clique para abrir</p>
+                        </div>
+                        <ChevronDown className="size-4 rotate-180 text-primary" />
+                      </div>
+
+                      <div className="space-y-2">
+                        {collapsedRunStages.map((collapsedStage) => {
+                          const count = visibleLeads.filter((lead) => lead.status === collapsedStage.id).length;
+
+                          return (
+                            <button
+                              key={collapsedStage.id}
+                              type="button"
+                              onClick={() => toggleStageCollapse(collapsedStage.id)}
+                              className="flex w-full items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.035] px-3 py-3 text-left transition hover:border-primary/25 hover:bg-white/[0.06]"
+                            >
+                              <span className={cn("size-3 rounded-full ring-4 ring-white/[0.035] shadow-[0_0_22px_currentColor,0_0_8px_currentColor]", collapsedStage.dot)} />
+                              <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-100">{collapsedStage.title}</span>
                               <span className="rounded-full border border-white/[0.08] bg-white/[0.055] px-2 py-0.5 font-mono text-[10px] font-bold text-muted-foreground">
                                 {count}
                               </span>
@@ -864,7 +930,7 @@ export default function KanbanPage() {
                   >
                     <span
                       className={cn(
-                        "size-2.5 rounded-full shadow-[0_0_14px_currentColor] transition-transform duration-300 group-hover/column:scale-125",
+                        "size-3 rounded-full ring-4 ring-white/[0.035] shadow-[0_0_22px_currentColor,0_0_8px_currentColor] transition-transform duration-300 group-hover/column:scale-125",
                         stage.dot
                       )}
                     />
@@ -890,7 +956,7 @@ export default function KanbanPage() {
                   {!isCollapsed ? (
                   <div
                     data-kanban-column-scroll
-                    className="min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain pb-5 pr-1.5 scrollbar-thin"
+                    className="min-h-0 flex-1 space-y-2.5 pb-5"
                   >
                     {!hasHydrated ? (
                       <KanbanColumnSkeleton />
@@ -913,7 +979,6 @@ export default function KanbanPage() {
                             movedLeadId === lead.id && "animate-[pulse_420ms_ease-out]"
                           )}
                         >
-                          <span className={cn("absolute left-0 top-2.5 h-[calc(100%-20px)] w-1 rounded-r-full bg-gradient-to-b opacity-90", cardStripeClasses[lead.status])} />
                           <div className="flex items-center gap-2.5 pl-1.5">
                             <div
                               className={cn(

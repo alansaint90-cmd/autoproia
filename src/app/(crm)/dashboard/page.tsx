@@ -5,10 +5,14 @@ import {
   BadgeDollarSign,
   Bot,
   ChevronDown,
+  CircleDollarSign,
   Clock3,
+  Filter,
   Flame,
+  Medal,
   MessageCircleMore,
   MessageCircle,
+  Target,
   TrendingUp,
   Trophy,
   UserPlus,
@@ -31,11 +35,16 @@ const sellerClosingExtended = [
   { seller: "Beatriz SDR", closed: 13, revenue: "R$ 31.200", conversion: 19 }
 ];
 
+const aiMetricIcons = [Bot, Target, Clock3, UserPlus];
+
+const dashboardPeriods = ["Hoje", "Ontem", "Ultimos 7 dias", "Ultimos 15 dias", "Ultimos 30 dias", "Todo o periodo"];
+
 const cards = [
   {
     label: "Leads Hoje",
     value: dashboardStats.leadsHoje,
     badge: "+12%",
+    detail: "+12% vs ontem",
     icon: UserPlus,
     tone: "trust"
   },
@@ -43,6 +52,7 @@ const cards = [
     label: "Conversas Ativas",
     value: dashboardStats.conversasAtivas,
     badge: "+5",
+    detail: "+5 novas atribuicoes",
     icon: MessageCircle,
     tone: "tech"
   },
@@ -50,6 +60,7 @@ const cards = [
     label: "Matriculas",
     value: dashboardStats.matriculasFechadas,
     badge: "+3",
+    detail: "28.8% de conversao",
     icon: Trophy,
     tone: "success"
   },
@@ -57,6 +68,7 @@ const cards = [
     label: "Taxa Conversao",
     value: `${dashboardStats.taxaConversao}%`,
     badge: "+2.1%",
+    detail: "+2.1% este mes",
     icon: TrendingUp,
     tone: "olive"
   },
@@ -64,6 +76,7 @@ const cards = [
     label: "IA Atendendo",
     value: dashboardStats.iaAtendendo,
     badge: "ao vivo",
+    detail: "Tempo medio 38s",
     icon: Bot,
     tone: "gold"
   },
@@ -71,6 +84,7 @@ const cards = [
     label: "Leads Quentes",
     value: dashboardStats.leadsQuentes,
     badge: "+4",
+    detail: "+4 prontos para fechar",
     icon: Flame,
     tone: "alert"
   },
@@ -78,6 +92,7 @@ const cards = [
     label: "Tempo Resposta",
     value: dashboardStats.tempoMedioResposta,
     badge: "SLA",
+    detail: "SLA comercial ativo",
     icon: Clock3,
     tone: "slate"
   },
@@ -85,19 +100,42 @@ const cards = [
     label: "Vendas do Mes",
     value: dashboardStats.vendasMes,
     badge: "+18%",
-    icon: BadgeDollarSign,
+    detail: "+18% este mes",
+    icon: CircleDollarSign,
+    iconSize: 20,
     tone: "gold"
   }
 ];
 
-const cardToneClasses: Record<string, string> = {
-  trust: "bg-[#0b1624] border-[#0f4c8a]/35",
-  tech: "bg-[#111827] border-[#1f2937]",
-  success: "bg-[#10251a] border-[#22c55e]/28",
-  olive: "bg-[#242922] border-[#3b422f]",
-  alert: "bg-[#281818] border-[#ef4444]/28",
-  slate: "bg-[#17212e] border-[#26384a]",
-  gold: "bg-[#2a2818] border-[#facc15]/30"
+const cardToneClasses: Record<string, { panel: string; icon: string }> = {
+  trust: {
+    panel: "border-sky-300/14 bg-[linear-gradient(135deg,rgba(11,95,165,0.10),rgba(17,24,39,0.82)_46%,rgba(11,17,32,0.96))]",
+    icon: "border-sky-300/14 bg-sky-300/[0.055] text-sky-200/85"
+  },
+  tech: {
+    panel: "border-slate-500/12 bg-[linear-gradient(135deg,rgba(31,41,55,0.42),rgba(17,24,39,0.88)_52%,rgba(11,17,32,0.96))]",
+    icon: "border-slate-300/12 bg-slate-300/[0.045] text-slate-200/82"
+  },
+  success: {
+    panel: "border-emerald-300/13 bg-[linear-gradient(135deg,rgba(34,197,94,0.08),rgba(17,24,39,0.88)_50%,rgba(11,17,32,0.96))]",
+    icon: "border-emerald-300/14 bg-emerald-300/[0.055] text-emerald-200/85"
+  },
+  olive: {
+    panel: "border-yellow-300/13 bg-[linear-gradient(135deg,rgba(234,179,8,0.075),rgba(31,41,55,0.56)_48%,rgba(11,17,32,0.96))]",
+    icon: "border-yellow-300/14 bg-yellow-300/[0.055] text-yellow-200/85"
+  },
+  alert: {
+    panel: "border-red-300/12 bg-[linear-gradient(135deg,rgba(239,68,68,0.075),rgba(31,41,55,0.56)_48%,rgba(11,17,32,0.96))]",
+    icon: "border-red-300/13 bg-red-300/[0.05] text-red-200/82"
+  },
+  slate: {
+    panel: "border-slate-500/12 bg-[linear-gradient(135deg,rgba(51,65,85,0.38),rgba(17,24,39,0.9)_52%,rgba(11,17,32,0.96))]",
+    icon: "border-slate-300/12 bg-slate-300/[0.045] text-slate-200/82"
+  },
+  gold: {
+    panel: "border-yellow-300/13 bg-[linear-gradient(135deg,rgba(250,204,21,0.075),rgba(31,41,55,0.58)_48%,rgba(11,17,32,0.96))]",
+    icon: "border-yellow-300/14 bg-yellow-300/[0.055] text-yellow-200/85"
+  }
 };
 
 const interactivePanelClass =
@@ -152,37 +190,104 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(value);
 }
 
+function DashboardIcon({
+  icon: Icon,
+  tone,
+  size = 18,
+  className
+}: {
+  icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
+  tone?: string;
+  size?: number;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid size-10 shrink-0 place-items-center rounded-[12px] border bg-white/[0.032] shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_8px_20px_rgba(0,0,0,0.14)] backdrop-blur-sm transition duration-300",
+        tone ?? "border-[#FACC15]/24 text-[#FACC15]",
+        className
+      )}
+    >
+      <Icon size={size} strokeWidth={2.15} />
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [secondaryExpanded, setSecondaryExpanded] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState("Hoje");
+  const [periodFilterOpen, setPeriodFilterOpen] = useState(false);
   const bestSeller = sellerClosingExtended.reduce((best, seller) => (seller.closed > best.closed ? seller : best));
   const rankedSellers = sellerClosingExtended.slice().sort((a, b) => b.closed - a.closed);
 
   return (
     <>
-      <Topbar title="Dashboard" subtitle="Numeros comerciais que mostram venda, velocidade e conversao" />
+      <Topbar
+        title="Dashboard"
+        subtitle="Numeros comerciais que mostram venda, velocidade e conversao"
+        extraControls={
+          <div className="relative" onMouseLeave={() => setPeriodFilterOpen(false)}>
+            <button
+              type="button"
+              onClick={() => setPeriodFilterOpen((open) => !open)}
+              className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/10 bg-[#0B1120]/82 px-4 text-sm font-black text-slate-100 shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-[#111827]"
+              aria-label="Filtrar dados do dashboard"
+            >
+              <Filter className="size-4 text-primary" />
+              Filtro
+              <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", periodFilterOpen && "rotate-180 text-primary")} />
+            </button>
+
+            {periodFilterOpen ? (
+              <div className="absolute right-0 top-14 z-[140] w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#0B1120]/[0.98] p-2 shadow-[0_24px_70px_rgba(0,0,0,0.48)] backdrop-blur-xl">
+                <p className="px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Periodo dos dados</p>
+                <div className="grid gap-1">
+                  {dashboardPeriods.map((period) => {
+                    const active = selectedPeriod === period;
+
+                    return (
+                      <button
+                        key={period}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPeriod(period);
+                          setPeriodFilterOpen(false);
+                        }}
+                        className={cn(
+                          "flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-bold transition hover:bg-white/[0.06]",
+                          active ? "bg-primary/14 text-primary" : "text-slate-200"
+                        )}
+                      >
+                        <span>{period}</span>
+                        {active ? <span className="size-1.5 rounded-full bg-primary shadow-[0_0_14px_rgba(250,204,21,0.75)]" /> : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        }
+      />
       <main className="flex-1 space-y-6 overflow-y-auto bg-background p-6">
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {cards.map((card) => (
             <article
               key={card.label}
               className={cn(
-                "min-h-[138px] cursor-pointer rounded-[22px] border p-4 shadow-[0_18px_48px_oklch(0_0_0_/_0.20)] transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-[0_26px_70px_oklch(0_0_0_/_0.42)]",
-                cardToneClasses[card.tone]
+                "group relative min-h-[170px] cursor-pointer overflow-hidden rounded-[22px] border p-5 shadow-[0_16px_40px_rgba(0,0,0,0.18)] transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-[1.005] hover:border-white/12 hover:shadow-[0_22px_58px_rgba(0,0,0,0.30)]",
+                cardToneClasses[card.tone].panel
               )}
             >
+              <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 transition group-hover:opacity-100" />
               <div className="flex h-full flex-col justify-between">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="grid size-9 place-items-center rounded-[12px] bg-background/70 text-primary">
-                    <card.icon size={18} />
-                  </div>
-                  <span className="rounded-md bg-success/15 px-2 py-1 text-xs font-extrabold text-success">
-                    {card.badge}
-                  </span>
-                </div>
+                <DashboardIcon icon={card.icon} tone={cardToneClasses[card.tone].icon} size={card.iconSize ?? 18} />
 
                 <div>
-                  <p className="font-mono text-[2rem] font-extrabold leading-none text-foreground">{card.value}</p>
-                  <p className="mt-2 text-sm text-muted-foreground">{card.label}</p>
+                  <p className="font-mono text-[2rem] font-black leading-none tracking-tight text-primary md:text-[2.1rem]">{card.value}</p>
+                  <p className="mt-2 text-sm font-black text-foreground">{card.label}</p>
+                  <p className="mt-1 text-xs font-medium text-slate-300/78">{card.detail}</p>
                 </div>
               </div>
             </article>
@@ -198,7 +303,16 @@ export default function DashboardPage() {
             <MonthlyConversionChart />
           </article>
 
-          <BusinessPulsePanel />
+          <div className="grid h-full gap-6 xl:grid-rows-2">
+            <BusinessPulsePanel compact />
+            <article className={cn(interactivePanelClass, "flex h-full flex-col self-stretch p-4")}>
+              <div className="mb-3">
+                <h2 className="text-base font-extrabold tracking-normal">Leads por Origem</h2>
+                <p className="mt-1 text-xs text-muted-foreground">Ultimos 30 dias</p>
+              </div>
+              <OriginDonut compact />
+            </article>
+          </div>
         </section>
 
         <div className="relative -my-1 h-4">
@@ -206,7 +320,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => setSecondaryExpanded((value) => !value)}
-            className="absolute right-0 top-1/2 z-10 grid size-9 -translate-y-1/2 place-items-center rounded-xl border border-white/10 bg-[#0b1120]/95 text-muted-foreground shadow-[0_12px_34px_rgba(0,0,0,0.32)] transition hover:border-primary/35 hover:bg-primary/10 hover:text-primary"
+            className="absolute left-1/2 top-1/2 z-10 grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-xl border border-white/10 bg-[#0b1120]/95 text-muted-foreground shadow-[0_12px_34px_rgba(0,0,0,0.32)] transition hover:border-primary/35 hover:bg-primary/10 hover:text-primary"
             aria-label={secondaryExpanded ? "Recolher graficos secundarios" : "Expandir graficos secundarios"}
           >
             <ChevronDown className={cn("size-4 transition-transform", !secondaryExpanded && "-rotate-90")} />
@@ -214,15 +328,7 @@ export default function DashboardPage() {
         </div>
 
         {secondaryExpanded ? (
-        <section className="grid items-stretch gap-6 xl:grid-cols-[320px_minmax(0,1fr)_360px]">
-            <article className={cn(interactivePanelClass, "flex h-full flex-col self-stretch")}>
-              <div className="mb-5">
-                <h2 className="text-lg font-extrabold tracking-normal">Leads por Origem</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Ultimos 30 dias</p>
-              </div>
-              <OriginDonut />
-            </article>
-
+        <section className="mt-3 grid items-stretch gap-6 xl:grid-cols-2">
           <article className="group relative overflow-hidden rounded-[22px] border border-white/[0.08] bg-[radial-gradient(circle_at_82%_0%,rgba(11,95,165,0.16),transparent_34%),linear-gradient(145deg,rgba(17,24,39,0.92),rgba(11,17,32,0.98))] p-5 shadow-panel transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-[0_30px_80px_rgba(0,0,0,0.42)]">
             <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#0B5FA5]/45 to-transparent opacity-70" />
             <div className="mb-5 flex items-start justify-between gap-4">
@@ -233,38 +339,62 @@ export default function DashboardPage() {
                   {bestSeller.seller} lidera a disputa com {bestSeller.closed} matriculas no mes
                 </p>
               </div>
-              <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
-                <Trophy size={20} />
+              <div className="group/ranking-hint relative shrink-0">
+                <DashboardIcon icon={Trophy} tone="border-[#FACC15]/28 bg-[#FACC15]/10 text-[#FACC15]" size={20} />
+                <div className="pointer-events-none absolute right-0 top-12 z-30 w-64 translate-y-2 rounded-2xl border border-white/10 bg-[#0B1120]/[0.98] p-3 text-left opacity-0 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-all duration-200 group-hover/ranking-hint:translate-y-0 group-hover/ranking-hint:opacity-100">
+                  <p className="text-xs font-black uppercase tracking-[0.12em] text-primary">Destaque comercial</p>
+                  <p className="mt-2 text-sm font-bold text-foreground">{bestSeller.seller} lidera o ranking de fechamento.</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    Use este bloco para comparar produtividade, receita e ritmo de matriculas por vendedor.
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="mb-4 grid grid-cols-3 gap-2">
-              {rankedSellers.slice(0, 3).map((seller, index) => (
-                <div
-                  key={seller.seller}
-                  className={cn(
-                    "relative overflow-hidden rounded-2xl border p-3 text-center",
-                    index === 0
-                      ? "border-[#FACC15]/35 bg-[#FACC15]/10"
-                      : index === 1
-                        ? "border-[#0B5FA5]/35 bg-[#0B5FA5]/14"
-                        : "border-[#22C55E]/30 bg-[#22C55E]/10"
-                  )}
-                >
-                  <div className="mx-auto grid size-8 place-items-center rounded-xl border border-white/10 bg-[#0B1120]/72 font-mono text-xs font-black">
-                    #{index + 1}
+            <div className="mb-4 grid h-[214px] grid-cols-3 items-end gap-3 rounded-2xl border border-white/[0.06] bg-[#0B1120]/38 px-4 pb-4 pt-8">
+              {[rankedSellers[1], rankedSellers[0], rankedSellers[2]].map((seller, podiumIndex) => {
+                const position = podiumIndex === 0 ? 2 : podiumIndex === 1 ? 1 : 3;
+                const PodiumIcon = position === 1 ? Trophy : Medal;
+                const height = position === 1 ? "h-[172px]" : position === 2 ? "h-[134px]" : "h-[118px]";
+                const tone =
+                  position === 1
+                    ? "border-[#FACC15]/46 bg-[linear-gradient(180deg,rgba(250,204,21,0.20),rgba(17,24,39,0.84))]"
+                    : position === 2
+                      ? "border-slate-200/28 bg-[linear-gradient(180deg,rgba(226,232,240,0.16),rgba(17,24,39,0.84))]"
+                      : "border-[#0B5FA5]/38 bg-[linear-gradient(180deg,rgba(11,95,165,0.22),rgba(17,24,39,0.84))]";
+                const iconTone =
+                  position === 1
+                    ? "border-[#FACC15]/38 bg-[linear-gradient(145deg,rgba(250,204,21,0.22),rgba(17,24,39,0.92))] text-[#FACC15]"
+                    : position === 2
+                      ? "border-slate-200/30 bg-[linear-gradient(145deg,rgba(226,232,240,0.18),rgba(17,24,39,0.92))] text-slate-100"
+                      : "border-[#0B5FA5]/34 bg-[linear-gradient(145deg,rgba(11,95,165,0.18),rgba(17,24,39,0.92))] text-[#CD7F32]";
+
+                return (
+                  <div
+                    key={seller.seller}
+                    className={cn(
+                      "relative flex flex-col items-center overflow-visible rounded-2xl border px-2 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_16px_34px_rgba(0,0,0,0.22)]",
+                      position === 1 ? "justify-center pb-1 pt-7" : "justify-end pb-3 pt-6",
+                      height,
+                      tone
+                    )}
+                  >
+                    <div className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                    <div className={cn("absolute -top-6 z-20 grid size-12 place-items-center rounded-xl border shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_14px_30px_rgba(0,0,0,0.34)] backdrop-blur", iconTone)}>
+                      <PodiumIcon className="size-5" strokeWidth={2.1} />
+                    </div>
+                    <p className="w-full truncate text-sm font-black">{seller.seller}</p>
+                    <p className="mt-2 font-mono text-2xl font-black text-foreground">{seller.closed}</p>
+                    <p className="text-[9px] font-black uppercase tracking-[0.14em] text-muted-foreground">matriculas</p>
                   </div>
-                  <p className="mt-2 truncate text-xs font-black">{seller.seller}</p>
-                  <p className="mt-1 font-mono text-lg font-black text-foreground">{seller.closed}</p>
-                  <p className="text-[9px] font-black uppercase tracking-[0.12em] text-muted-foreground">matriculas</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            <div className="grid max-h-[242px] gap-2.5 overflow-y-auto pr-1 [scrollbar-color:rgba(11,95,165,0.45)_transparent] [scrollbar-width:thin]">
+            <div className="grid max-h-[204px] gap-2 overflow-y-auto pr-1 md:grid-cols-2 [scrollbar-color:rgba(11,95,165,0.45)_transparent] [scrollbar-width:thin]">
               {rankedSellers.map((seller, index) => (
-                  <SellerRow key={seller.seller} seller={seller} position={index + 1} />
-                ))}
+                <SellerRow key={seller.seller} seller={seller} position={index + 1} />
+              ))}
             </div>
           </article>
 
@@ -274,16 +404,27 @@ export default function DashboardPage() {
             icon={Bot}
           >
             <div className="grid gap-3">
-              {aiPerformance.map((item) => (
+              {aiPerformance.map((item, index) => {
+                const MetricIcon = aiMetricIcons[index] ?? Bot;
+
+                return (
                 <div
                   key={item.metric}
                   className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(11,95,165,0.14),rgba(17,24,39,0.88))] p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-[#0B5FA5]/45 hover:bg-[linear-gradient(135deg,rgba(11,95,165,0.20),rgba(17,24,39,0.94))] hover:shadow-[0_18px_44px_rgba(0,0,0,0.28)]"
                 >
                   <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-blue-200/30 to-transparent" />
                   <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-extrabold">{item.metric}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
+                    <div className="flex min-w-0 items-start gap-3">
+                      <DashboardIcon
+                        icon={MetricIcon}
+                        tone="border-[#0B5FA5]/28 bg-[#0B5FA5]/12 text-blue-100"
+                        size={15}
+                        className="size-9 rounded-xl"
+                      />
+                      <div className="min-w-0">
+                        <p className="font-extrabold">{item.metric}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p>
+                      </div>
                     </div>
                     <span className="rounded-xl border border-[#0B5FA5]/35 bg-[#0B5FA5]/18 px-2 py-1 font-mono text-lg font-black text-blue-100">
                       {item.value}%
@@ -294,7 +435,8 @@ export default function DashboardPage() {
                     {item.metric}: {item.value}% - {item.detail}
                   </Tooltip>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </ChartPanel>
         </section>
@@ -304,22 +446,24 @@ export default function DashboardPage() {
   );
 }
 
-function BusinessPulsePanel() {
+function BusinessPulsePanel({ compact = false }: { compact?: boolean }) {
+  const visibleEvents = compact ? commercialPulse.slice(0, 3) : commercialPulse;
+
   return (
-    <article className="relative flex h-full flex-col self-stretch overflow-hidden rounded-[22px] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(17,24,39,0.86),rgba(11,17,32,0.96))] p-5 shadow-panel transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-[1.01] hover:shadow-[0_30px_80px_oklch(0_0_0_/_0.42)]">
+    <article className="relative flex h-full min-h-0 flex-col self-stretch overflow-hidden rounded-[22px] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(17,24,39,0.86),rgba(11,17,32,0.96))] p-5 shadow-panel transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-[0_22px_58px_rgba(0,0,0,0.30)]">
       <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/20 to-transparent" />
 
-      <div className="relative mb-6 flex items-start justify-between gap-4">
+      <div className={cn("relative flex items-start justify-between gap-4", compact ? "mb-4" : "mb-6")}>
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-primary">
-            <span className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.95)]" />
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-sky-300/25 bg-sky-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-sky-100 shadow-[0_0_24px_rgba(56,189,248,0.10)]">
+            <span className="size-1.5 rounded-full bg-sky-300 shadow-[0_0_14px_rgba(125,211,252,0.95)]" />
             IA Ativa
           </div>
           <h2 className="text-lg font-extrabold tracking-normal">Pulso Comercial</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Eventos comerciais em tempo real</p>
+          <p className="mt-1 text-sm text-muted-foreground">{compact ? "Eventos prioritarios agora" : "Eventos comerciais em tempo real"}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <div className="group/health relative grid size-12 place-items-center rounded-2xl border border-cyan-300/15 bg-cyan-300/5 text-cyan-200">
+          <div className="group/health relative grid size-12 place-items-center rounded-[14px] border border-sky-300/20 bg-sky-300/8 text-sky-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_10px_26px_rgba(0,0,0,0.18)] backdrop-blur-sm">
             <PulseHealthIcon />
             <div className="pointer-events-none absolute right-0 top-14 z-30 w-72 translate-y-2 rounded-2xl border border-primary/15 bg-[#0b1120]/96 p-4 text-left opacity-0 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl transition-all duration-200 group-hover/health:translate-y-0 group-hover/health:opacity-100">
               <div className="mb-3 flex items-center justify-between gap-3">
@@ -340,19 +484,24 @@ function BusinessPulsePanel() {
         </div>
       </div>
 
-      <div className="relative space-y-3">
-        {commercialPulse.map((event, index) => (
+      <div className={cn("relative min-h-0", compact ? "space-y-2.5 overflow-hidden" : "space-y-3")}>
+        {visibleEvents.map((event, index) => (
           <div
             key={event.label}
-            className="group relative grid grid-cols-[34px_1fr_auto] items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.028] p-2.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-300/20 hover:bg-white/[0.055] hover:shadow-[0_18px_44px_rgba(0,0,0,0.22)]"
+            className={cn(
+              "group relative grid grid-cols-[34px_1fr_auto] items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.028] transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-300/20 hover:bg-white/[0.055] hover:shadow-[0_18px_44px_rgba(0,0,0,0.22)]",
+              compact ? "p-2" : "p-2.5"
+            )}
           >
-            <div className="relative z-10 grid size-8 place-items-center rounded-xl border border-primary/15 bg-primary/10 text-primary transition duration-300 group-hover:border-primary/30 group-hover:bg-primary/15">
-              <event.icon size={15} />
-              {index === 0 ? <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.9)]" /> : null}
-            </div>
+            <DashboardIcon
+              icon={event.icon}
+              tone="border-sky-300/18 bg-sky-300/8 text-sky-100 group-hover:border-sky-300/32 group-hover:bg-sky-300/12"
+              size={15}
+              className="relative z-10 size-8 rounded-[10px]"
+            />
             <div className="min-w-0">
               <p className="truncate text-sm font-extrabold">{event.label}</p>
-              <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">
+              <p className={cn("mt-0.5 text-[11px] font-semibold text-muted-foreground", compact && "hidden 2xl:block")}>
                 {index === 0 ? "Evento confirmado no funil" : "Sincronizado com IA comercial"}
               </p>
             </div>
@@ -362,6 +511,86 @@ function BusinessPulsePanel() {
             <Tooltip>{event.time} - evento comercial em tempo real</Tooltip>
           </div>
         ))}
+      </div>
+    </article>
+  );
+}
+
+function FunnelHealthDonut() {
+  const data = leadsByOrigin.map((origin, index) => ({
+    label: origin.label,
+    value: origin.value,
+    color: originDonutColors[index] ?? "#334155"
+  }));
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  const radius = 43;
+  const circumference = 2 * Math.PI * radius;
+  let accumulated = 0;
+
+  return (
+    <article className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(17,24,39,0.86),rgba(11,17,32,0.96))] p-5 shadow-panel transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-[0_22px_58px_rgba(0,0,0,0.30)]">
+      <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/18 to-transparent" />
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-extrabold tracking-normal">Leads por Origem</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Canais que mais captam leads</p>
+        </div>
+        <div className="group/origin-hint relative shrink-0">
+          <DashboardIcon icon={UserPlus} tone="border-sky-300/18 bg-sky-300/8 text-sky-100" size={19} />
+          <div className="pointer-events-none absolute right-0 top-12 z-30 w-64 translate-y-2 rounded-2xl border border-white/10 bg-[#0B1120]/[0.98] p-3 text-left opacity-0 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-all duration-200 group-hover/origin-hint:translate-y-0 group-hover/origin-hint:opacity-100">
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-primary">Leads por origem</p>
+            <p className="mt-2 text-sm font-bold text-foreground">{total} leads captados nos canais ativos.</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Compare volume por canal e acompanhe onde vale concentrar investimento e atendimento.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid min-h-0 flex-1 items-center gap-4 md:grid-cols-[150px_1fr] xl:grid-cols-1 2xl:grid-cols-[150px_1fr]">
+        <div className="relative mx-auto grid size-[150px] place-items-center">
+          <svg viewBox="0 0 120 120" className="size-[150px] -rotate-90">
+            <circle cx="60" cy="60" r={radius} fill="none" stroke="rgba(249,250,251,0.055)" strokeWidth="13" />
+            {data.map((item) => {
+              const dash = (item.value / total) * circumference;
+              const offset = -accumulated * circumference;
+              accumulated += item.value / total;
+
+              return (
+                <circle
+                  key={item.label}
+                  cx="60"
+                  cy="60"
+                  r={radius}
+                  fill="none"
+                  stroke={item.color}
+                  strokeWidth="13"
+                  strokeDasharray={`${dash} ${circumference - dash}`}
+                  strokeDashoffset={offset}
+                  className="transition-all duration-300 hover:opacity-80"
+                />
+              );
+            })}
+          </svg>
+          <div className="absolute inset-0 grid place-items-center text-center">
+              <span>
+              <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">Total</span>
+              <span className="block font-mono text-3xl font-black text-primary">{total}</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="grid gap-2">
+          {data.map((item) => (
+            <div key={item.label} className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.028] px-3 py-2">
+              <span className="inline-flex min-w-0 items-center gap-2 text-xs font-black">
+                <span className="size-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                <span className="truncate">{item.label}</span>
+              </span>
+              <span className="font-mono text-xs font-black text-slate-200">{Math.round((item.value / total) * 100)}%</span>
+            </div>
+          ))}
+        </div>
       </div>
     </article>
   );
@@ -419,14 +648,14 @@ function SellerRow({
 }) {
   const maxClosed = Math.max(...sellerClosingExtended.map((item) => item.closed));
   const progress = Math.round((seller.closed / maxClosed) * 100);
-  const medal = position === 1 ? "Ouro" : position === 2 ? "Prata" : position === 3 ? "Bronze" : "Competidor";
+  const RankIcon = position === 1 ? Trophy : Medal;
   const rankTone =
     position === 1
       ? "border-[#FACC15]/45 bg-[#FACC15]/14 text-[#FACC15]"
       : position === 2
         ? "border-[#0B5FA5]/40 bg-[#0B5FA5]/16 text-blue-100"
         : position === 3
-          ? "border-[#22C55E]/32 bg-[#22C55E]/12 text-[#22C55E]"
+          ? "border-white/16 bg-white/[0.055] text-slate-200"
           : "border-white/10 bg-white/[0.04] text-muted-foreground";
   const barTone =
     position === 1
@@ -434,41 +663,34 @@ function SellerRow({
       : position === 2
         ? "from-[#0B5FA5] via-blue-400 to-[#22C55E]"
         : position === 3
-          ? "from-[#22C55E] via-emerald-300 to-[#FACC15]"
+          ? "from-slate-500 via-slate-300 to-[#FACC15]"
           : "from-[#1F2937] via-[#0B5FA5] to-[#22C55E]";
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/[0.075] bg-[linear-gradient(135deg,rgba(31,41,55,0.72),rgba(11,17,32,0.86))] p-3.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-[#0B5FA5]/35 hover:bg-[linear-gradient(135deg,rgba(11,95,165,0.14),rgba(11,17,32,0.92))] hover:shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
+    <div className="group relative overflow-visible rounded-2xl border border-white/[0.075] bg-[linear-gradient(135deg,rgba(31,41,55,0.72),rgba(11,17,32,0.86))] p-2.5 transition-all duration-300 hover:-translate-y-0.5 hover:border-[#0B5FA5]/35 hover:bg-[linear-gradient(135deg,rgba(11,95,165,0.14),rgba(11,17,32,0.92))] hover:shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
       <div className="pointer-events-none absolute inset-y-3 left-0 w-px bg-gradient-to-b from-transparent via-[#0B5FA5]/55 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-      <div className="flex items-center gap-3">
-        <div className={cn("grid size-10 place-items-center rounded-xl border font-mono text-sm font-black", rankTone)}>
-          #{position}
+      <div className="flex items-center gap-2.5">
+        <div className={cn("grid size-9 place-items-center rounded-xl border font-mono text-xs font-black", rankTone)}>
+          {position <= 3 ? <RankIcon className="size-4" strokeWidth={2.1} /> : `#${position}`}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-black text-foreground">{seller.seller}</p>
-            {position <= 3 ? (
-              <span className={cn("rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em]", rankTone)}>
-                {medal}
-              </span>
-            ) : null}
-          </div>
-          <p className="mt-0.5 text-xs font-semibold text-muted-foreground">{seller.revenue} em receita</p>
+          <p className="truncate text-sm font-black text-foreground">{seller.seller}</p>
+          <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-muted-foreground">{seller.conversion}% conversao</p>
         </div>
         <div className="text-right">
-          <p className="font-mono text-xl font-black text-foreground">{seller.closed}</p>
+          <p className="font-mono text-lg font-black text-foreground">{seller.closed}</p>
           <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">fech.</p>
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-3">
-        <div className="h-2.5 overflow-hidden rounded-full border border-white/[0.06] bg-[#0B1120]">
+      <div className="mt-2 grid grid-cols-[1fr_auto] items-center gap-2">
+        <div className="h-2 overflow-hidden rounded-full border border-white/[0.06] bg-[#0B1120]">
           <div
             className={cn("h-full rounded-full bg-gradient-to-r transition-all duration-500", barTone)}
             style={{ width: `${progress}%` }}
           />
         </div>
-        <span className="font-mono text-xs font-black text-blue-100">{seller.conversion}%</span>
+        <span className="font-mono text-[10px] font-black text-blue-100">{progress}%</span>
       </div>
     </div>
   );
@@ -771,10 +993,11 @@ function TooltipMetric({ color, label, value }: { color: string; label: string; 
 }
 
 
-function OriginDonut() {
+function OriginDonut({ compact = false }: { compact?: boolean }) {
   const [activeOrigin, setActiveOrigin] = useState<number | null>(null);
   const [activeFunnel, setActiveFunnel] = useState<number | null>(null);
   const total = leadsByOrigin.reduce((sum, item) => sum + item.value, 0);
+  const activeOriginData = activeOrigin !== null ? leadsByOrigin[activeOrigin] : null;
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
   const funnelMax = Math.max(...funnelData.map((item) => item.value));
@@ -788,10 +1011,10 @@ function OriginDonut() {
   let accumulated = 0;
 
   return (
-    <div className={cn(neutralChartSurfaceClass, "flex h-full min-h-[260px] flex-col justify-between gap-3 bg-[linear-gradient(145deg,rgba(17,24,39,0.86),rgba(11,17,32,0.96))]")}>
-      <div className="grid items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.025] p-3 sm:grid-cols-[minmax(150px,1fr)_minmax(104px,0.74fr)]">
-        <div className="relative mx-auto grid size-44 place-items-center">
-          <svg viewBox="0 0 120 120" className="size-44 -rotate-90">
+    <div className={cn(neutralChartSurfaceClass, "flex h-full flex-col justify-between gap-3 bg-[linear-gradient(145deg,rgba(17,24,39,0.86),rgba(11,17,32,0.96))]", compact ? "min-h-0 p-3" : "min-h-[260px]")}>
+      <div className={cn("grid items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.025] p-3", compact ? "grid-cols-[112px_1fr]" : "sm:grid-cols-[minmax(150px,1fr)_minmax(104px,0.74fr)]")}>
+        <div className={cn("relative mx-auto grid place-items-center", compact ? "size-28" : "size-44")}>
+          <svg viewBox="0 0 120 120" className={cn("-rotate-90", compact ? "size-28" : "size-44")}>
           <defs>
             <filter id="originGlow" x="-40%" y="-40%" width="180%" height="180%">
               <feGaussianBlur stdDeviation="3" result="coloredBlur" />
@@ -833,13 +1056,22 @@ function OriginDonut() {
         </svg>
 
           <div className="absolute inset-0 grid place-items-center">
-            <div className="grid size-[82px] place-items-center rounded-full border border-[#0B5FA5]/20 bg-[#0b1120]/95 text-center shadow-[inset_0_0_28px_rgba(0,0,0,0.35)]">
+            <div className={cn("grid place-items-center rounded-full border border-[#0B5FA5]/20 bg-[#0b1120]/95 text-center shadow-[inset_0_0_28px_rgba(0,0,0,0.35)]", compact ? "size-[64px]" : "size-[82px]")}>
               <span>
                 <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">Total</span>
-                <span className="block font-mono text-2xl font-black text-primary">{total}</span>
+                <span className={cn("block font-mono font-black text-primary", compact ? "text-xl" : "text-2xl")}>{total}</span>
               </span>
             </div>
           </div>
+          {activeOriginData ? (
+            <div className={cn(
+              "pointer-events-none absolute left-1/2 top-0 z-30 -translate-x-1/2 -translate-y-[82%] rounded-xl border border-white/10 bg-[#0B1120]/[0.98] px-3 py-2 text-center shadow-[0_18px_48px_rgba(0,0,0,0.42)] backdrop-blur-xl",
+              compact ? "min-w-[132px]" : "min-w-[156px]"
+            )}>
+              <p className="font-mono text-sm font-black text-primary">{activeOriginData.value} leads</p>
+              <p className="mt-0.5 truncate text-[11px] font-bold text-slate-200">da {activeOriginData.label}</p>
+            </div>
+          ) : null}
         </div>
 
         <div className="grid gap-1.5">
@@ -855,7 +1087,8 @@ function OriginDonut() {
                 onMouseLeave={() => setActiveOrigin(null)}
                 onClick={() => setActiveOrigin((current) => (current === index ? null : index))}
                 className={cn(
-                  "grid w-full grid-cols-[1fr_auto] items-center gap-2 rounded-xl border px-2 py-1.5 text-left transition duration-300 hover:-translate-y-0.5",
+                  "grid w-full grid-cols-[1fr_auto] items-center gap-2 rounded-xl border px-2 text-left transition duration-300 hover:-translate-y-0.5",
+                  compact ? "py-1" : "py-1.5",
                   isActive
                     ? "border-[#FACC15]/35 bg-[#FACC15]/10 shadow-[0_18px_44px_rgba(0,0,0,0.26)]"
                     : "border-white/[0.08] bg-[#111827]/58 hover:border-[#0B5FA5]/35 hover:bg-[#0B5FA5]/10"
@@ -872,6 +1105,7 @@ function OriginDonut() {
         </div>
       </div>
 
+      {compact ? null : (
       <div className="flex flex-1 flex-col justify-end rounded-2xl border border-[#0B5FA5]/18 bg-[linear-gradient(135deg,rgba(11,95,165,0.08),rgba(17,24,39,0.72))] p-3">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
@@ -920,6 +1154,7 @@ function OriginDonut() {
           })}
           </div>
       </div>
+      )}
     </div>
   );
 }
@@ -937,9 +1172,7 @@ function ChartPanel(props: {
           <h2 className="font-semibold">{props.title}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{props.subtitle}</p>
         </div>
-        <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
-          <props.icon size={20} />
-        </div>
+        <DashboardIcon icon={props.icon} tone="border-sky-300/20 bg-sky-300/10 text-sky-100" size={20} />
       </div>
       {props.children}
     </article>

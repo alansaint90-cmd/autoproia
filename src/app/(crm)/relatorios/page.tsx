@@ -6,6 +6,7 @@ import {
   BarChart3,
   Bot,
   CalendarDays,
+  ChevronDown,
   Download,
   FileText,
   Filter,
@@ -83,6 +84,7 @@ export default function RelatoriosPage() {
   const [appliedFilters, setAppliedFilters] = useState<ReportFilters>(initialFilters);
   const [generatedAt, setGeneratedAt] = useState("gerado agora");
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [isExpandedSectionOpen, setIsExpandedSectionOpen] = useState(false);
 
   const report = useMemo(() => {
     const { origin, period, seller } = appliedFilters;
@@ -214,22 +216,28 @@ export default function RelatoriosPage() {
                   <option key={item}>{item}</option>
                 ))}
               </SelectField>
-              <input
-                type="date"
-                value={filters.dateStart}
-                onChange={(event) => {
-                  setFilters((current) => ({ ...current, dateStart: event.target.value, period: "custom" }));
-                }}
-                className="h-11 rounded-2xl border border-white/10 bg-white/[0.045] px-3 text-xs font-bold text-foreground outline-none transition hover:border-white/[0.18] focus:border-sky-300/45 focus:ring-4 focus:ring-sky-400/10"
-              />
-              <input
-                type="date"
-                value={filters.dateEnd}
-                onChange={(event) => {
-                  setFilters((current) => ({ ...current, dateEnd: event.target.value, period: "custom" }));
-                }}
-                className="h-11 rounded-2xl border border-white/10 bg-white/[0.045] px-3 text-xs font-bold text-foreground outline-none transition hover:border-white/[0.18] focus:border-sky-300/45 focus:ring-4 focus:ring-sky-400/10"
-              />
+              <label className="relative block">
+                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-primary" />
+                <input
+                  type="date"
+                  value={filters.dateStart}
+                  onChange={(event) => {
+                    setFilters((current) => ({ ...current, dateStart: event.target.value, period: "custom" }));
+                  }}
+                  className="h-11 w-full rounded-2xl border border-white/10 bg-[#111827] pl-9 pr-3 text-xs font-bold text-foreground outline-none transition [color-scheme:dark] hover:border-primary/35 hover:bg-[#162033] focus:border-primary/55 focus:ring-4 focus:ring-primary/10"
+                />
+              </label>
+              <label className="relative block">
+                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-primary" />
+                <input
+                  type="date"
+                  value={filters.dateEnd}
+                  onChange={(event) => {
+                    setFilters((current) => ({ ...current, dateEnd: event.target.value, period: "custom" }));
+                  }}
+                  className="h-11 w-full rounded-2xl border border-white/10 bg-[#111827] pl-9 pr-3 text-xs font-bold text-foreground outline-none transition [color-scheme:dark] hover:border-primary/35 hover:bg-[#162033] focus:border-primary/55 focus:ring-4 focus:ring-primary/10"
+                />
+              </label>
               <button
                 type="button"
                 onClick={generateReport}
@@ -260,35 +268,7 @@ export default function RelatoriosPage() {
           <ReportKpi icon={MessageCircle} label="Leads captados" value={report.totalLeads.toString()} detail={`${appliedFilters.dateStart} ate ${appliedFilters.dateEnd}`} tone="yellow" />
         </section>
 
-        <section className="mb-6 grid gap-6 xl:grid-cols-[1.45fr_0.9fr]">
-          <ReportPanel title="Conversao mensal" subtitle="Leads, matriculas e receita por mes" icon={LineChart}>
-            <MonthlyReportChart />
-          </ReportPanel>
-
-          <ReportPanel title="Relatorio por vendedor" subtitle="Ranking de fechamentos e receita" icon={Trophy}>
-            <div className="grid max-h-[390px] gap-3 overflow-y-auto pr-1 [scrollbar-color:rgba(56,189,248,0.35)_transparent] [scrollbar-width:thin]">
-              {sellerRows.map((row) => (
-                <SellerReportRow key={row.seller} row={row} />
-              ))}
-            </div>
-          </ReportPanel>
-        </section>
-
-        <section className="grid gap-6 xl:grid-cols-3">
-          <ReportPanel title="Leads por origem" subtitle="Canais com melhor volume" icon={BarChart3}>
-            <OriginReport data={filteredOrigins} />
-          </ReportPanel>
-
-          <ReportPanel title="Funil operacional" subtitle="Avanco entre etapas" icon={Activity}>
-            <FunnelReport />
-          </ReportPanel>
-
-          <ReportPanel title="Motivos de perda" subtitle="Onde recuperar matriculas" icon={Target}>
-            <LossReport />
-          </ReportPanel>
-        </section>
-
-        <section className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <section className="mb-6 grid gap-6 xl:grid-cols-3">
           <ReportPanel title="Campanhas que convertem" subtitle="Anuncios com melhor retorno" icon={TrendingUp}>
             <div className="grid gap-3">
               {campaignConversion.map((campaign) => (
@@ -308,22 +288,75 @@ export default function RelatoriosPage() {
             </div>
           </ReportPanel>
 
-          <ReportPanel title="Desempenho da IA" subtitle="Qualidade do atendimento automatico" icon={Bot}>
-            <div className="grid gap-3 md:grid-cols-2">
-              {aiPerformance.map((item) => (
-                <div key={item.metric} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-black">{item.metric}</p>
-                      <p className="text-xs text-muted-foreground">{item.detail}</p>
-                    </div>
-                    <span className="font-mono text-xl font-black text-sky-200">{item.value}%</span>
-                  </div>
-                  <Progress value={item.value} className="from-sky-400 to-violet-400" />
-                </div>
-              ))}
-            </div>
+          <ReportPanel title="Funil operacional" subtitle="Avanco entre etapas" icon={Activity}>
+            <FunnelReport />
           </ReportPanel>
+
+          <ReportPanel title="Motivos de perda" subtitle="Onde recuperar matriculas" icon={Target}>
+            <LossReport />
+          </ReportPanel>
+        </section>
+
+        <section className="relative -mt-2 mb-6">
+          <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+          <button
+            type="button"
+            onClick={() => setIsExpandedSectionOpen((open) => !open)}
+            className="group/expand relative mx-auto grid size-11 place-items-center rounded-full border border-white/10 bg-card/95 text-muted-foreground shadow-panel backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-sky-300/25 hover:text-foreground"
+            aria-expanded={isExpandedSectionOpen}
+            aria-label={isExpandedSectionOpen ? "Recolher relatorios extras" : "Expandir relatorios extras"}
+          >
+            <ChevronDown className={cn("size-4 transition duration-300", isExpandedSectionOpen && "rotate-180 text-sky-200")} />
+            <span className="pointer-events-none absolute left-1/2 top-12 z-20 w-max -translate-x-1/2 translate-y-1 rounded-xl border border-white/10 bg-[#0b1120]/96 px-3 py-2 text-xs font-black text-foreground opacity-0 shadow-panel backdrop-blur-xl transition-all duration-200 group-hover/expand:translate-y-0 group-hover/expand:opacity-100">
+              {isExpandedSectionOpen ? "Recolher relatorios" : "Expandir relatorios"}
+            </span>
+          </button>
+        </section>
+
+        <section
+          className={cn(
+            "grid overflow-hidden transition-[grid-template-rows,opacity,margin] duration-500 ease-out",
+            isExpandedSectionOpen ? "mt-6 grid-rows-[1fr] opacity-100" : "mt-0 grid-rows-[0fr] opacity-0"
+          )}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+              <ReportPanel title="Leads por origem" subtitle="Onda de volume por canal" icon={BarChart3}>
+                <OriginReport data={filteredOrigins} />
+              </ReportPanel>
+
+              <ReportPanel title="Desempenho da IA" subtitle="Qualidade do atendimento automatico" icon={Bot}>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {aiPerformance.map((item) => (
+                    <div key={item.metric} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-black">{item.metric}</p>
+                          <p className="text-xs text-muted-foreground">{item.detail}</p>
+                        </div>
+                        <span className="font-mono text-xl font-black text-sky-200">{item.value}%</span>
+                      </div>
+                      <Progress value={item.value} className="from-sky-400 to-violet-400" />
+                    </div>
+                  ))}
+                </div>
+              </ReportPanel>
+            </section>
+
+            <section className="mt-6 grid gap-6 xl:grid-cols-[1.45fr_0.9fr]">
+              <ReportPanel title="Conversao mensal" subtitle="Leads, matriculas e receita por mes" icon={LineChart}>
+                <MonthlyReportChart />
+              </ReportPanel>
+
+              <ReportPanel title="Relatorio por vendedor" subtitle="Ranking de fechamentos e receita" icon={Trophy}>
+                <div className="grid max-h-[390px] gap-3 overflow-y-auto pr-1 [scrollbar-color:rgba(56,189,248,0.35)_transparent] [scrollbar-width:thin]">
+                  {sellerRows.map((row) => (
+                    <SellerReportRow key={row.seller} row={row} />
+                  ))}
+                </div>
+              </ReportPanel>
+            </section>
+          </div>
         </section>
       </main>
       {isReportOpen ? (
@@ -383,14 +416,15 @@ function SelectField({
 }) {
   return (
     <label className="relative block">
-      <Icon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Icon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-primary" />
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full appearance-none rounded-2xl border border-white/10 bg-white/[0.045] pl-9 pr-8 text-xs font-bold text-foreground outline-none transition hover:border-white/[0.18] focus:border-sky-300/45 focus:ring-4 focus:ring-sky-400/10"
+        className="h-11 w-full appearance-none rounded-2xl border border-white/10 bg-[#111827] pl-9 pr-8 text-xs font-bold text-foreground outline-none transition hover:border-primary/35 hover:bg-[#162033] focus:border-primary/55 focus:ring-4 focus:ring-primary/10 [&>option]:bg-[#0B1120] [&>option]:text-slate-100"
       >
         {children}
       </select>
+      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-primary" />
     </label>
   );
 }
@@ -674,36 +708,81 @@ function SellerReportRow({
 
 function OriginReport({ data }: { data: typeof leadsByOrigin }) {
   const max = Math.max(...data.map((item) => item.value), 1);
+  const points = data
+    .map((item, index) => {
+      const x = 8 + (index / Math.max(data.length - 1, 1)) * 84;
+      const y = 76 - (item.value / max) * 54;
+      return `${x},${y}`;
+    })
+    .join(" ");
 
   return (
-    <div className="grid gap-3">
-      {data.map((item) => (
-        <div key={item.label} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="font-black">{item.label}</span>
-            <span className="font-mono text-sm font-black text-sky-200">{item.value}</span>
+    <div className="grid gap-4">
+      <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[radial-gradient(circle_at_50%_0%,rgba(56,189,248,0.13),transparent_45%),rgba(255,255,255,0.025)] p-3">
+        <svg viewBox="0 0 100 84" className="h-32 w-full" role="img" aria-label="Onda de leads por origem">
+          <defs>
+            <linearGradient id="originWave" x1="0" x2="1">
+              <stop offset="0%" stopColor="#38bdf8" />
+              <stop offset="55%" stopColor="#facc15" />
+              <stop offset="100%" stopColor="#f9fafb" />
+            </linearGradient>
+            <linearGradient id="originWaveFill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.28" />
+              <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <polyline points={`8,80 ${points} 92,80`} fill="url(#originWaveFill)" stroke="none" />
+          <polyline points={points} fill="none" stroke="url(#originWave)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+          {data.map((item, index) => {
+            const x = 8 + (index / Math.max(data.length - 1, 1)) * 84;
+            const y = 76 - (item.value / max) * 54;
+            return <circle key={item.label} cx={x} cy={y} r="2.8" fill="#0B1120" stroke="#facc15" strokeWidth="1.8" />;
+          })}
+        </svg>
+      </div>
+
+      <div className="grid gap-2">
+        {data.slice(0, 5).map((item) => (
+          <div key={item.label} className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2">
+            <span className="truncate text-xs font-black">{item.label}</span>
+            <span className="font-mono text-xs font-black text-sky-200">{item.value}</span>
           </div>
-          <Progress value={(item.value / max) * 100} className="from-sky-400 to-cyan-300" />
-          <p className="mt-2 text-xs text-muted-foreground">{item.percent}% dos leads no periodo</p>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
 
 function FunnelReport() {
   const max = Math.max(...funnelData.map((item) => item.value));
-  const colors = ["from-sky-400 to-cyan-300", "from-violet-400 to-fuchsia-300", "from-emerald-400 to-teal-300", "from-yellow-300 to-amber-400", "from-rose-400 to-orange-400"];
+  const colors = [
+    "from-cyan-300 to-sky-500",
+    "from-primary to-yellow-500",
+    "from-slate-200 to-slate-500",
+    "from-[#0B5FA5] to-[#0f4c8a]",
+    "from-slate-600 to-slate-800"
+  ];
 
   return (
     <div className="grid gap-3">
       {funnelData.map((item, index) => (
         <div key={item.etapa} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3">
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex items-center justify-between gap-3">
             <span className="font-black">{item.etapa}</span>
             <span className="font-mono text-sm font-black text-foreground">{item.value}</span>
           </div>
-          <Progress value={(item.value / max) * 100} className={colors[index % colors.length]} />
+          <div className="relative h-9 overflow-hidden rounded-xl bg-white/[0.055]">
+            <div
+              className={cn("absolute inset-y-0 left-1/2 -translate-x-1/2 rounded-lg bg-gradient-to-r shadow-[0_0_18px_rgba(56,189,248,0.12)]", colors[index % colors.length])}
+              style={{
+                width: `${Math.max(24, (item.value / max) * 94)}%`,
+                clipPath: `polygon(${Math.min(18, index * 4)}% 0, ${100 - Math.min(18, index * 4)}% 0, ${92 - Math.min(18, index * 4)}% 100%, ${8 + Math.min(18, index * 4)}% 100%)`
+              }}
+            />
+            <span className="absolute inset-0 grid place-items-center font-mono text-xs font-black text-[#0B1120]">
+              {Math.round((item.value / max) * 100)}%
+            </span>
+          </div>
         </div>
       ))}
     </div>
@@ -716,15 +795,32 @@ function LossReport() {
   return (
     <div className="grid gap-3">
       {lossReasons.map((item) => (
-        <div key={item.label} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="flex items-center gap-2 font-black">
+        <div key={item.label} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3">
+          <div className="relative grid size-11 place-items-center rounded-2xl border border-white/[0.08] bg-[#0B1120]">
+            <svg viewBox="0 0 42 42" className="absolute inset-1">
+              <circle cx="21" cy="21" r="16" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="5" />
+              <circle
+                cx="21"
+                cy="21"
+                r="16"
+                fill="none"
+                stroke="#facc15"
+                strokeWidth="5"
+                strokeLinecap="round"
+                strokeDasharray={`${(item.value / total) * 100} 100`}
+                transform="rotate(-90 21 21)"
+              />
+            </svg>
+            <span className={cn("relative size-2.5 rounded-full", item.color)} />
+          </div>
+          <div className="min-w-0">
+            <span className="flex items-center gap-2 truncate font-black">
               <span className={cn("size-2.5 rounded-full shadow-glow", item.color)} />
               {item.label}
             </span>
-            <span className="font-mono text-sm font-black">{item.value}%</span>
+            <p className="mt-1 text-xs text-muted-foreground">Impacto no periodo</p>
           </div>
-          <Progress value={(item.value / total) * 100} className="from-rose-400 to-yellow-300" />
+          <span className="font-mono text-sm font-black">{item.value}%</span>
         </div>
       ))}
     </div>

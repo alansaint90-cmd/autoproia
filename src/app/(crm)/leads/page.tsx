@@ -220,12 +220,6 @@ function LeadInitialFrame({
   lead: Pick<LeadRecord, "initials" | "temperature" | "avatar">;
   size?: "md" | "lg";
 }) {
-  const tone: Record<LeadRecord["temperature"], string> = {
-    quente: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
-    morno: "border-[#0B5FA5]/60 bg-[linear-gradient(135deg,#0B5FA5,#1F2937)] text-blue-50",
-    frio: "border-white/18 bg-[linear-gradient(135deg,#1F2937,#0B1120)] text-slate-100",
-    urgente: "border-[#22C55E]/50 bg-[linear-gradient(135deg,#22C55E,#0B5FA5)] text-[#0B1120]"
-  };
   const sizes = {
     md: "size-12 text-sm",
     lg: "size-14 text-base"
@@ -235,7 +229,7 @@ function LeadInitialFrame({
     <div
       className={cn(
         "relative grid shrink-0 place-items-center overflow-hidden rounded-full border font-mono font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_12px_30px_rgba(0,0,0,0.24)]",
-        lead.avatar ? "border-white/12 bg-[#111827]" : tone[lead.temperature],
+        lead.avatar ? "border-white/12 bg-[#111827]" : "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120] shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_0_18px_rgba(250,204,21,0.16),0_12px_30px_rgba(0,0,0,0.24)]",
         sizes[size]
       )}
     >
@@ -316,6 +310,46 @@ function timeTone(lead: LeadRecord) {
   if (value.includes("dia") || value.includes("ontem") || value.includes("18h")) return "border-red-400/30 bg-red-400/10 text-red-200";
   if (value.includes("h")) return "border-yellow-400/30 bg-yellow-400/10 text-yellow-200";
   return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
+}
+
+function originTone(origin: string) {
+  const value = origin.toLowerCase();
+  if (value.includes("whatsapp")) return "border-emerald-400/25 bg-emerald-400/10 text-emerald-200";
+  if (value.includes("instagram")) return "border-fuchsia-400/25 bg-fuchsia-400/10 text-fuchsia-200";
+  if (value.includes("google")) return "border-sky-400/25 bg-sky-400/10 text-sky-200";
+  if (value.includes("meta") || value.includes("facebook")) return "border-blue-400/25 bg-blue-400/10 text-blue-200";
+  if (value.includes("site")) return "border-cyan-400/25 bg-cyan-400/10 text-cyan-200";
+  return "border-primary/25 bg-primary/10 text-primary";
+}
+
+function pulseStatus(lead: LeadRecord) {
+  const score = aiScore(lead);
+  const time = lead.lastInteraction.toLowerCase();
+
+  if (lead.temperature === "urgente") {
+    return { icon: "🔥", label: "Alta intenção", tooltip: "Lead demonstrou alta intenção de compra.", tone: "border-primary/35 bg-primary/10 text-primary" };
+  }
+  if (score >= 92) {
+    return { icon: "⭐", label: "VIP", tooltip: "Lead de alto valor ou prioridade.", tone: "border-[#FACC15]/35 bg-[#FACC15]/10 text-[#FACC15]" };
+  }
+  if (lead.temperature === "quente" || ["negociacao", "matricula_pendente"].includes(lead.status)) {
+    return { icon: "●", label: "Pronto", tooltip: "Lead pronto para fechamento.", tone: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" };
+  }
+  if (time.includes("h") || lead.status === "followup") {
+    return { icon: "●", label: "Aguardando", tooltip: "Lead aguardando retorno do cliente.", tone: "border-yellow-400/30 bg-yellow-400/10 text-yellow-200" };
+  }
+  if (time.includes("dia") || time.includes("ontem")) {
+    return { icon: "●", label: "Parado", tooltip: "Lead parado ha mais de 24 horas sem interacao.", tone: "border-red-400/30 bg-red-400/10 text-red-200" };
+  }
+
+  return { icon: "●", label: "Ativo", tooltip: "Lead em acompanhamento comercial ativo.", tone: "border-cyan-400/25 bg-cyan-400/10 text-cyan-200" };
+}
+
+function nextActionTone(lead: LeadRecord) {
+  if (["orcamento", "negociacao", "matricula_pendente"].includes(lead.status)) return "border-primary/35 bg-primary/10 text-primary";
+  if (lead.temperature === "urgente" || lead.temperature === "quente") return "border-[#FACC15]/35 bg-[#FACC15]/10 text-[#FACC15]";
+  if (lead.status === "followup") return "border-yellow-400/30 bg-yellow-400/10 text-yellow-200";
+  return "border-white/10 bg-white/[0.045] text-slate-200";
 }
 
 function isUnanswered(lead: LeadRecord) {
@@ -475,57 +509,10 @@ export default function LeadsPage() {
       />
 
       <main className="min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_18%_0%,rgba(250,204,21,0.12),transparent_30%),radial-gradient(circle_at_82%_6%,rgba(34,211,238,0.10),transparent_34%),var(--background)] p-4 scrollbar-thin xl:p-6">
-        <section className="mb-5 overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(135deg,rgba(17,24,39,0.86),rgba(11,17,32,0.74))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.26)] backdrop-blur-xl xl:p-5">
-          <div className="grid gap-3">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-2xl font-black tracking-tight text-foreground xl:text-[28px]">Central de fechamento</h2>
-                <button
-                  type="button"
-                  onClick={openCreateModal}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xs font-black text-primary-foreground shadow-[0_12px_34px_rgba(250,204,21,0.18)] transition duration-200 hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0"
-                >
-                  <Plus className="size-4" />
-                  Novo Lead
-                </button>
-              </div>
-            </div>
-
-            <div className="grid min-w-0 gap-2 xl:grid-cols-[minmax(280px,0.42fr)_minmax(520px,0.58fr)] xl:items-center">
-              <div className="relative min-w-0">
-                <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-primary/80" />
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Buscar lead..."
-                  className="h-10 w-full rounded-xl border border-white/10 bg-[#111827]/80 pl-11 pr-4 text-sm outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-white/[0.18] focus:border-primary/60 focus:bg-[#111827] focus:ring-4 focus:ring-primary/10"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
-                {quickFilters.map((filter) => (
-                  <button
-                    key={filter.id}
-                    type="button"
-                    onClick={() => setQuickFilter(filter.id)}
-                    className={cn(
-                      "inline-flex h-9 items-center justify-center rounded-xl border px-2 text-center text-[11px] font-black transition duration-200 hover:-translate-y-0.5",
-                      quickFilter === filter.id
-                        ? "border-primary/55 bg-primary text-primary-foreground shadow-[0_10px_28px_rgba(250,204,21,0.18)]"
-                        : "border-white/10 bg-white/[0.045] text-muted-foreground hover:border-white/20 hover:bg-white/[0.075] hover:text-foreground"
-                    )}
-                  >
-                    {filter.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
         <details className="group mb-5 overflow-hidden rounded-[24px] border border-white/10 bg-card/52 shadow-[0_18px_48px_rgba(0,0,0,0.18)] backdrop-blur-xl">
           <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
-            <span className="grid size-9 shrink-0 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
-              <Gauge className="size-4" />
+            <span className="grid size-10 shrink-0 place-items-center rounded-2xl border border-primary/25 bg-primary/10 text-primary">
+              <TrendingUp className="size-4" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-black">Indicadores de apoio</span>
@@ -546,11 +533,46 @@ export default function LeadsPage() {
           </section>
         </details>
 
+        <section className="mb-5 overflow-hidden rounded-[26px] border border-white/10 bg-[linear-gradient(135deg,rgba(17,24,39,0.86),rgba(11,17,32,0.74))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.26)] backdrop-blur-xl xl:p-5">
+          <div className="grid min-w-0 gap-2 xl:grid-cols-[minmax(520px,1fr)_auto] xl:items-center">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
+              {quickFilters.map((filter) => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  onClick={() => setQuickFilter(filter.id)}
+                  className={cn(
+                    "inline-flex h-9 items-center justify-center rounded-xl border px-2 text-center text-[11px] font-black transition duration-200 hover:-translate-y-0.5",
+                    quickFilter === filter.id
+                      ? "border-primary/55 bg-primary text-primary-foreground shadow-[0_10px_28px_rgba(250,204,21,0.18)]"
+                      : "border-white/10 bg-white/[0.045] text-muted-foreground hover:border-white/20 hover:bg-white/[0.075] hover:text-foreground"
+                  )}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xs font-black text-primary-foreground shadow-[0_12px_34px_rgba(250,204,21,0.18)] transition duration-200 hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 xl:justify-self-end"
+            >
+              <Plus className="size-4" />
+              Novo Lead
+            </button>
+          </div>
+        </section>
+
         <section className="overflow-hidden rounded-[28px] border border-white/10 bg-card/62 shadow-panel backdrop-blur-xl">
-          <div className="grid grid-cols-[1.7fr_1.2fr_0.7fr_0.9fr] gap-4 border-b border-white/10 bg-white/[0.035] px-4 py-3 text-[11px] font-black uppercase tracking-[0.14em] text-muted-foreground max-xl:hidden">
+          <div className="sticky top-0 z-20 grid gap-3 border-b border-white/10 bg-[#0b1422]/96 px-4 py-3 text-[10px] font-black uppercase tracking-[0.12em] text-muted-foreground backdrop-blur-xl max-xl:hidden xl:grid-cols-[minmax(220px,1.35fr)_0.75fr_0.9fr_1.2fr_0.95fr_0.75fr_0.9fr_1fr_0.8fr]">
             <span>Lead</span>
+            <span>Origem</span>
+            <span>Etapa</span>
             <span>Direcionamento</span>
+            <span>Pulso Comercial</span>
             <span>Score IA</span>
+            <span>Ultimo Contato</span>
+            <span>Proxima Acao</span>
             <span>Acoes</span>
           </div>
 
@@ -657,14 +679,17 @@ function LeadRow({
   onAskDelete: () => void;
 }) {
   const score = aiScore(lead);
+  const pulse = pulseStatus(lead);
+  const isHighScore = score >= 90;
 
   return (
     <article
-      className="group relative grid gap-4 px-4 py-4 transition duration-300 hover:bg-white/[0.04] xl:grid-cols-[1.7fr_1.2fr_0.7fr_0.9fr] xl:items-center"
+      className={cn(
+        "group relative grid gap-4 px-4 py-4 transition duration-300 hover:bg-white/[0.04] xl:grid-cols-[minmax(220px,1.35fr)_0.75fr_0.9fr_1.2fr_0.95fr_0.75fr_0.9fr_1fr_0.8fr] xl:items-center xl:gap-3",
+        isHighScore && "bg-primary/[0.025] ring-1 ring-inset ring-primary/15"
+      )}
       style={{ animation: `leadFadeIn 360ms ease ${index * 35}ms both` }}
     >
-      <div className={cn("absolute left-0 top-3 h-[calc(100%-24px)] w-1 rounded-r-full bg-gradient-to-b to-transparent", temperatureConfig[lead.temperature].priority)} />
-
       <button type="button" onClick={onOpen} className="min-w-0 text-left">
         <div className="flex min-w-0 items-start gap-3">
           <LeadInitialFrame lead={lead} />
@@ -682,28 +707,53 @@ function LeadRow({
         </div>
       </button>
 
+      <Cell label="Origem">
+        <Badge className={originTone(lead.origin)}>{lead.origin}</Badge>
+      </Cell>
+
+      <Cell label="Etapa">
+        <Badge className={stageTone(lead.status)}>{stageLabel(lead.status)}</Badge>
+      </Cell>
+
       <Cell label="Direcionamento">
-        <div>
-          <p className="line-clamp-1 text-sm font-black text-slate-100">{nextAction(lead)}</p>
+        <p className="line-clamp-2 text-xs font-bold leading-5 text-slate-100">{nextAction(lead)}</p>
+      </Cell>
+
+      <Cell label="Pulso Comercial">
+        <div className="group/pulse relative inline-flex w-fit">
+          <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black", pulse.tone)}>
+            <span className="text-xs leading-none">{pulse.icon}</span>
+            {pulse.label}
+          </span>
+          <span className="pointer-events-none absolute left-0 top-full z-40 mt-2 w-56 translate-y-1 rounded-xl border border-white/10 bg-[#0b1120]/98 p-3 text-xs font-semibold leading-5 text-slate-100 opacity-0 shadow-[0_18px_48px_rgba(0,0,0,0.42)] backdrop-blur-xl transition-all duration-200 group-hover/pulse:translate-y-0 group-hover/pulse:opacity-100">
+            {pulse.tooltip}
+          </span>
         </div>
       </Cell>
 
       <Cell label="Score IA">
         <div>
           <div className="flex items-center gap-2">
-            <Brain className="size-4 text-cyan-300" />
-            <span className="font-mono text-lg font-black">{score}%</span>
+            <Bot className="size-4 text-cyan-300" />
+            <span className={cn("font-mono text-lg font-black", isHighScore ? "text-primary" : "text-slate-100")}>{score}%</span>
           </div>
           <p className="text-[11px] text-muted-foreground">{intentText(lead)}</p>
         </div>
       </Cell>
 
+      <Cell label="Ultimo Contato">
+        <span className={cn("inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black", timeTone(lead))}>
+          <Clock3 className="size-3" />
+          {lead.lastInteraction}
+        </span>
+      </Cell>
+
+      <Cell label="Proxima Acao">
+        <Badge className={nextActionTone(lead)}>{nextAction(lead)}</Badge>
+      </Cell>
+
       <Cell label="Acoes">
-        <div className="flex items-center justify-between gap-2">
-          <span className={cn("inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black", timeTone(lead))}>
-            <Clock3 className="size-3" />
-            {lead.lastInteraction}
-          </span>
+        <div className="flex items-center justify-start gap-2">
           <div className="flex items-center gap-1">
             <QuickAction label="WhatsApp" icon={MessageCircle} href={`/conversas?lead=${lead.id}`} />
             <QuickAction label="Ligar" icon={PhoneCall} />

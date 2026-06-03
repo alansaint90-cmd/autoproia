@@ -67,12 +67,11 @@ export function AppSidebar() {
           >
             <BrandLogo size={36} />
             <div className={cn("min-w-0 transition-opacity duration-200", isCollapsed && "hidden")}>
-              <div className="text-[13px] font-extrabold uppercase leading-none tracking-[0.16em]">
-                <span className="text-slate-50 drop-shadow-[0_0_10px_rgba(249,250,251,0.10)]">AUTO </span>
-                <span className="text-primary drop-shadow-[0_0_12px_rgba(250,204,21,0.22)]">PRO</span>
-                <span className="text-slate-50 drop-shadow-[0_0_10px_rgba(249,250,251,0.10)]"> IA</span>
+              <div className="text-[16px] font-black uppercase leading-none tracking-[0.12em]">
+                <span className="text-slate-50 drop-shadow-[0_0_12px_rgba(249,250,251,0.16)]">AUTO </span>
+                <span className="bg-gradient-to-b from-[#fde047] via-[#facc15] to-[#b98500] bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(250,204,21,0.18)]">PRO</span>
+                <span className="text-slate-50 drop-shadow-[0_0_12px_rgba(249,250,251,0.16)]"> IA</span>
               </div>
-              <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.22em] text-muted-foreground">v1.1 CRM</div>
             </div>
           </button>
         </div>
@@ -90,16 +89,15 @@ export function AppSidebar() {
                   type="button"
                   aria-label={item.label}
                   className={cn(
-                    "relative grid size-12 place-items-center rounded-[18px] border text-primary transition duration-200",
+                    "relative grid size-12 place-items-center overflow-visible rounded-[18px] border text-primary transition duration-200",
                     active
-                      ? "border-primary/36 bg-[linear-gradient(145deg,rgba(250,204,21,0.18),rgba(17,24,39,0.72))] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_14px_32px_rgba(0,0,0,0.28)]"
+                      ? "border-primary/48 bg-[#101827] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),inset_0_0_28px_rgba(250,204,21,0.16),0_14px_32px_rgba(0,0,0,0.28)] before:absolute before:inset-0 before:rounded-[inherit] before:bg-[radial-gradient(circle_at_50%_48%,rgba(250,204,21,0.24),rgba(250,204,21,0.10)_36%,transparent_72%)] before:content-['']"
                       : "border-white/[0.08] bg-[linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] text-muted-foreground hover:border-primary/26 hover:bg-primary/[0.07] hover:text-primary"
                   )}
                 >
-                  {active ? <span className="absolute -left-1 h-7 w-1 rounded-r-full bg-primary shadow-[0_0_16px_rgba(250,204,21,0.34)]" /> : null}
-                  <Icon className="size-6 transition-transform duration-200 group-hover/navitem:scale-105" strokeWidth={1.9} />
+                  <Icon className="relative z-10 size-6 transition-transform duration-200 group-hover/navitem:scale-105" strokeWidth={1.9} />
                   {item.badge ? (
-                    <span className="absolute right-0.5 top-0.5 rounded-md bg-primary px-1 text-[9px] font-black text-primary-foreground">
+                    <span className="absolute -right-1.5 -top-1.5 z-30 grid min-h-4 min-w-4 place-items-center rounded-full border border-[#0B1120] bg-primary px-1 text-[9px] font-black leading-none text-primary-foreground shadow-[0_0_14px_rgba(250,204,21,0.35)]">
                       {item.badge}
                     </span>
                   ) : null}
@@ -108,13 +106,13 @@ export function AppSidebar() {
                 <Link
                   href={item.href}
                   className={cn(
-                    "pointer-events-none absolute left-[calc(100%+4px)] top-1/2 z-[120] flex h-11 min-w-44 -translate-y-1/2 translate-x-2 items-center gap-2 rounded-2xl border px-3 text-sm font-black opacity-0 shadow-[0_18px_46px_rgba(0,0,0,0.38)] backdrop-blur-xl transition-all duration-200 group-hover/navitem:pointer-events-auto group-hover/navitem:translate-x-0 group-hover/navitem:opacity-100",
+                    "pointer-events-none absolute left-[calc(100%+4px)] top-1/2 z-[120] flex h-9 min-w-32 -translate-y-1/2 translate-x-2 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-black opacity-0 shadow-[0_14px_34px_rgba(0,0,0,0.34)] backdrop-blur-xl transition-all duration-200 group-hover/navitem:pointer-events-auto group-hover/navitem:translate-x-0 group-hover/navitem:opacity-100",
                     active
                       ? "border-primary/30 bg-[#111827]/96 text-primary"
                       : "border-white/10 bg-[#0b1120]/96 text-foreground hover:border-primary/30 hover:bg-[#111827]"
                   )}
                 >
-                  <Icon className="size-4" />
+                  <Icon className="size-3.5" />
                   <span className="flex-1">{item.label}</span>
                   {item.badge ? (
                     <span className="rounded-md bg-[#0B1120]/18 px-1.5 py-0.5 text-[10px] font-black">{item.badge}</span>
@@ -129,28 +127,27 @@ export function AppSidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "group relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition duration-200",
+                "group relative flex items-center gap-3 overflow-hidden rounded-2xl px-3 py-2.5 text-sm transition duration-200",
                 active
-                  ? "border border-primary/28 bg-[linear-gradient(135deg,rgba(250,204,21,0.18),rgba(17,24,39,0.70))] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_14px_34px_rgba(0,0,0,0.18)]"
+                  ? "border border-primary/42 bg-[#101827] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_0_34px_rgba(250,204,21,0.12),0_14px_34px_rgba(0,0,0,0.18)] before:absolute before:inset-0 before:rounded-[inherit] before:bg-[radial-gradient(circle_at_16%_50%,rgba(250,204,21,0.26),rgba(250,204,21,0.10)_32%,transparent_78%)] before:content-['']"
                   : "border border-transparent text-muted-foreground hover:border-white/[0.10] hover:bg-white/[0.045] hover:text-foreground"
               )}
             >
-              {active ? <span className="absolute -left-1 h-7 w-1 rounded-r-full bg-primary shadow-[0_0_16px_rgba(250,204,21,0.34)]" /> : null}
               <span
                 className={cn(
-                  "grid shrink-0 place-items-center rounded-[13px] border transition duration-200",
+                  "relative z-10 grid shrink-0 place-items-center rounded-[13px] border transition duration-200",
                   "size-8",
                   active
-                    ? "border-primary/35 bg-primary/[0.16] text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
+                    ? "border-primary/45 bg-primary/[0.14] text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_0_14px_rgba(250,204,21,0.14)]"
                     : "border-white/[0.08] bg-white/[0.035] text-muted-foreground group-hover:border-primary/28 group-hover:bg-primary/10 group-hover:text-primary"
                 )}
               >
                 <Icon className="size-[17px] transition-transform duration-200 group-hover:scale-105" strokeWidth={1.9} />
               </span>
-              <span className="flex-1 font-medium">{item.label}</span>
+              <span className="relative z-10 flex-1 font-medium">{item.label}</span>
               {item.badge ? (
                 <span
-                  className={cn("rounded-md px-1.5 py-0.5 text-[10px] font-bold", active ? "bg-primary/18 text-primary" : "bg-primary text-primary-foreground")}
+                  className={cn("relative z-10 rounded-md px-1.5 py-0.5 text-[10px] font-bold", active ? "bg-primary/18 text-primary" : "bg-primary text-primary-foreground")}
                 >
                   {item.badge}
                 </span>

@@ -1,87 +1,64 @@
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { LoginForm } from "@/app/login-form";
 
-const metrics = [
-  { value: "+38%", label: "Conversao" },
-  { value: "24/7", label: "IA Atendendo" },
-  { value: "1.2k+", label: "Leads/mes" }
-];
+function BrandWordmark({ size = "base" }: { size?: "base" | "large" }) {
+  return (
+    <div className={size === "large" ? "text-[17px] font-black uppercase leading-none tracking-[0.12em]" : "text-[16px] font-black uppercase leading-none tracking-[0.12em]"}>
+      <span className="text-slate-50">AUTO </span>
+      <span className="bg-gradient-to-b from-[#fde047] via-[#facc15] to-[#b98500] bg-clip-text text-transparent">PRO</span>
+      <span className="text-slate-50"> IA</span>
+    </div>
+  );
+}
 
 export default function LoginPage() {
   return (
-    <main className="grid min-h-screen overflow-hidden bg-[#05070d] text-foreground lg:grid-cols-[1.28fr_1fr]">
-      <section className="relative flex min-h-screen flex-col px-8 py-7">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_62%,rgba(250,204,21,0.12),transparent_32%),radial-gradient(circle_at_70%_85%,rgba(15,76,138,0.14),transparent_38%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,oklch(1_0_0_/_0.065)_1px,transparent_1px),linear-gradient(to_bottom,oklch(1_0_0_/_0.065)_1px,transparent_1px)] bg-[size:56px_56px]" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#05070d]/15 via-[#0b1120]/78 to-[#05070d]" />
+    <main className="relative min-h-screen overflow-hidden bg-[#181b22] text-foreground">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_28%_38%,rgba(250,204,21,0.055),transparent_25%),radial-gradient(circle_at_72%_44%,rgba(11,95,165,0.08),transparent_30%)]" />
 
-        <header className="relative z-10 flex items-center gap-3">
-          <BrandLogo size={34} />
-          <div>
-            <div className="text-[13px] font-extrabold uppercase leading-none tracking-[0.18em]">
-              <span className="text-slate-50 drop-shadow-[0_0_10px_rgba(249,250,251,0.12)]">AUTO </span>
-              <span className="text-primary drop-shadow-[0_0_14px_rgba(250,204,21,0.24)]">PRO</span>
-              <span className="text-slate-50 drop-shadow-[0_0_10px_rgba(249,250,251,0.12)]"> IA</span>
+      <div className="relative mx-auto grid min-h-screen w-full max-w-[1180px] items-center gap-14 px-6 py-10 lg:grid-cols-[1fr_430px]">
+        <section className="mx-auto flex w-full max-w-[540px] flex-col items-center justify-center text-center">
+          <div className="flex flex-col items-center">
+            <BrandLogo size={150} />
+            <div className="mt-7">
+              <BrandWordmark size="large" />
             </div>
-            <div className="mt-1 font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">v1.1 CRM</div>
-          </div>
-        </header>
-
-        <div className="relative z-10 flex flex-1 items-center">
-          <div className="w-full max-w-[900px]">
-            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-primary/45 bg-primary/10 px-4 py-2 text-sm font-bold text-foreground shadow-[0_0_26px_oklch(0.86_0.17_95_/_0.12)]">
-              <Sparkles size={15} className="text-primary" />
-              IA conversando 24/7 no WhatsApp
-            </div>
-
-            <h1 className="max-w-[900px] font-extrabold tracking-normal">
-              <span className="block text-[clamp(3.2rem,6.4vw,6.6rem)] leading-[0.92] text-foreground drop-shadow-[0_0_34px_rgba(255,255,255,0.24)]">
-                AUTO PRO IA 1.1
-              </span>
-              <span className="mt-4 block text-[clamp(2.1rem,4.1vw,4.1rem)] leading-[1.05] text-foreground">
-                seu setor comercial no <span className="text-primary">piloto automatico</span>.
-              </span>
-            </h1>
-
-            <p className="mt-8 max-w-[650px] text-xl leading-8 text-muted-foreground">
-              Capture leads de anuncios, deixe a IA qualificar via WhatsApp e feche matriculas direto do funil Kanban.
+            <p className="mx-auto mt-6 max-w-[470px] text-base leading-7 text-slate-300">
+              CRM inteligente para autoescolas.
             </p>
+          </div>
+        </section>
 
-            <div className="mt-12 grid max-w-[900px] gap-5 md:grid-cols-3">
-              {metrics.map((metric) => (
-                <div key={metric.label} className="rounded-[18px] border border-border bg-card/45 px-5 py-5 backdrop-blur">
-                  <p className="font-mono text-3xl font-extrabold text-primary">{metric.value}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{metric.label}</p>
-                </div>
-              ))}
+        <section className="mx-auto w-full max-w-[430px]">
+          <div className="rounded-[24px] border border-slate-500/38 bg-[#181b22]/88 p-8 shadow-[0_28px_90px_rgba(0,0,0,0.24)] backdrop-blur">
+            <div className="mb-10 flex items-center gap-3">
+              <BrandLogo size={30} />
+              <BrandWordmark />
             </div>
-          </div>
-        </div>
 
-        <p className="relative z-10 text-sm text-muted-foreground">© 2026 Auto Pro IA · Transito + Tecnologia</p>
-      </section>
+            <div className="mb-8">
+              <h2 className="text-3xl font-black tracking-tight text-slate-50">Bem-vindo ao Auto Pro</h2>
+              <p className="mt-2 text-sm text-slate-400">Acesse seu painel comercial.</p>
+            </div>
 
-      <section className="relative grid min-h-screen place-items-center bg-[#05070d] px-8 py-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(250,204,21,0.08),transparent_38%)]" />
-
-        <div className="relative w-full max-w-[540px] rounded-[24px] border border-border bg-card/78 p-9 shadow-[0_28px_90px_oklch(0_0_0_/_0.42)] backdrop-blur">
-          <div className="mb-10">
-            <h2 className="text-3xl font-extrabold tracking-normal">Bem-vindo de volta 👋</h2>
-            <p className="mt-2 text-base text-muted-foreground">Acesse seu painel comercial.</p>
+            <LoginForm />
           </div>
 
-          <LoginForm />
-
-          <p className="mt-7 text-center text-sm text-muted-foreground">
+          <p className="mt-6 text-center text-sm text-slate-400">
             Novo por aqui?{" "}
-            <Link href="/dashboard" className="font-semibold text-primary">
+            <Link href="/dashboard" className="font-black text-primary">
               Acessar demo
             </Link>
           </p>
-        </div>
-      </section>
+        </section>
+      </div>
+
+      <footer className="absolute inset-x-0 bottom-5 hidden justify-center gap-8 text-xs font-semibold text-slate-500 lg:flex">
+        <span>© 2026 Auto Pro IA</span>
+        <span>Termos</span>
+        <span>Privacidade</span>
+      </footer>
     </main>
   );
 }
