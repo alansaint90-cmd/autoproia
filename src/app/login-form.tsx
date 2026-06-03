@@ -13,6 +13,12 @@ export function LoginForm() {
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+
+    if (!email.trim() || !password.trim()) {
+      setError("Informe o email e a senha para entrar.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -69,6 +75,7 @@ export function LoginForm() {
             onChange={(event) => setEmail(event.target.value)}
             className="min-w-0 flex-1 bg-transparent text-base font-semibold text-foreground outline-none"
             aria-label="Email"
+            required
           />
         </span>
       </label>
@@ -85,6 +92,7 @@ export function LoginForm() {
             onChange={(event) => setPassword(event.target.value)}
             className="min-w-0 flex-1 bg-transparent text-base font-semibold text-foreground outline-none"
             aria-label="Senha"
+            required
           />
         </span>
       </label>

@@ -10,7 +10,13 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const body = schema.parse(await request.json());
+    const parsed = schema.safeParse(await request.json());
+
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Informe o email e a senha para entrar." }, { status: 400 });
+    }
+
+    const body = parsed.data;
     const user = await login(body);
 
     return NextResponse.json({
