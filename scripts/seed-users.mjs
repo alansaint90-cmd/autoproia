@@ -11,7 +11,6 @@ const now = new Date();
 
 const seedUsers = [
   {
-    id: systemUserId,
     name: "Superadmin",
     email: process.env.SUPERADMIN_EMAIL ?? "admin@autopro.ia",
     role: "super_admin",
@@ -66,6 +65,33 @@ async function main() {
   const sql = postgres(databaseUrl, { prepare: false });
 
   try {
+    await sql`
+      insert into users (
+        id,
+        name,
+        email,
+        role,
+        updated_at,
+        is_deleted,
+        modified_by
+      )
+      values (
+        ${systemUserId},
+        'Auto Pro IA',
+        'sistema@autoproia.local',
+        'admin',
+        ${now},
+        false,
+        ${systemUserId}
+      )
+      on conflict (id) do update set
+        name = excluded.name,
+        role = excluded.role,
+        updated_at = excluded.updated_at,
+        is_deleted = false,
+        modified_by = excluded.modified_by
+    `;
+
     for (const user of seedUsers) {
       const passwordHash = await hashPassword(user.password);
       const email = user.email.trim().toLowerCase();
@@ -87,7 +113,7 @@ async function main() {
           modified_by
         )
         values (
-          ${user.id ?? randomUUID()},
+          ${randomUUID()},
           ${user.name},
           ${email},
           ${user.role},
