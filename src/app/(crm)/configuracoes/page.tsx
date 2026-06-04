@@ -1055,7 +1055,8 @@ function IaComercialPanel() {
   }
 
   return (
-    <section className="rounded-[22px] border border-border bg-card/72 p-6 shadow-panel">
+    <section className="space-y-5">
+      <div className="rounded-[22px] border border-border bg-card/72 p-6 shadow-panel">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Prompt dinamico</p>
@@ -1128,21 +1129,6 @@ function IaComercialPanel() {
           />
         </label>
 
-        <label className="block">
-          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Configuracao do prompt
-          </span>
-          <textarea
-            value={settings.customPrompt}
-            onChange={(event) => updateField("customPrompt", event.target.value)}
-            className="kanban-input min-h-32 resize-y leading-6"
-            placeholder="Oriente a IA sobre tom, limites comerciais, quando acionar humano e como qualificar o lead."
-          />
-          <span className="mt-2 block text-xs leading-5 text-muted-foreground">
-            Este texto complementa o prompt comercial real usado nas respostas do WhatsApp.
-          </span>
-        </label>
-
         <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-primary">Previa do contexto enviado para a IA</p>
           <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
@@ -1162,6 +1148,38 @@ function IaComercialPanel() {
           {error ? <span className="text-sm font-semibold text-danger">{error}</span> : null}
         </div>
       </form>
+      </div>
+
+      <div className="rounded-[22px] border border-[#0B5FA5]/20 bg-[linear-gradient(145deg,rgba(11,95,165,0.12),rgba(255,255,255,0.035))] p-6 shadow-panel">
+        <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-200">Prompt agente SDR</p>
+            <h3 className="mt-1 text-lg font-extrabold tracking-normal">Direcionamento do atendimento comercial</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+              Configure a orientação específica para o agente SDR qualificar leads, identificar intenção e acionar humano no momento certo.
+            </p>
+          </div>
+          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-300/25 bg-sky-300/10 px-3 py-1.5 text-xs font-black text-sky-100">
+            <Bot size={14} />
+            SDR IA
+          </span>
+        </div>
+
+        <label className="mt-5 block">
+          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Configuracao do prompt
+          </span>
+          <textarea
+            value={settings.customPrompt}
+            onChange={(event) => updateField("customPrompt", event.target.value)}
+            className="kanban-input min-h-32 resize-y leading-6"
+            placeholder="Oriente a IA sobre tom, limites comerciais, quando acionar humano e como qualificar o lead."
+          />
+          <span className="mt-2 block text-xs leading-5 text-muted-foreground">
+            Este texto complementa o prompt comercial real usado nas respostas do WhatsApp.
+          </span>
+        </label>
+      </div>
     </section>
   );
 }
