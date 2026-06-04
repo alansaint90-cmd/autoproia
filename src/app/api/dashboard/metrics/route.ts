@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 
@@ -11,6 +11,48 @@ function startOfToday() {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
   return date;
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function getPeriodRange(period: string | null) {
+  const today = startOfToday();
+  const normalized = (period ?? "Hoje").toLowerCase();
+
+  if (normalized.includes("todo")) {
+    return { label: "Todo o periodo", start: null, end: null };
+  }
+
+  if (normalized.includes("ontem")) {
+    const start = addDays(today, -1);
+    return { label: "Ontem", start, end: today };
+  }
+
+  if (normalized.includes("30")) {
+    return { label: "Ultimos 30 dias", start: addDays(today, -29), end: addDays(today, 1) };
+  }
+
+  if (normalized.includes("15")) {
+    return { label: "Ultimos 15 dias", start: addDays(today, -14), end: addDays(today, 1) };
+  }
+
+  if (normalized.includes("7")) {
+    return { label: "Ultimos 7 dias", start: addDays(today, -6), end: addDays(today, 1) };
+  }
+
+  return { label: "Hoje", start: today, end: addDays(today, 1) };
+}
+
+function rangeClause(column: ReturnType<typeof sql>, start: Date | null, end: Date | null) {
+  if (!start || !end) {
+    return sql``;
+  }
+
+  return sql` and ${column} >= ${start} and ${column} < ${end}`;
 }
 
 function toNumber(value: string | number | bigint | null | undefined) {
@@ -30,37 +72,45 @@ async function groupQuery(query: ReturnType<typeof sql>) {
   }));
 }
 
-export async function GET() {
-  const today = startOfToday();
+export async function GET(request: NextRequest) {
+  const period = getPeriodRange(request.nextUrl.searchParams.get("period"));
+  const leadsCreatedRange = rangeClause(sql.raw("created_at"), period.start, period.end);
+  const leadsUpdatedRange = rangeClause(sql.raw("updated_at"), period.start, period.end);
+  const leadsInteractionRange = rangeClause(sql.raw("coalesce(last_interaction_at, updated_at, created_at)"), period.start, period.end);
+  const conversationsRange = rangeClause(sql.raw("last_message_at"), period.start, period.end);
+  const enrollmentRange = period.start && period.end
+    ? sql`and (
+        (enrollment_closed_at >= ${period.start} and enrollment_closed_at < ${period.end})
+        or (pipeline_stage = 'fechado' and updated_at >= ${period.start} and updated_at < ${period.end})
+      )`
+    : sql``;
 
   const [
-    leadsToday,
+    leadsInPeriod,
     activeConversations,
-    enrollmentsToday,
+    enrollmentsInPeriod,
     aiConversations,
     hotLeads,
     totalLeads,
     temperature,
     origins
   ] = await Promise.all([
-    countQuery(sql`select count(*) as count from leads where is_deleted = false and created_at >= ${today}`),
-    countQuery(sql`select count(*) as count from conversations where is_deleted = false and status in ('ai', 'human')`),
+    countQuery(sql`select count(*) as count from leads where is_deleted = false ${leadsCreatedRange}`),
+    countQuery(sql`select count(*) as count from conversations where is_deleted = false and status in ('ai', 'human') ${conversationsRange}`),
     countQuery(sql`
       select count(*) as count
       from leads
       where is_deleted = false
-        and (
-          enrollment_closed_at >= ${today}
-          or (pipeline_stage = 'fechado' and updated_at >= ${today})
-        )
+        ${enrollmentRange}
     `),
-    countQuery(sql`select count(*) as count from conversations where is_deleted = false and status = 'ai'`),
-    countQuery(sql`select count(*) as count from leads where is_deleted = false and temperature in ('quente', 'urgente')`),
-    countQuery(sql`select count(*) as count from leads where is_deleted = false`),
+    countQuery(sql`select count(*) as count from conversations where is_deleted = false and status = 'ai' ${conversationsRange}`),
+    countQuery(sql`select count(*) as count from leads where is_deleted = false and temperature in ('quente', 'urgente') ${leadsInteractionRange}`),
+    countQuery(sql`select count(*) as count from leads where is_deleted = false ${leadsInteractionRange}`),
     groupQuery(sql`
       select coalesce(temperature, 'morno') as label, count(*) as value
       from leads
       where is_deleted = false
+        ${leadsInteractionRange}
       group by coalesce(temperature, 'morno')
       order by value desc
     `),
@@ -68,22 +118,28 @@ export async function GET() {
       select coalesce(nullif(origin, ''), 'Nao informado') as label, count(*) as value
       from leads
       where is_deleted = false
+        ${leadsCreatedRange}
       group by coalesce(nullif(origin, ''), 'Nao informado')
       order by value desc
       limit 6
     `)
   ]);
 
-  const conversionRate = leadsToday > 0 ? Number(((enrollmentsToday / leadsToday) * 100).toFixed(1)) : 0;
-  const estimatedMonthlySales = enrollmentsToday * 2400;
+  const conversionRate = leadsInPeriod > 0 ? Number(((enrollmentsInPeriod / leadsInPeriod) * 100).toFixed(1)) : 0;
+  const estimatedSales = enrollmentsInPeriod * 2400;
 
   return NextResponse.json({
     ok: true,
+    period: {
+      label: period.label,
+      start: period.start?.toISOString() ?? null,
+      end: period.end?.toISOString() ?? null
+    },
     updatedAt: new Date().toISOString(),
     stats: {
-      leadsHoje: leadsToday,
+      leadsHoje: leadsInPeriod,
       conversasAtivas: activeConversations,
-      matriculasFechadas: enrollmentsToday,
+      matriculasFechadas: enrollmentsInPeriod,
       taxaConversao: conversionRate,
       iaAtendendo: aiConversations,
       leadsQuentes: hotLeads,
@@ -92,7 +148,7 @@ export async function GET() {
         style: "currency",
         currency: "BRL",
         maximumFractionDigits: 0
-      }).format(estimatedMonthlySales)
+      }).format(estimatedSales)
     },
     thermometer: {
       total: totalLeads,

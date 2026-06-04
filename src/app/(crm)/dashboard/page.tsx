@@ -41,6 +41,11 @@ const dashboardPeriods = ["Hoje", "Ontem", "Ultimos 7 dias", "Ultimos 15 dias", 
 
 type DashboardRuntimeMetrics = {
   stats: typeof dashboardStats;
+  period?: {
+    label: string;
+    start: string | null;
+    end: string | null;
+  };
   thermometer: {
     total: number;
     items: Array<{ label: string; value: number }>;
@@ -241,12 +246,13 @@ export default function DashboardPage() {
 
     async function loadMetrics() {
       try {
-        const response = await fetch("/api/dashboard/metrics", { cache: "no-store" });
+        const response = await fetch(`/api/dashboard/metrics?period=${encodeURIComponent(selectedPeriod)}`, { cache: "no-store" });
         if (!response.ok) return;
         const data = await response.json() as DashboardRuntimeMetrics & { ok?: boolean };
         if (active && data.ok !== false) {
           setRuntimeMetrics({
             stats: data.stats,
+            period: data.period,
             thermometer: data.thermometer,
             leadsByOrigin: data.leadsByOrigin
           });
@@ -263,7 +269,7 @@ export default function DashboardPage() {
       active = false;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [selectedPeriod]);
 
   return (
     <>
@@ -279,7 +285,7 @@ export default function DashboardPage() {
               aria-label="Filtrar dados do dashboard"
             >
               <Filter className="size-4 text-primary" />
-              Filtro
+              <span className="hidden sm:inline">{selectedPeriod}</span>
               <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", periodFilterOpen && "rotate-180 text-primary")} />
             </button>
 
