@@ -131,6 +131,18 @@ async function ensureSystemUser(sql) {
   `;
 }
 
+async function ensureDashboardColumns(sql) {
+  await sql`
+    alter table leads
+      add column if not exists temperature text not null default 'morno',
+      add column if not exists sentiment text not null default 'neutro',
+      add column if not exists pipeline_stage text not null default 'novo',
+      add column if not exists last_message_preview text,
+      add column if not exists last_interaction_at timestamptz,
+      add column if not exists enrollment_closed_at timestamptz
+  `;
+}
+
 async function upsertLead(sql, lead) {
   const [row] = await sql`
     insert into leads (
@@ -320,6 +332,7 @@ async function main() {
 
   try {
     await ensureSystemUser(sql);
+    await ensureDashboardColumns(sql);
 
     for (const [index, lead] of leads.entries()) {
       const leadId = await upsertLead(sql, lead);
