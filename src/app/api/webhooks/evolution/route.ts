@@ -16,14 +16,17 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   if (env.EVOLUTION_WEBHOOK_SECRET) {
-    const secret = request.headers.get("x-webhook-secret");
+    const secret = getWebhookSecret(request);
     if (secret !== env.EVOLUTION_WEBHOOK_SECRET) {
       console.warn("[evolution-webhook] unauthorized webhook request");
       return NextResponse.json({ error: "Webhook nao autorizado." }, { status: 401 });
     }
   }
 
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
+  if (!body) {
+    return NextResponse.json({ error: "JSON invalido." }, { status: 400 });
+  }
   console.info("[evolution-webhook] payload received", {
     event: body?.event,
     instance: body?.instance,
@@ -68,4 +71,18 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function getWebhookSecret(request: NextRequest) {
+  const authorization = request.headers.get("authorization");
+  const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+
+  return (
+    request.headers.get("x-webhook-secret") ??
+    request.headers.get("x-evolution-webhook-secret") ??
+    request.headers.get("x-api-key") ??
+    request.headers.get("apikey") ??
+    bearer ??
+    request.nextUrl.searchParams.get("secret")
+  );
 }

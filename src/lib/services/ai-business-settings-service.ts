@@ -15,7 +15,8 @@ function normalizeSettings(value: unknown): AiBusinessSettings {
     prices: partial.prices?.trim() || defaultAiBusinessSettings.prices,
     address: partial.address?.trim() || defaultAiBusinessSettings.address,
     hours: partial.hours?.trim() || defaultAiBusinessSettings.hours,
-    customPrompt: partial.customPrompt?.trim() || defaultAiBusinessSettings.customPrompt
+    customPrompt: partial.customPrompt?.trim() || defaultAiBusinessSettings.customPrompt,
+    sdrPrompt: partial.sdrPrompt?.trim() || defaultAiBusinessSettings.sdrPrompt
   };
 }
 

@@ -257,23 +257,41 @@ export default function KanbanPage() {
   useEffect(() => {
     let mounted = true;
 
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        if (mounted) {
-          setLeads(migrateStoredLeads(JSON.parse(stored) as LeadCard[]));
+    async function loadLeads() {
+      try {
+        const response = await fetch("/api/leads?limit=500", { cache: "no-store" });
+        if (!response.ok) throw new Error("Falha ao carregar leads reais.");
+        const data = await response.json() as { leads?: LeadCard[] };
+
+        if (mounted && data.leads?.length) {
+          setLeads(migrateStoredLeads(data.leads));
           setHasHydrated(true);
+          return;
         }
-        return;
+      } catch (error) {
+        console.warn("[kanban] usando fallback local", error);
       }
-    } catch {
-      window.localStorage.removeItem(STORAGE_KEY);
+
+      try {
+        const stored = window.localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          if (mounted) {
+            setLeads(migrateStoredLeads(JSON.parse(stored) as LeadCard[]));
+            setHasHydrated(true);
+          }
+          return;
+        }
+      } catch {
+        window.localStorage.removeItem(STORAGE_KEY);
+      }
+
+      if (mounted) {
+        setLeads(createInitialLeads());
+        setHasHydrated(true);
+      }
     }
 
-    if (mounted) {
-      setLeads(createInitialLeads());
-      setHasHydrated(true);
-    }
+    loadLeads();
 
     return () => {
       mounted = false;

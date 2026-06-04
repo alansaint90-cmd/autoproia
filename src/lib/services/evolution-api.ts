@@ -6,6 +6,21 @@ type SendTextInput = {
 };
 
 export async function sendWhatsAppText(input: SendTextInput) {
+  const parts = splitWhatsAppText(input.text);
+
+  if (parts.length > 1) {
+    const results = [];
+    for (const part of parts) {
+      results.push(await sendSingleWhatsAppText({ ...input, text: part }));
+      await wait(650);
+    }
+    return results;
+  }
+
+  return sendSingleWhatsAppText({ ...input, text: parts[0] ?? input.text });
+}
+
+async function sendSingleWhatsAppText(input: SendTextInput) {
   const url = new URL(`/message/sendText/${env.EVOLUTION_INSTANCE_NAME}`, env.EVOLUTION_API_URL);
   const maskedPhone = input.phone.replace(/\d(?=\d{4})/g, "*");
 
@@ -34,4 +49,15 @@ export async function sendWhatsAppText(input: SendTextInput) {
 
   console.info("[evolution-api] send success", { status: response.status });
   return response.json() as Promise<unknown>;
+}
+
+function splitWhatsAppText(text: string) {
+  return text
+    .split(/\n?\|\|\|SPLIT\|\|\|\n?/g)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }

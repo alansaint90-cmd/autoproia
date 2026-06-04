@@ -71,6 +71,18 @@ type ReportFilters = {
   dateEnd: string;
 };
 
+type RealReportData = {
+  totalLeads: number;
+  enrollments: number;
+  revenue: number;
+  conversion: number;
+  averageTicket: number;
+  aiHandled: number;
+  responseTime: string;
+  origins: typeof leadsByOrigin;
+  sellers: Array<{ seller: string; closed: number; revenue: string; conversion: number; position: number; progress: number }>;
+} | null;
+
 const initialFilters: ReportFilters = {
   period: "30d",
   seller: "Todos",
@@ -85,6 +97,7 @@ export default function RelatoriosPage() {
   const [generatedAt, setGeneratedAt] = useState("gerado agora");
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isExpandedSectionOpen, setIsExpandedSectionOpen] = useState(false);
+  const [realReportData, setRealReportData] = useState<RealReportData>(null);
 
   const report = useMemo(() => {
     const { origin, period, seller } = appliedFilters;
@@ -98,7 +111,7 @@ export default function RelatoriosPage() {
     const conversion = totalLeads > 0 ? Number(((enrollments / totalLeads) * 100).toFixed(1)) : 0;
     const averageTicket = enrollments > 0 ? Math.round(revenue / enrollments) : 0;
 
-    return {
+    const fallbackReport = {
       totalLeads,
       enrollments,
       revenue,
@@ -107,9 +120,23 @@ export default function RelatoriosPage() {
       aiHandled: Math.round(312 * factor),
       responseTime: period === "7d" ? "31s" : "38s"
     };
-  }, [appliedFilters]);
+
+    return realReportData ? {
+      totalLeads: realReportData.totalLeads,
+      enrollments: realReportData.enrollments,
+      revenue: realReportData.revenue,
+      conversion: realReportData.conversion,
+      averageTicket: realReportData.averageTicket,
+      aiHandled: realReportData.aiHandled,
+      responseTime: realReportData.responseTime
+    } : fallbackReport;
+  }, [appliedFilters, realReportData]);
 
   const sellerRows = useMemo(() => {
+    if (realReportData?.sellers.length) {
+      return realReportData.sellers;
+    }
+
     const seller = appliedFilters.seller;
     const max = Math.max(...sellerClosing.map((item) => item.closed));
     return sellerClosing
@@ -120,18 +147,81 @@ export default function RelatoriosPage() {
         position: index + 1,
         progress: Math.round((item.closed / max) * 100)
       }));
-  }, [appliedFilters.seller]);
+  }, [appliedFilters.seller, realReportData]);
 
   const filteredOrigins = useMemo(
-    () => leadsByOrigin.filter((item) => appliedFilters.origin === "Todas" || item.label === appliedFilters.origin),
-    [appliedFilters.origin]
+    () => realReportData?.origins.length
+      ? realReportData.origins
+      : leadsByOrigin.filter((item) => appliedFilters.origin === "Todas" || item.label === appliedFilters.origin),
+    [appliedFilters.origin, realReportData]
   );
 
   function updateFilter<K extends keyof ReportFilters>(key: K, value: ReportFilters[K]) {
     setFilters((current) => ({ ...current, [key]: value }));
   }
 
-  function generateReport() {
+  async function generateReport() {
+    try {
+      const searchParams = new URLSearchParams({
+        start: new Date(`${filters.dateStart}T00:00:00`).toISOString(),
+        end: new Date(`${filters.dateEnd}T23:59:59`).toISOString(),
+        limit: "500"
+      });
+
+      if (filters.origin !== "Todas") searchParams.set("origin", filters.origin);
+      if (filters.seller !== "Todos") searchParams.set("seller", filters.seller);
+
+      const response = await fetch(`/api/leads?${searchParams.toString()}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("Falha ao gerar relatorio com dados reais.");
+
+      const data = await response.json() as {
+        leads?: Array<{ status: string; conversationStatus?: string }>;
+        analytics?: {
+          origins?: Array<{ label: string; value: number }>;
+          sellers?: Array<{ seller: string; closed: number; revenue: number }>;
+        };
+      };
+      const realLeads = data.leads ?? [];
+      const enrollments = realLeads.filter((lead) => lead.status === "matricula_realizada").length;
+      const totalLeads = realLeads.length;
+      const revenue = enrollments * 2400;
+      const conversion = totalLeads > 0 ? Number(((enrollments / totalLeads) * 100).toFixed(1)) : 0;
+      const originTotal = Math.max(1, (data.analytics?.origins ?? []).reduce((sum, item) => sum + item.value, 0));
+      const realOrigins = (data.analytics?.origins ?? []).map((item) => ({
+        label: item.label,
+        value: item.value,
+        percent: Math.round((item.value / originTotal) * 100)
+      }));
+      const realSellers = (data.analytics?.sellers ?? [])
+        .map((item, index, all) => {
+          const max = Math.max(...all.map((seller) => seller.closed), 1);
+          return {
+            seller: item.seller,
+            closed: item.closed,
+            revenue: formatCurrency(item.revenue),
+            conversion: totalLeads > 0 ? Math.round((item.closed / totalLeads) * 100) : 0,
+            position: index + 1,
+            progress: Math.max(8, Math.round((item.closed / max) * 100))
+          };
+        })
+        .filter((item) => filters.seller === "Todos" || item.seller === filters.seller);
+
+      setRealReportData({
+        totalLeads,
+        enrollments,
+        revenue,
+        conversion,
+        averageTicket: enrollments > 0 ? Math.round(revenue / enrollments) : 0,
+        aiHandled: realLeads.filter((lead) => lead.conversationStatus === "ai").length,
+        responseTime: "38s",
+        origins: realOrigins as typeof leadsByOrigin,
+        sellers: realSellers
+      });
+    } catch (error) {
+      console.warn("[relatorios] usando fallback mockado", error);
+      setRealReportData(null);
+    }
+
     setAppliedFilters(filters);
     setGeneratedAt(
       new Intl.DateTimeFormat("pt-BR", {

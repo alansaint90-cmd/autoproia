@@ -396,23 +396,53 @@ export default function LeadsPage() {
   const [draft, setDraft] = useState<LeadDraft>(emptyDraft);
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      setLeads(stored ? migrateStoredLeads(JSON.parse(stored) as LeadRecord[]) : createInitialLeads());
-    } catch {
-      setLeads(createInitialLeads());
+    let mounted = true;
+
+    async function loadRealLeads() {
+      try {
+        const search = new URLSearchParams(window.location.search).get("search") ?? "";
+        const response = await fetch(`/api/leads?search=${encodeURIComponent(search)}&limit=500`, { cache: "no-store" });
+        if (!response.ok) throw new Error("Falha ao carregar leads reais.");
+        const data = await response.json() as { leads?: LeadRecord[] };
+
+        if (mounted && data.leads?.length) {
+          setLeads(migrateStoredLeads(data.leads));
+          if (search) setQuery(search);
+          return;
+        }
+      } catch (error) {
+        console.warn("[leads] usando fallback local", error);
+      }
+
+      if (!mounted) return;
+
+      try {
+        const stored = window.localStorage.getItem(STORAGE_KEY);
+        setLeads(stored ? migrateStoredLeads(JSON.parse(stored) as LeadRecord[]) : createInitialLeads());
+      } catch {
+        setLeads(createInitialLeads());
+      }
+
+      const search = new URLSearchParams(window.location.search).get("search");
+      if (search) {
+        setQuery(search);
+      }
     }
 
-    const search = new URLSearchParams(window.location.search).get("search");
-    if (search) {
-      setQuery(search);
-    }
+    loadRealLeads();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
-    if (leads.length > 0) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
-      window.dispatchEvent(new Event("auto-pro-ia:kanban-leads-updated"));
+    try {
+      if (leads.length > 0) {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
+        window.dispatchEvent(new Event("auto-pro-ia:kanban-leads-updated"));
+      }
+    } catch {
     }
   }, [leads]);
 

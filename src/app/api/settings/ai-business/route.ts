@@ -14,7 +14,8 @@ export async function POST(request: Request) {
     prices: body.prices ?? defaultAiBusinessSettings.prices,
     address: body.address ?? defaultAiBusinessSettings.address,
     hours: body.hours ?? defaultAiBusinessSettings.hours,
-    customPrompt: body.customPrompt ?? defaultAiBusinessSettings.customPrompt
+    customPrompt: body.customPrompt ?? defaultAiBusinessSettings.customPrompt,
+    sdrPrompt: body.sdrPrompt ?? defaultAiBusinessSettings.sdrPrompt
   });
 
   return NextResponse.json({ settings });

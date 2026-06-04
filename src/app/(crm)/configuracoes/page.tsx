@@ -1129,6 +1129,21 @@ function IaComercialPanel() {
           />
         </label>
 
+        <label className="block">
+          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Regras dinamicas complementares
+          </span>
+          <textarea
+            value={settings.customPrompt}
+            onChange={(event) => updateField("customPrompt", event.target.value)}
+            className="kanban-input min-h-28 resize-y leading-6"
+            placeholder="Defina limites comerciais, regras de handoff, tom e prioridades que podem mudar no dia a dia."
+          />
+          <span className="mt-2 block text-xs leading-5 text-muted-foreground">
+            Este bloco entra no prompt em tempo real junto com valores, endereco e horarios.
+          </span>
+        </label>
+
         <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-primary">Previa do contexto enviado para a IA</p>
           <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
@@ -1167,16 +1182,16 @@ function IaComercialPanel() {
 
         <label className="mt-5 block">
           <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Configuracao do prompt
+            Prompt agente SDR
           </span>
           <textarea
-            value={settings.customPrompt}
-            onChange={(event) => updateField("customPrompt", event.target.value)}
-            className="kanban-input min-h-32 resize-y leading-6"
-            placeholder="Oriente a IA sobre tom, limites comerciais, quando acionar humano e como qualificar o lead."
+            value={settings.sdrPrompt}
+            onChange={(event) => updateField("sdrPrompt", event.target.value)}
+            className="kanban-input min-h-[420px] resize-y font-mono text-xs leading-6"
+            placeholder="Cole aqui o prompt base do agente SDR."
           />
           <span className="mt-2 block text-xs leading-5 text-muted-foreground">
-            Este texto complementa o prompt comercial real usado nas respostas do WhatsApp.
+            Use os placeholders {"{{agentName}}"}, {"{{companyName}}"} e {"{{dynamicContext}}"} para manter o prompt dinamico.
           </span>
         </label>
       </div>

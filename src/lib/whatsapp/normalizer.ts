@@ -37,6 +37,18 @@ function extractText(message: Record<string, unknown> | undefined) {
 
   const image = message.imageMessage;
   if (isRecord(image) && typeof image.caption === "string") return image.caption;
+  if (isRecord(image)) return "[imagem recebida]";
+
+  const audio = message.audioMessage;
+  if (isRecord(audio)) return "[audio recebido]";
+
+  const video = message.videoMessage;
+  if (isRecord(video) && typeof video.caption === "string") return video.caption;
+  if (isRecord(video)) return "[video recebido]";
+
+  const document = message.documentMessage;
+  if (isRecord(document) && typeof document.fileName === "string") return `[documento recebido: ${document.fileName}]`;
+  if (isRecord(document)) return "[documento recebido]";
 
   return "";
 }
