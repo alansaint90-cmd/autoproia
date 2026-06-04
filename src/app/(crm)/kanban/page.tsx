@@ -25,7 +25,6 @@ import { cn } from "@/lib/utils";
 type PipelineStage =
   | "novo"
   | "ia"
-  | "qualificado"
   | "atendimento"
   | "followup"
   | "perdido"
@@ -75,7 +74,6 @@ const pipelineStages: Array<{
 }> = [
   { id: "novo", title: "Novo Lead", group: "Comercial", dot: "bg-primary", accent: "from-primary/10" },
   { id: "ia", title: "IA Atendendo", group: "Comercial", dot: "bg-[#0f4c8a]", accent: "from-[#0f4c8a]/12" },
-  { id: "qualificado", title: "Qualificado", group: "Comercial", dot: "bg-success", accent: "from-success/10" },
   { id: "atendimento", title: "Em Atendimento", group: "Comercial", dot: "bg-[#f9fafb]", accent: "from-white/[0.06]" },
   { id: "followup", title: "Follow up", group: "Follow-up", dot: "bg-primary", accent: "from-primary/10" },
   { id: "perdido", title: "Leads Perdidos", group: "Follow-up", dot: "bg-red-400", accent: "from-red-500/10" },
@@ -90,7 +88,7 @@ const sentimentFilters: Array<LeadCard["sentiment"] | "todos"> = ["todos", "posi
 const stageFromMock = {
   novo: "novo",
   ia: "ia",
-  qualificado: "qualificado",
+  qualificado: "atendimento",
   interessado: "followup",
   negociacao: "followup",
   followup: "followup",
@@ -101,7 +99,7 @@ const stageFromMock = {
 const legacyStageMap: Record<string, PipelineStage> = {
   novo: "novo",
   ia: "ia",
-  qualificado: "qualificado",
+  qualificado: "atendimento",
   atendimento: "atendimento",
   orcamento: "atendimento",
   interessado: "followup",
@@ -128,7 +126,6 @@ function kanbanNextAction(status: PipelineStage) {
   const actions: Record<PipelineStage, string> = {
     novo: "Qualificar interesse",
     ia: "Monitorar IA",
-    qualificado: "Enviar proposta",
     atendimento: "Responder duvida",
     followup: "Fazer retorno",
     perdido: "Registrar motivo",
@@ -223,7 +220,6 @@ const sentimentEmoji: Record<LeadCard["sentiment"], string> = {
 const avatarClasses: Record<PipelineStage, string> = {
   novo: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
   ia: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
-  qualificado: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
   atendimento: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
   followup: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
   perdido: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
@@ -234,7 +230,6 @@ const avatarClasses: Record<PipelineStage, string> = {
 const cardStripeClasses: Record<PipelineStage, string> = {
   novo: "from-[#FACC15] via-[#EAB308] to-transparent",
   ia: "from-[#0B5FA5] via-sky-400 to-transparent",
-  qualificado: "from-[#22C55E] via-emerald-300 to-transparent",
   atendimento: "from-slate-300 via-slate-500 to-transparent",
   followup: "from-[#0B5FA5] via-sky-300 to-transparent",
   perdido: "from-red-400 via-red-300 to-transparent",

@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { Topbar } from "@/components/topbar";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   aiPerformance,
   dashboardStats,
@@ -39,10 +39,20 @@ const aiMetricIcons = [Bot, Target, Clock3, UserPlus];
 
 const dashboardPeriods = ["Hoje", "Ontem", "Ultimos 7 dias", "Ultimos 15 dias", "Ultimos 30 dias", "Todo o periodo"];
 
-const cards = [
+type DashboardRuntimeMetrics = {
+  stats: typeof dashboardStats;
+  thermometer: {
+    total: number;
+    items: Array<{ label: string; value: number }>;
+  };
+  leadsByOrigin: Array<{ label: string; value: number; percent?: number }>;
+};
+
+function buildDashboardCards(stats: typeof dashboardStats) {
+  return [
   {
     label: "Leads Hoje",
-    value: dashboardStats.leadsHoje,
+    value: stats.leadsHoje,
     badge: "+12%",
     detail: "+12% vs ontem",
     icon: UserPlus,
@@ -50,7 +60,7 @@ const cards = [
   },
   {
     label: "Conversas Ativas",
-    value: dashboardStats.conversasAtivas,
+    value: stats.conversasAtivas,
     badge: "+5",
     detail: "+5 novas atribuicoes",
     icon: MessageCircle,
@@ -58,7 +68,7 @@ const cards = [
   },
   {
     label: "Matriculas",
-    value: dashboardStats.matriculasFechadas,
+    value: stats.matriculasFechadas,
     badge: "+3",
     detail: "28.8% de conversao",
     icon: Trophy,
@@ -66,7 +76,7 @@ const cards = [
   },
   {
     label: "Taxa Conversao",
-    value: `${dashboardStats.taxaConversao}%`,
+    value: `${stats.taxaConversao}%`,
     badge: "+2.1%",
     detail: "+2.1% este mes",
     icon: TrendingUp,
@@ -74,7 +84,7 @@ const cards = [
   },
   {
     label: "IA Atendendo",
-    value: dashboardStats.iaAtendendo,
+    value: stats.iaAtendendo,
     badge: "ao vivo",
     detail: "Tempo medio 38s",
     icon: Bot,
@@ -82,7 +92,7 @@ const cards = [
   },
   {
     label: "Leads Quentes",
-    value: dashboardStats.leadsQuentes,
+    value: stats.leadsQuentes,
     badge: "+4",
     detail: "+4 prontos para fechar",
     icon: Flame,
@@ -90,7 +100,7 @@ const cards = [
   },
   {
     label: "Tempo Resposta",
-    value: dashboardStats.tempoMedioResposta,
+    value: stats.tempoMedioResposta,
     badge: "SLA",
     detail: "SLA comercial ativo",
     icon: Clock3,
@@ -98,14 +108,15 @@ const cards = [
   },
   {
     label: "Vendas do Mes",
-    value: dashboardStats.vendasMes,
+    value: stats.vendasMes,
     badge: "+18%",
     detail: "+18% este mes",
     icon: CircleDollarSign,
     iconSize: 20,
     tone: "gold"
   }
-];
+  ];
+}
 
 const cardToneClasses: Record<string, { panel: string; icon: string }> = {
   trust: {
@@ -218,8 +229,41 @@ export default function DashboardPage() {
   const [secondaryExpanded, setSecondaryExpanded] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState("Hoje");
   const [periodFilterOpen, setPeriodFilterOpen] = useState(false);
+  const [runtimeMetrics, setRuntimeMetrics] = useState<DashboardRuntimeMetrics | null>(null);
   const bestSeller = sellerClosingExtended.reduce((best, seller) => (seller.closed > best.closed ? seller : best));
   const rankedSellers = sellerClosingExtended.slice().sort((a, b) => b.closed - a.closed);
+  const displayStats = runtimeMetrics?.stats ?? dashboardStats;
+  const displayOriginData = runtimeMetrics?.leadsByOrigin?.length ? runtimeMetrics.leadsByOrigin : leadsByOrigin;
+  const cards = buildDashboardCards(displayStats);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadMetrics() {
+      try {
+        const response = await fetch("/api/dashboard/metrics", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json() as DashboardRuntimeMetrics & { ok?: boolean };
+        if (active && data.ok !== false) {
+          setRuntimeMetrics({
+            stats: data.stats,
+            thermometer: data.thermometer,
+            leadsByOrigin: data.leadsByOrigin
+          });
+        }
+      } catch (error) {
+        console.warn("[dashboard] falha ao carregar metricas reais", error);
+      }
+    }
+
+    loadMetrics();
+    const interval = window.setInterval(loadMetrics, 10_000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   return (
     <>
@@ -310,7 +354,7 @@ export default function DashboardPage() {
                 <h2 className="text-base font-extrabold tracking-normal">Leads por Origem</h2>
                 <p className="mt-1 text-xs text-muted-foreground">Ultimos 30 dias</p>
               </div>
-              <OriginDonut compact />
+              <OriginDonut compact data={displayOriginData} />
             </article>
           </div>
         </section>
@@ -993,11 +1037,17 @@ function TooltipMetric({ color, label, value }: { color: string; label: string; 
 }
 
 
-function OriginDonut({ compact = false }: { compact?: boolean }) {
+function OriginDonut({
+  compact = false,
+  data = leadsByOrigin
+}: {
+  compact?: boolean;
+  data?: Array<{ label: string; value: number; percent?: number }>;
+}) {
   const [activeOrigin, setActiveOrigin] = useState<number | null>(null);
   const [activeFunnel, setActiveFunnel] = useState<number | null>(null);
-  const total = leadsByOrigin.reduce((sum, item) => sum + item.value, 0);
-  const activeOriginData = activeOrigin !== null ? leadsByOrigin[activeOrigin] : null;
+  const total = Math.max(1, data.reduce((sum, item) => sum + item.value, 0));
+  const activeOriginData = activeOrigin !== null ? data[activeOrigin] : null;
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
   const funnelMax = Math.max(...funnelData.map((item) => item.value));
@@ -1025,7 +1075,7 @@ function OriginDonut({ compact = false }: { compact?: boolean }) {
             </filter>
           </defs>
             <circle cx="60" cy="60" r={radius} fill="none" stroke="rgba(249,250,251,0.055)" strokeWidth="13" />
-          {leadsByOrigin.map((origin, index) => {
+          {data.map((origin, index) => {
               const percent = origin.value / total;
               const dash = percent * circumference;
               const offset = -accumulated * circumference;
@@ -1075,7 +1125,7 @@ function OriginDonut({ compact = false }: { compact?: boolean }) {
         </div>
 
         <div className="grid gap-1.5">
-          {leadsByOrigin.map((origin, index) => {
+          {data.map((origin, index) => {
             const percent = Math.round((origin.value / total) * 100);
             const isActive = activeOrigin === index;
 

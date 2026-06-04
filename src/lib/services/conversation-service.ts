@@ -5,7 +5,9 @@ import { SYSTEM_USER_ID } from "@/lib/constants";
 import { generateAiReply } from "@/lib/services/ai-agent";
 import { sendWhatsAppText } from "@/lib/services/evolution-api";
 import {
+  appendRecentConversationContext,
   drainConversationBuffer,
+  getRecentConversationContext,
   pushToConversationBuffer,
   scheduleBufferProcessing,
   shouldProcessBuffer
@@ -16,8 +18,25 @@ import type { NormalizedInboundMessage } from "@/lib/whatsapp/normalizer";
 export async function registerInboundMessage(input: NormalizedInboundMessage) {
   await ensureSystemUser();
 
-  const lead = await upsertLead(input);
+  const leadSignal = classifyLeadSignal(input.text);
+  const lead = await upsertLead(input, leadSignal);
   const conversation = await upsertConversation(lead.id, input.externalChatId);
+
+  if (input.externalMessageId) {
+    const [existingMessage] = await db
+      .select()
+      .from(messages)
+      .where(and(eq(messages.external_message_id, input.externalMessageId), eq(messages.is_deleted, false)))
+      .limit(1);
+
+    if (existingMessage) {
+      console.info("[conversation-service] duplicated evolution message ignored", {
+        conversationId: conversation.id,
+        externalMessageId: input.externalMessageId
+      });
+      return { lead, conversation, message: existingMessage };
+    }
+  }
 
   const [message] = await db
     .insert(messages)
@@ -26,7 +45,7 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
       external_message_id: input.externalMessageId,
       role: input.fromMe ? "human" : "lead",
       content: input.text,
-      metadata: { source: "evolution" },
+      metadata: { source: "evolution", leadSignal },
       modified_by: SYSTEM_USER_ID
     })
     .returning();
@@ -35,10 +54,19 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
     .update(conversations)
     .set({
       last_message_at: new Date(),
+      context_summary: buildContextSummary(input.text, leadSignal),
       updated_at: new Date(),
       modified_by: SYSTEM_USER_ID
     })
     .where(and(eq(conversations.id, conversation.id), eq(conversations.is_deleted, false)));
+
+  await appendRecentConversationContext({
+    conversationId: conversation.id,
+    messageId: message.id,
+    role: message.role,
+    content: message.content,
+    createdAt: new Date().toISOString()
+  });
 
   await publishRealtimeEvent({
     type: "message.created",
@@ -107,6 +135,14 @@ export async function processBufferedConversation(conversationId: string) {
     .orderBy(desc(messages.created_at))
     .limit(20);
 
+  const redisContext = await getRecentConversationContext(conversationId);
+  const messagesForContext = redisContext.length > 0
+    ? redisContext.map((message) => ({ role: message.role, content: message.content }))
+    : recentMessages.reverse().map((message) => ({
+      role: message.role,
+      content: message.content
+    }));
+
   const [lead] = await db
     .select()
     .from(leads)
@@ -126,10 +162,7 @@ export async function processBufferedConversation(conversationId: string) {
   const reply = await generateAiReply({
     leadName: lead?.name,
     contextSummary: conversation.context_summary,
-    messages: recentMessages.reverse().map((message) => ({
-      role: message.role,
-      content: message.content
-    }))
+    messages: messagesForContext
   });
 
   console.info("[conversation-service] sending whatsapp reply", { conversationId, phone: lead.phone });
@@ -160,6 +193,14 @@ export async function processBufferedConversation(conversationId: string) {
     type: "message.created",
     conversationId,
     payload: { message: aiMessage }
+  });
+
+  await appendRecentConversationContext({
+    conversationId,
+    messageId: aiMessage.id,
+    role: aiMessage.role,
+    content: aiMessage.content,
+    createdAt: new Date().toISOString()
   });
 
   return { skipped: false, message: aiMessage };
@@ -218,7 +259,18 @@ async function changeConversationStatus(
   return updated;
 }
 
-async function upsertLead(input: NormalizedInboundMessage) {
+type LeadSignal = {
+  temperature: "urgente" | "quente" | "morno" | "frio";
+  sentiment: "positivo" | "neutro" | "duvida" | "negativo";
+  pipelineStage: "novo" | "ia" | "atendimento" | "followup" | "matricula_pendente" | "fechado" | "perdido";
+  interest?: string;
+  enrollmentClosedAt?: Date;
+};
+
+async function upsertLead(input: NormalizedInboundMessage, signal: LeadSignal) {
+  const now = new Date();
+  const name = input.leadName?.trim() || undefined;
+
   const [existing] = await db
     .select()
     .from(leads)
@@ -226,20 +278,80 @@ async function upsertLead(input: NormalizedInboundMessage) {
     .limit(1);
 
   if (existing) {
-    return existing;
+    const [updated] = await db
+      .update(leads)
+      .set({
+        name: existing.name ?? name,
+        interest: signal.interest ?? existing.interest,
+        temperature: signal.temperature,
+        sentiment: signal.sentiment,
+        pipeline_stage: signal.pipelineStage,
+        last_message_preview: input.text.slice(0, 280),
+        last_interaction_at: now,
+        enrollment_closed_at: signal.enrollmentClosedAt ?? existing.enrollment_closed_at,
+        updated_at: now,
+        modified_by: SYSTEM_USER_ID
+      })
+      .where(and(eq(leads.id, existing.id), eq(leads.is_deleted, false)))
+      .returning();
+
+    return updated;
   }
 
   const [created] = await db
     .insert(leads)
     .values({
-      name: input.leadName,
+      name,
       phone: input.phone,
       origin: "whatsapp",
+      interest: signal.interest,
+      temperature: signal.temperature,
+      sentiment: signal.sentiment,
+      pipeline_stage: signal.pipelineStage,
+      last_message_preview: input.text.slice(0, 280),
+      last_interaction_at: now,
+      enrollment_closed_at: signal.enrollmentClosedAt,
       modified_by: SYSTEM_USER_ID
     })
     .returning();
 
   return created;
+}
+
+function classifyLeadSignal(text: string): LeadSignal {
+  const normalized = text
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+
+  const hasAny = (terms: string[]) => terms.some((term) => normalized.includes(term));
+  const isClosed = hasAny(["matricula fechada", "matricula realizada", "paguei", "pagamento feito", "contrato assinado"]);
+  const wantsEnroll = hasAny(["quero matricular", "fechar matricula", "posso matricular", "vou fechar", "enviar contrato"]);
+  const urgent = hasAny(["urgente", "hoje", "agora", "preciso comecar", "preciso tirar", "quanto antes"]);
+  const hot = wantsEnroll || hasAny(["valor", "preco", "parcel", "desconto", "pix", "cartao", "proposta"]);
+  const cold = hasAny(["vou pensar", "depois", "sem interesse", "nao quero", "muito caro"]);
+  const negative = hasAny(["reclamar", "problema", "ruim", "demora", "cancelar", "nao gostei"]);
+  const positive = isClosed || wantsEnroll || hasAny(["obrigado", "gostei", "perfeito", "otimo", "beleza"]);
+
+  const interest = hasAny(["moto"]) ? "moto" : hasAny(["adicao", "adicionar"]) ? "adicao" : hasAny(["mudanca"]) ? "mudanca" : hasAny(["carro", "cnh b", "categoria b"]) ? "carro" : undefined;
+
+  return {
+    temperature: urgent ? "urgente" : hot ? "quente" : cold ? "frio" : "morno",
+    sentiment: negative ? "negativo" : positive ? "positivo" : hasAny(["duvida", "como", "quando", "qual", "tem aula"]) ? "duvida" : "neutro",
+    pipelineStage: isClosed ? "fechado" : wantsEnroll ? "matricula_pendente" : hot ? "atendimento" : cold ? "followup" : "ia",
+    interest,
+    enrollmentClosedAt: isClosed ? new Date() : undefined
+  };
+}
+
+function buildContextSummary(text: string, signal: LeadSignal) {
+  return [
+    `Temperatura: ${signal.temperature}.`,
+    `Sentimento: ${signal.sentiment}.`,
+    `Etapa: ${signal.pipelineStage}.`,
+    signal.interest ? `Interesse: ${signal.interest}.` : "",
+    `Ultima mensagem: ${text.slice(0, 180)}`
+  ].filter(Boolean).join(" ");
 }
 
 async function upsertConversation(leadId: string, externalChatId: string) {

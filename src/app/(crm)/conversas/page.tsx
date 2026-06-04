@@ -27,6 +27,7 @@ import {
   Star,
   Sparkles,
   Target,
+  Thermometer,
   Trash2,
   VolumeX,
   UserCheck,
@@ -1474,12 +1475,14 @@ export default function ConversasPage() {
 
             <div className="mt-3 grid gap-2">
               <CompactLeadMeter
+                icon={Thermometer}
                 label="Termometro"
                 value={active.lead.temperature}
                 helper={temperatureBar[active.lead.temperature].label}
                 width={temperatureBar[active.lead.temperature].width}
               />
               <CompactLeadMeter
+                icon={Smile}
                 label="Sentimento"
                 value={getLeadSentiment(active)}
                 helper={sentimentBar[getLeadSentiment(active)].label}
@@ -1501,7 +1504,10 @@ export default function ConversasPage() {
                 <Info label="Responsavel" value={active.lead.responsible} compact />
               </div>
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Termometro do cliente</div>
+                <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  <Thermometer className="size-3.5 text-[#FACC15]" />
+                  <span>Termometro do cliente</span>
+                </div>
                 <div className="mt-1.5 rounded-2xl border border-white/[0.07] bg-[#0B1120]/58 p-2.5">
                   <div className="mb-1.5 flex items-center justify-between gap-3">
                     <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.035] px-2 py-0.5 text-[10px] font-bold capitalize text-slate-200">
@@ -1521,7 +1527,10 @@ export default function ConversasPage() {
                 </div>
               </div>
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Sentimento do cliente</div>
+                <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  <Smile className="size-3.5 text-[#FACC15]" />
+                  <span>Sentimento do cliente</span>
+                </div>
                 <div className="mt-1.5 rounded-2xl border border-white/[0.07] bg-[#0B1120]/58 p-2.5">
                   <div className="mb-1.5 flex items-center justify-between gap-3">
                     <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.035] px-2 py-0.5 text-[10px] font-bold capitalize text-slate-200">
@@ -1866,11 +1875,26 @@ export default function ConversasPage() {
   );
 }
 
-function CompactLeadMeter({ label, value, helper, width }: { label: string; value: string; helper: string; width: string }) {
+function CompactLeadMeter({
+  icon: Icon,
+  label,
+  value,
+  helper,
+  width
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  helper: string;
+  width: string;
+}) {
   return (
     <div className="rounded-xl border border-white/[0.07] bg-[#0B1120]/58 px-2.5 py-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">{label}</span>
+        <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">
+          <Icon className="size-3.5 text-[#FACC15]" />
+          {label}
+        </span>
         <span className="truncate text-[10px] font-bold capitalize text-slate-200">{value}</span>
       </div>
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.07]">

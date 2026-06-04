@@ -3,6 +3,8 @@ import { env } from "@/lib/env";
 
 const bufferTtlSeconds = 60 * 10;
 const processingWindowSeconds = 60;
+const recentContextTtlSeconds = 60 * 60 * 24 * 7;
+const recentContextLimit = 30;
 let redisClient: Redis | null = null;
 
 export type BufferedMessage = {
@@ -10,6 +12,14 @@ export type BufferedMessage = {
   messageId: string;
   content: string;
   receivedAt: string;
+};
+
+export type RecentContextMessage = {
+  conversationId: string;
+  messageId: string;
+  role: "lead" | "ai" | "human" | "system";
+  content: string;
+  createdAt: string;
 };
 
 export async function pushToConversationBuffer(message: BufferedMessage) {
@@ -28,6 +38,21 @@ export async function drainConversationBuffer(conversationId: string) {
   console.info("[message-buffer] buffer drained", { conversationId, count: items.length });
 
   return items.map((item) => JSON.parse(item) as BufferedMessage);
+}
+
+export async function appendRecentConversationContext(message: RecentContextMessage) {
+  const redis = getRedis();
+  const key = recentContextKey(message.conversationId);
+  await redis.lpush(key, JSON.stringify(message));
+  await redis.ltrim(key, 0, recentContextLimit - 1);
+  await redis.expire(key, recentContextTtlSeconds);
+  console.info("[message-buffer] recent context stored", { conversationId: message.conversationId });
+}
+
+export async function getRecentConversationContext(conversationId: string) {
+  const redis = getRedis();
+  const items = await redis.lrange(recentContextKey(conversationId), 0, recentContextLimit - 1);
+  return items.map((item) => JSON.parse(item) as RecentContextMessage).reverse();
 }
 
 export async function scheduleBufferProcessing(conversationId: string) {
@@ -58,4 +83,8 @@ function bufferKey(conversationId: string) {
 
 function processingKey(conversationId: string) {
   return `conversation:${conversationId}:processing`;
+}
+
+function recentContextKey(conversationId: string) {
+  return `conversation:${conversationId}:recent-context`;
 }
