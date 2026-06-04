@@ -28,7 +28,7 @@ import { aiBusinessSettingsKey, defaultAiBusinessSettings, type AiBusinessSettin
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 
-type TabId = "empresa" | "usuarios" | "permissoes" | "integracoes" | "ia" | "preferencias";
+type TabId = "empresa" | "usuarios" | "permissoes" | "integracoes" | "ia" | "seguranca" | "preferencias";
 
 const tabs: Array<{ id: TabId; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }> = [
   { id: "empresa", label: "Empresa", icon: Building2 },
@@ -36,6 +36,7 @@ const tabs: Array<{ id: TabId; label: string; icon: React.ComponentType<{ size?:
   { id: "permissoes", label: "Permissoes", icon: ShieldCheck },
   { id: "integracoes", label: "Integracoes", icon: Plug },
   { id: "ia", label: "IA Comercial", icon: Bot },
+  { id: "seguranca", label: "Senha", icon: KeyRound },
   { id: "preferencias", label: "Preferencias", icon: Settings }
 ];
 
@@ -270,6 +271,7 @@ export default function ConfiguracoesPage() {
           {activeTab === "permissoes" ? <PermissoesPanel /> : null}
           {activeTab === "integracoes" ? <IntegracoesPanel /> : null}
           {activeTab === "ia" ? <IaComercialPanel /> : null}
+          {activeTab === "seguranca" ? <SegurancaPanel /> : null}
           {activeTab === "preferencias" ? <PreferenciasPanel /> : null}
         </div>
       </main>
@@ -1126,6 +1128,21 @@ function IaComercialPanel() {
           />
         </label>
 
+        <label className="block">
+          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Configuracao do prompt
+          </span>
+          <textarea
+            value={settings.customPrompt}
+            onChange={(event) => updateField("customPrompt", event.target.value)}
+            className="kanban-input min-h-32 resize-y leading-6"
+            placeholder="Oriente a IA sobre tom, limites comerciais, quando acionar humano e como qualificar o lead."
+          />
+          <span className="mt-2 block text-xs leading-5 text-muted-foreground">
+            Este texto complementa o prompt comercial real usado nas respostas do WhatsApp.
+          </span>
+        </label>
+
         <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-primary">Previa do contexto enviado para a IA</p>
           <div className="mt-3 grid gap-2 text-sm text-muted-foreground">
@@ -1133,6 +1150,7 @@ function IaComercialPanel() {
             <p><strong className="text-foreground">Endereco:</strong> {settings.address}</p>
             <p><strong className="text-foreground">Horario:</strong> {settings.hours}</p>
             <p><strong className="text-foreground">Precos:</strong> {settings.prices}</p>
+            <p><strong className="text-foreground">Prompt:</strong> {settings.customPrompt}</p>
           </div>
         </div>
 
@@ -1141,6 +1159,120 @@ function IaComercialPanel() {
             Salvar regras da IA
           </button>
           {saved ? <span className="text-sm font-semibold text-success">Regras atualizadas no prompt</span> : null}
+          {error ? <span className="text-sm font-semibold text-danger">{error}</span> : null}
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function SegurancaPanel() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function submitPassword(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    setError("");
+
+    if (newPassword !== confirmPassword) {
+      setError("A confirmacao precisa ser igual a nova senha.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Nao foi possivel alterar a senha.");
+      }
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setMessage("Senha alterada com sucesso.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Nao foi possivel alterar a senha.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <section className="rounded-[22px] border border-border bg-card/72 p-6 shadow-panel">
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Acesso seguro</p>
+          <h2 className="mt-1 text-lg font-extrabold tracking-normal">Alteracao de senha</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Atualize sua senha de acesso ao painel. Use pelo menos 8 caracteres com letras e numeros.
+          </p>
+        </div>
+        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-black text-primary">
+          <KeyRound size={14} />
+          Conta protegida
+        </span>
+      </div>
+
+      <form className="mt-6 grid max-w-2xl gap-5" onSubmit={submitPassword}>
+        <label className="block">
+          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Senha atual
+          </span>
+          <input
+            type="password"
+            value={currentPassword}
+            onChange={(event) => setCurrentPassword(event.target.value)}
+            className="kanban-input"
+            required
+          />
+        </label>
+        <div className="grid gap-5 md:grid-cols-2">
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Nova senha
+            </span>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(event) => setNewPassword(event.target.value)}
+              className="kanban-input"
+              required
+            />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Confirmar nova senha
+            </span>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              className="kanban-input"
+              required
+            />
+          </label>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            disabled={loading}
+            className="ap-button-primary inline-flex h-10 items-center justify-center rounded-[14px] px-5 text-sm font-extrabold disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? "Alterando..." : "Alterar senha"}
+          </button>
+          {message ? <span className="text-sm font-semibold text-success">{message}</span> : null}
           {error ? <span className="text-sm font-semibold text-danger">{error}</span> : null}
         </div>
       </form>

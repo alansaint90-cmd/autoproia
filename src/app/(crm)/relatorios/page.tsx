@@ -268,11 +268,11 @@ export default function RelatoriosPage() {
           <ReportKpi icon={MessageCircle} label="Leads captados" value={report.totalLeads.toString()} detail={`${appliedFilters.dateStart} ate ${appliedFilters.dateEnd}`} tone="yellow" />
         </section>
 
-        <section className="mb-6 grid gap-6 xl:grid-cols-3">
+        <section className="mb-6 grid items-stretch gap-6 xl:grid-cols-3">
           <ReportPanel title="Campanhas que convertem" subtitle="Anuncios com melhor retorno" icon={TrendingUp}>
-            <div className="grid gap-3">
+            <div className="grid h-full content-between gap-3">
               {campaignConversion.map((campaign) => (
-                <div key={campaign.campaign} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3">
+                <div key={campaign.campaign} className="rounded-2xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(255,255,255,0.055),rgba(255,255,255,0.022))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                   <div className="mb-2 flex items-start justify-between gap-3">
                     <div>
                       <p className="font-black text-foreground">{campaign.campaign}</p>
@@ -473,7 +473,7 @@ function ReportPanel({
   children: React.ReactNode;
 }) {
   return (
-    <article className="rounded-[24px] border border-white/[0.08] bg-card/72 p-5 shadow-panel transition duration-300 hover:-translate-y-1 hover:shadow-[0_30px_80px_rgba(0,0,0,0.38)]">
+    <article className="flex h-full min-h-[420px] flex-col rounded-[24px] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(17,24,39,0.86),rgba(8,15,27,0.94))] p-5 shadow-panel transition duration-300 hover:-translate-y-1 hover:border-sky-300/16 hover:shadow-[0_30px_80px_rgba(0,0,0,0.38)]">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-black tracking-normal">{title}</h2>
@@ -483,7 +483,7 @@ function ReportPanel({
           <Icon className="size-5" />
         </div>
       </div>
-      {children}
+      <div className="min-h-0 flex-1">{children}</div>
     </article>
   );
 }
@@ -764,16 +764,16 @@ function FunnelReport() {
   ];
 
   return (
-    <div className="grid gap-3">
+    <div className="grid h-full content-between gap-3">
       {funnelData.map((item, index) => (
-        <div key={item.etapa} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3">
+        <div key={item.etapa} className="rounded-2xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(255,255,255,0.052),rgba(255,255,255,0.018))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
           <div className="mb-2 flex items-center justify-between gap-3">
             <span className="font-black">{item.etapa}</span>
             <span className="font-mono text-sm font-black text-foreground">{item.value}</span>
           </div>
-          <div className="relative h-9 overflow-hidden rounded-xl bg-white/[0.055]">
+          <div className="relative h-9 overflow-hidden rounded-xl bg-[#0b1120]/70 ring-1 ring-white/[0.04]">
             <div
-              className={cn("absolute inset-y-0 left-1/2 -translate-x-1/2 rounded-lg bg-gradient-to-r shadow-[0_0_18px_rgba(56,189,248,0.12)]", colors[index % colors.length])}
+              className={cn("absolute inset-y-0 left-1/2 -translate-x-1/2 rounded-lg bg-gradient-to-r shadow-[0_0_22px_rgba(56,189,248,0.16)]", colors[index % colors.length])}
               style={{
                 width: `${Math.max(24, (item.value / max) * 94)}%`,
                 clipPath: `polygon(${Math.min(18, index * 4)}% 0, ${100 - Math.min(18, index * 4)}% 0, ${92 - Math.min(18, index * 4)}% 100%, ${8 + Math.min(18, index * 4)}% 100%)`
@@ -793,18 +793,25 @@ function LossReport() {
   const total = lossReasons.reduce((sum, item) => sum + item.value, 0);
 
   return (
-    <div className="grid gap-3">
-      {lossReasons.map((item) => (
-        <div key={item.label} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3">
-          <div className="relative grid size-11 place-items-center rounded-2xl border border-white/[0.08] bg-[#0B1120]">
+    <div className="grid h-full content-between gap-3">
+      {lossReasons.map((item, index) => (
+        <div key={item.label} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(255,255,255,0.052),rgba(255,255,255,0.018))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
+          <div className="relative grid size-11 place-items-center rounded-2xl border border-white/[0.08] bg-[#0B1120] shadow-[0_0_22px_rgba(11,95,165,0.12)]">
             <svg viewBox="0 0 42 42" className="absolute inset-1">
+              <defs>
+                <linearGradient id={`lossRing-${index}`} x1="0" x2="1">
+                  <stop offset="0%" stopColor="#FACC15" />
+                  <stop offset="55%" stopColor="#38BDF8" />
+                  <stop offset="100%" stopColor="#F9FAFB" />
+                </linearGradient>
+              </defs>
               <circle cx="21" cy="21" r="16" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="5" />
               <circle
                 cx="21"
                 cy="21"
                 r="16"
                 fill="none"
-                stroke="#facc15"
+                stroke={`url(#lossRing-${index})`}
                 strokeWidth="5"
                 strokeLinecap="round"
                 strokeDasharray={`${(item.value / total) * 100} 100`}

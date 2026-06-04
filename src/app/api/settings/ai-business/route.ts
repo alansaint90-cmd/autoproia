@@ -13,7 +13,8 @@ export async function POST(request: Request) {
     agentName: body.agentName ?? defaultAiBusinessSettings.agentName,
     prices: body.prices ?? defaultAiBusinessSettings.prices,
     address: body.address ?? defaultAiBusinessSettings.address,
-    hours: body.hours ?? defaultAiBusinessSettings.hours
+    hours: body.hours ?? defaultAiBusinessSettings.hours,
+    customPrompt: body.customPrompt ?? defaultAiBusinessSettings.customPrompt
   });
 
   return NextResponse.json({ settings });

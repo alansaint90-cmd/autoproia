@@ -28,6 +28,7 @@ export async function generateAiReply(input: GenerateAiReplyInput) {
       `Precos e regras comerciais cadastradas: ${businessSettings.prices}`,
       `Endereco da unidade: ${businessSettings.address}`,
       `Horario de atendimento: ${businessSettings.hours}`,
+      `Configuracao adicional do prompt comercial: ${businessSettings.customPrompt}`,
       "Nao invente precos fora do cadastro. Quando faltar informacao comercial, ofereca encaminhar para um atendente.",
       "Se o cliente pedir humano, sinalize que um atendente ira assumir e nao force automacao.",
       "Mantenha contexto e responda em portugues do Brasil com tom profissional e direto."

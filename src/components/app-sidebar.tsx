@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BarChart3,
+  ClipboardList,
   KanbanSquare,
   LayoutDashboard,
   MessageSquareText,
@@ -20,6 +21,7 @@ const items = [
   { href: "/conversas", label: "Conversas", icon: MessageSquareText, badge: 4 },
   { href: "/leads", label: "Leads", icon: Users },
   { href: "/relatorios", label: "Relatorios", icon: BarChart3 },
+  { href: "/analise", label: "Analise", icon: ClipboardList },
   { href: "/configuracoes", label: "Configuracoes", icon: Settings }
 ];
 

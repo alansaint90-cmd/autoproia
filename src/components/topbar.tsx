@@ -386,9 +386,6 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
                   </optgroup>
                   <optgroup label="Conversao">
                     <option value="atendimento">Em Atendimento</option>
-                    <option value="orcamento">Orcamento Enviado</option>
-                    <option value="negociacao">Negociacao</option>
-                    <option value="interessado">Interessado</option>
                     <option value="followup">Follow up</option>
                     <option value="perdido">Leads Perdidos</option>
                   </optgroup>

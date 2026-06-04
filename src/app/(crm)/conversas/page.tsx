@@ -134,8 +134,6 @@ const stageLabels: Partial<Record<Conversation["lead"]["stage"], string>> = {
   novo: "Novo lead",
   ia: "IA atendendo",
   qualificado: "Qualificado",
-  interessado: "Interessado",
-  negociacao: "Negociacao",
   followup: "Follow up",
   fechado: "Fechado",
   perdido: "Perdido"
@@ -145,8 +143,6 @@ const stageEmoji: Partial<Record<Conversation["lead"]["stage"], string>> = {
   novo: "✨",
   ia: "🤖",
   qualificado: "✅",
-  interessado: "⭐",
-  negociacao: "🤝",
   followup: "⏱️",
   fechado: "🏁",
   perdido: "📌"
@@ -333,7 +329,11 @@ function LeadInitialAvatar({
 }
 
 function normalizeStage(value?: string): Conversation["lead"]["stage"] {
-  if (value === "ia" || value === "qualificado" || value === "interessado" || value === "negociacao" || value === "followup" || value === "perdido") {
+  if (value === "interessado" || value === "negociacao") {
+    return "followup";
+  }
+
+  if (value === "ia" || value === "qualificado" || value === "followup" || value === "perdido") {
     return value;
   }
 
@@ -1991,3 +1991,4 @@ function ProfileRow({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+

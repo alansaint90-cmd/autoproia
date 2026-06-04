@@ -3,8 +3,6 @@ export type Stage =
   | "novo"
   | "ia"
   | "qualificado"
-  | "interessado"
-  | "negociacao"
   | "followup"
   | "fechado"
   | "perdido";
@@ -27,8 +25,6 @@ export const stages: Array<{ id: Stage; title: string; tone: string }> = [
   { id: "novo", title: "Novo Lead", tone: "blue" },
   { id: "ia", title: "IA Atendendo", tone: "violet" },
   { id: "qualificado", title: "Qualificado", tone: "cyan" },
-  { id: "interessado", title: "Interessado", tone: "yellow" },
-  { id: "negociacao", title: "Negociacao", tone: "amber" },
   { id: "followup", title: "Follow-up", tone: "orange" },
   { id: "fechado", title: "Fechado", tone: "green" },
   { id: "perdido", title: "Perdido", tone: "red" }
@@ -106,8 +102,8 @@ export const sellerClosing = [
 export const funnelData = [
   { etapa: "Novo", value: 348 },
   { etapa: "Qualificado", value: 240 },
-  { etapa: "Interessado", value: 168 },
-  { etapa: "Negociacao", value: 96 },
+  { etapa: "Follow-up", value: 168 },
+  { etapa: "Matricula pendente", value: 96 },
   { etapa: "Fechado", value: 52 }
 ];
 

@@ -27,9 +27,6 @@ type PipelineStage =
   | "ia"
   | "qualificado"
   | "atendimento"
-  | "orcamento"
-  | "negociacao"
-  | "interessado"
   | "followup"
   | "perdido"
   | "matricula_pendente"
@@ -80,9 +77,6 @@ const pipelineStages: Array<{
   { id: "ia", title: "IA Atendendo", group: "Comercial", dot: "bg-[#0f4c8a]", accent: "from-[#0f4c8a]/12" },
   { id: "qualificado", title: "Qualificado", group: "Comercial", dot: "bg-success", accent: "from-success/10" },
   { id: "atendimento", title: "Em Atendimento", group: "Comercial", dot: "bg-[#f9fafb]", accent: "from-white/[0.06]" },
-  { id: "orcamento", title: "Orcamento Enviado", group: "Comercial", dot: "bg-amber-300", accent: "from-amber-500/10" },
-  { id: "negociacao", title: "Negociacao", group: "Comercial", dot: "bg-orange-400", accent: "from-orange-500/10" },
-  { id: "interessado", title: "Interessado", group: "Follow-up", dot: "bg-fuchsia-400", accent: "from-fuchsia-500/10" },
   { id: "followup", title: "Follow up", group: "Follow-up", dot: "bg-primary", accent: "from-primary/10" },
   { id: "perdido", title: "Leads Perdidos", group: "Follow-up", dot: "bg-red-400", accent: "from-red-500/10" },
   { id: "matricula_pendente", title: "Matricula Pendente", group: "Fechamento", dot: "bg-yellow-300", accent: "from-yellow-500/10" },
@@ -97,8 +91,8 @@ const stageFromMock = {
   novo: "novo",
   ia: "ia",
   qualificado: "qualificado",
-  interessado: "interessado",
-  negociacao: "negociacao",
+  interessado: "followup",
+  negociacao: "followup",
   followup: "followup",
   fechado: "matricula_realizada",
   perdido: "perdido"
@@ -109,13 +103,13 @@ const legacyStageMap: Record<string, PipelineStage> = {
   ia: "ia",
   qualificado: "qualificado",
   atendimento: "atendimento",
-  orcamento: "orcamento",
-  interessado: "interessado",
+  orcamento: "atendimento",
+  interessado: "followup",
   agendado: "matricula_pendente",
   followup: "followup",
   fechado: "matricula_realizada",
   perdido: "perdido",
-  negociacao: "negociacao",
+  negociacao: "followup",
   interessado_followup: "followup",
   matricula_pendente: "matricula_pendente",
   matricula_realizada: "matricula_realizada"
@@ -136,9 +130,6 @@ function kanbanNextAction(status: PipelineStage) {
     ia: "Monitorar IA",
     qualificado: "Enviar proposta",
     atendimento: "Responder duvida",
-    orcamento: "Confirmar condicao",
-    negociacao: "Remover objecao",
-    interessado: "Agendar visita",
     followup: "Fazer retorno",
     perdido: "Registrar motivo",
     matricula_pendente: "Validar documentos",
@@ -234,9 +225,6 @@ const avatarClasses: Record<PipelineStage, string> = {
   ia: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
   qualificado: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
   atendimento: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
-  orcamento: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
-  negociacao: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
-  interessado: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
   followup: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
   perdido: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
   matricula_pendente: "border-[#FACC15]/55 bg-[linear-gradient(135deg,#FACC15,#EAB308)] text-[#0B1120]",
@@ -248,9 +236,6 @@ const cardStripeClasses: Record<PipelineStage, string> = {
   ia: "from-[#0B5FA5] via-sky-400 to-transparent",
   qualificado: "from-[#22C55E] via-emerald-300 to-transparent",
   atendimento: "from-slate-300 via-slate-500 to-transparent",
-  orcamento: "from-[#FACC15] via-[#EAB308] to-transparent",
-  negociacao: "from-[#EAB308] via-[#FACC15] to-transparent",
-  interessado: "from-[#0B5FA5] via-sky-300 to-transparent",
   followup: "from-[#0B5FA5] via-sky-300 to-transparent",
   perdido: "from-red-400 via-red-300 to-transparent",
   matricula_pendente: "from-[#FACC15] via-[#EAB308] to-transparent",
