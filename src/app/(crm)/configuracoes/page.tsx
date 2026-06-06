@@ -12,6 +12,7 @@ import {
   HardDrive,
   ImagePlus,
   KeyRound,
+  Maximize2,
   Moon,
   Plus,
   Plug,
@@ -20,6 +21,7 @@ import {
   ShieldCheck,
   Sun,
   Trash2,
+  X,
   UserCheck,
   Users
 } from "lucide-react";
@@ -986,10 +988,61 @@ function IntegrationInput({
   );
 }
 
+type PromptFieldKey = keyof Pick<
+  AiBusinessSettings,
+  "prices" | "customPrompt" | "sdrPrompt" | "orchestratorPrompt" | "supervisorPrompt"
+>;
+
+type PromptEditorProps = {
+  label: string;
+  description?: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  rowsClassName?: string;
+  mono?: boolean;
+  onExpand: () => void;
+};
+
+function PromptEditor({
+  label,
+  description,
+  value,
+  onChange,
+  placeholder,
+  rowsClassName = "min-h-32",
+  mono = false,
+  onExpand
+}: PromptEditorProps) {
+  return (
+    <label className="block">
+      <span className="mb-2 flex items-center justify-between gap-3">
+        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
+        <button
+          type="button"
+          onClick={onExpand}
+          className="inline-flex h-8 items-center gap-2 rounded-[12px] border border-primary/25 bg-primary/10 px-3 text-[11px] font-black uppercase tracking-[0.08em] text-primary transition hover:-translate-y-0.5 hover:border-primary/50 hover:bg-primary/15"
+        >
+          <Maximize2 size={13} />
+          Expandir
+        </button>
+      </span>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={cn("kanban-input resize-y leading-6", rowsClassName, mono ? "font-mono text-xs" : "")}
+        placeholder={placeholder}
+      />
+      {description ? <span className="mt-2 block text-xs leading-5 text-muted-foreground">{description}</span> : null}
+    </label>
+  );
+}
+
 function IaComercialPanel() {
   const [settings, setSettings] = useState<AiBusinessSettings>(defaultAiBusinessSettings);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [expandedPrompt, setExpandedPrompt] = useState<{ key: PromptFieldKey; title: string; mono?: boolean } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -1024,6 +1077,11 @@ function IaComercialPanel() {
     setSettings((current) => ({ ...current, [key]: value }));
     setSaved(false);
     setError("");
+  }
+
+  function updateExpandedPrompt(value: string) {
+    if (!expandedPrompt) return;
+    updateField(expandedPrompt.key, value);
   }
 
   async function saveSettings() {
@@ -1117,32 +1175,24 @@ function IaComercialPanel() {
           />
         </label>
 
-        <label className="block">
-          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Precos e regras comerciais
-          </span>
-          <textarea
-            value={settings.prices}
-            onChange={(event) => updateField("prices", event.target.value)}
-            className="kanban-input min-h-36 resize-y leading-6"
-            placeholder="Informe valores por categoria, condicoes e regras para a IA usar."
-          />
-        </label>
+        <PromptEditor
+          label="Precos e regras comerciais"
+          value={settings.prices}
+          onChange={(value) => updateField("prices", value)}
+          rowsClassName="min-h-36"
+          placeholder="Informe valores por categoria, condicoes e regras para a IA usar."
+          onExpand={() => setExpandedPrompt({ key: "prices", title: "Precos e regras comerciais" })}
+        />
 
-        <label className="block">
-          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Regras dinamicas complementares
-          </span>
-          <textarea
-            value={settings.customPrompt}
-            onChange={(event) => updateField("customPrompt", event.target.value)}
-            className="kanban-input min-h-28 resize-y leading-6"
-            placeholder="Defina limites comerciais, regras de handoff, tom e prioridades que podem mudar no dia a dia."
-          />
-          <span className="mt-2 block text-xs leading-5 text-muted-foreground">
-            Este bloco entra no prompt em tempo real junto com valores, endereco e horarios.
-          </span>
-        </label>
+        <PromptEditor
+          label="Regras dinamicas complementares"
+          value={settings.customPrompt}
+          onChange={(value) => updateField("customPrompt", value)}
+          rowsClassName="min-h-28"
+          placeholder="Defina limites comerciais, regras de handoff, tom e prioridades que podem mudar no dia a dia."
+          description="Este bloco entra no prompt em tempo real junto com valores, endereco e horarios."
+          onExpand={() => setExpandedPrompt({ key: "customPrompt", title: "Regras dinamicas complementares" })}
+        />
 
         <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-primary">Previa do contexto enviado para a IA</p>
@@ -1180,21 +1230,114 @@ function IaComercialPanel() {
           </span>
         </div>
 
-        <label className="mt-5 block">
-          <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Prompt agente SDR
-          </span>
-          <textarea
+        <div className="mt-5">
+          <PromptEditor
+            label="Prompt agente SDR"
             value={settings.sdrPrompt}
-            onChange={(event) => updateField("sdrPrompt", event.target.value)}
-            className="kanban-input min-h-[420px] resize-y font-mono text-xs leading-6"
+            onChange={(value) => updateField("sdrPrompt", value)}
+            rowsClassName="min-h-[420px]"
+            mono
             placeholder="Cole aqui o prompt base do agente SDR."
+            description={`Use os placeholders {{agentName}}, {{companyName}} e {{dynamicContext}} para manter o prompt dinamico.`}
+            onExpand={() => setExpandedPrompt({ key: "sdrPrompt", title: "Direcionamento do atendimento comercial", mono: true })}
           />
-          <span className="mt-2 block text-xs leading-5 text-muted-foreground">
-            Use os placeholders {"{{agentName}}"}, {"{{companyName}}"} e {"{{dynamicContext}}"} para manter o prompt dinamico.
-          </span>
-        </label>
+        </div>
       </div>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <div className="rounded-[22px] border border-[#FAC515]/18 bg-[linear-gradient(145deg,rgba(250,197,21,0.10),rgba(255,255,255,0.03))] p-6 shadow-panel">
+          <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Prompt agente orquestrador</p>
+              <h3 className="mt-1 text-lg font-extrabold tracking-normal">Orquestracao do fluxo</h3>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Define como a IA decide entre SDR, atendimento humano, follow-up e acompanhamento.
+              </p>
+            </div>
+            <span className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-black text-primary">
+              <Bot size={14} />
+              Orquestrador
+            </span>
+          </div>
+          <div className="mt-5">
+            <PromptEditor
+              label="Prompt agente orquestrador"
+              value={settings.orchestratorPrompt}
+              onChange={(value) => updateField("orchestratorPrompt", value)}
+              rowsClassName="min-h-64"
+              mono
+              placeholder="Defina regras de roteamento, prioridade, handoff e etapas do fluxo."
+              onExpand={() => setExpandedPrompt({ key: "orchestratorPrompt", title: "Prompt agente orquestrador", mono: true })}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-[22px] border border-[#0B5FA5]/20 bg-[linear-gradient(145deg,rgba(11,95,165,0.12),rgba(255,255,255,0.03))] p-6 shadow-panel">
+          <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-200">Prompt supervisor</p>
+              <h3 className="mt-1 text-lg font-extrabold tracking-normal">Supervisao de qualidade</h3>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Regras para revisar risco, consistencia comercial, seguranca e necessidade de intervencao humana.
+              </p>
+            </div>
+            <span className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-300/25 bg-sky-300/10 px-3 py-1.5 text-xs font-black text-sky-100">
+              <ShieldCheck size={14} />
+              Supervisor
+            </span>
+          </div>
+          <div className="mt-5">
+            <PromptEditor
+              label="Prompt supervisor"
+              value={settings.supervisorPrompt}
+              onChange={(value) => updateField("supervisorPrompt", value)}
+              rowsClassName="min-h-64"
+              mono
+              placeholder="Defina criterios de auditoria, aprovacao e bloqueios do agente."
+              onExpand={() => setExpandedPrompt({ key: "supervisorPrompt", title: "Prompt supervisor", mono: true })}
+            />
+          </div>
+        </div>
+      </div>
+
+      {expandedPrompt ? (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#05080d]/82 p-5 backdrop-blur-xl">
+          <div className="flex h-[86vh] w-full max-w-6xl flex-col rounded-[24px] border border-border bg-card shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
+            <div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Editor expandido</p>
+                <h3 className="mt-1 text-lg font-extrabold">{expandedPrompt.title}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExpandedPrompt(null)}
+                className="grid size-10 place-items-center rounded-[14px] border border-border bg-white/[0.04] text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+                aria-label="Fechar editor expandido"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <textarea
+              value={settings[expandedPrompt.key]}
+              onChange={(event) => updateExpandedPrompt(event.target.value)}
+              className={cn(
+                "min-h-0 flex-1 resize-none border-0 bg-transparent p-5 text-sm leading-7 text-foreground outline-none placeholder:text-muted-foreground/50",
+                expandedPrompt.mono ? "font-mono text-xs" : ""
+              )}
+            />
+            <div className="flex items-center justify-between gap-3 border-t border-border px-5 py-4 text-xs text-muted-foreground">
+              <span>As alteracoes feitas aqui tambem precisam ser salvas no botao Salvar regras da IA.</span>
+              <button
+                type="button"
+                onClick={() => setExpandedPrompt(null)}
+                className="ap-button-primary inline-flex h-9 items-center justify-center rounded-[12px] px-4 text-xs font-extrabold"
+              >
+                Concluir edicao
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

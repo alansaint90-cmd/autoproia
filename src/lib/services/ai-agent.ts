@@ -48,7 +48,11 @@ function buildSystemPrompt(settings: BusinessSettings) {
     "Precos, planos e regras comerciais:",
     settings.prices,
     "Regras dinamicas complementares cadastradas no painel:",
-    settings.customPrompt
+    settings.customPrompt,
+    "Prompt do agente orquestrador:",
+    settings.orchestratorPrompt,
+    "Prompt do supervisor:",
+    settings.supervisorPrompt
   ].join("\n");
 
   const basePrompt = settings.sdrPrompt

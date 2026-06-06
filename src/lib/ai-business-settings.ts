@@ -5,6 +5,8 @@ export type AiBusinessSettings = {
   hours: string;
   customPrompt: string;
   sdrPrompt: string;
+  orchestratorPrompt: string;
+  supervisorPrompt: string;
 };
 
 export const aiBusinessSettingsKey = "ai-business-settings";
@@ -125,5 +127,19 @@ export const defaultAiBusinessSettings: AiBusinessSettings = {
   hours: "Aulas das 7h as 20h, de segunda a sabado. Atendimento comercial conforme disponibilidade da unidade.",
   customPrompt:
     "Priorize respostas curtas, confirme a categoria desejada, identifique urgencia de matricula e acione atendimento humano quando o lead pedir condicoes especiais.",
-  sdrPrompt: defaultSdrAgentPrompt
+  sdrPrompt: defaultSdrAgentPrompt,
+  orchestratorPrompt:
+    [
+      "Voce e o Agente Orquestrador do Auto Pro IA.",
+      "Analise a conversa, o status do lead e o contexto comercial antes de decidir o proximo fluxo.",
+      "Direcione para o SDR quando houver interesse comercial, para atendimento humano quando houver pedido explicito, objecao sensivel ou necessidade de negociacao especial, e para acompanhamento quando o lead estiver aguardando retorno.",
+      "Mantenha prioridade em fechamento de matriculas, sem expor regras internas ao cliente."
+    ].join("\n"),
+  supervisorPrompt:
+    [
+      "Voce e o Supervisor IA do Auto Pro IA.",
+      "Audite respostas, riscos comerciais, qualidade do atendimento e aderencia ao prompt antes de liberar a conduta automatica.",
+      "Sinalize handoff humano quando houver risco de informacao incorreta, preco fora do cadastro, reclamacao, dados pessoais sensiveis ou duvida que dependa da unidade.",
+      "Priorize consistencia, seguranca, conversao e experiencia do cliente."
+    ].join("\n")
 };
