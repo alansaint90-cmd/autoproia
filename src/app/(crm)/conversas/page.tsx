@@ -924,12 +924,12 @@ export default function ConversasPage() {
       ) : null}
       <div
         className={cn(
-          "grid min-h-0 flex-1 grid-cols-1 overflow-hidden bg-[radial-gradient(circle_at_42%_0%,rgba(11,95,165,0.10),transparent_34%),linear-gradient(180deg,rgba(250,204,21,0.035),transparent_24%),#0B1120] md:grid-cols-[380px_1fr]",
+          "grid h-[calc(100dvh-64px)] min-h-0 grid-cols-1 overflow-hidden bg-[radial-gradient(circle_at_42%_0%,rgba(11,95,165,0.10),transparent_34%),linear-gradient(180deg,rgba(250,204,21,0.035),transparent_24%),#0B1120] md:grid-cols-[380px_1fr]",
           showLeadProfile ? "xl:grid-cols-[380px_minmax(0,1fr)_300px]" : "xl:grid-cols-[380px_minmax(0,1fr)]"
         )}
       >
-        <aside className="flex min-h-0 flex-col overflow-hidden border-r border-white/[0.08] bg-[#060a12]/95 shadow-[inset_-18px_0_42px_rgba(0,0,0,0.18)] backdrop-blur-xl">
-          <div className="border-b border-white/[0.08] bg-[#080d16]/92 p-3">
+        <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-white/[0.08] bg-[#060a12]/95 shadow-[inset_-18px_0_42px_rgba(0,0,0,0.18)] backdrop-blur-xl">
+          <div className="shrink-0 border-b border-white/[0.08] bg-[#080d16]/92 p-3">
             <div className="mb-2.5 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-extrabold">Caixa de entrada</h2>
@@ -1130,7 +1130,7 @@ export default function ConversasPage() {
               </div>
             </div>
           </div>
-          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-scroll overscroll-contain bg-[radial-gradient(circle_at_50%_0%,rgba(11,95,165,0.07),transparent_30%),#050912] px-2 py-2 pr-3 [scrollbar-gutter:stable] scrollbar-thin">
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain bg-[radial-gradient(circle_at_50%_0%,rgba(11,95,165,0.07),transparent_30%),#050912] px-2 py-2 pr-3 [scrollbar-gutter:stable] scrollbar-thin">
             {filteredConversations.map((conversation) => {
               const selected = conversation.lead.id === activeId;
               const chance = closingChanceByTemperature[conversation.lead.temperature];

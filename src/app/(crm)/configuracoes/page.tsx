@@ -1205,14 +1205,23 @@ function IaComercialPanel() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button className="ap-button-primary inline-flex h-10 items-center justify-center rounded-[14px] px-5 text-sm font-extrabold">
-            Salvar regras da IA
-          </button>
-          {saved ? <span className="text-sm font-semibold text-success">Regras atualizadas no prompt</span> : null}
-          {error ? <span className="text-sm font-semibold text-danger">{error}</span> : null}
-        </div>
       </form>
+      </div>
+
+      <div className="rounded-[22px] border border-border bg-card/72 p-6 shadow-panel">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Arquitetura de prompts</p>
+            <h2 className="mt-1 text-lg font-extrabold tracking-normal">Agentes operacionais</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+              Configure separadamente o agente SDR, o agente orquestrador e o supervisor. Todos os blocos sao salvos juntos nas regras da IA.
+            </p>
+          </div>
+          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-black text-primary">
+            <Bot size={14} />
+            3 agentes
+          </span>
+        </div>
       </div>
 
       <div className="rounded-[22px] border border-[#0B5FA5]/20 bg-[linear-gradient(145deg,rgba(11,95,165,0.12),rgba(255,255,255,0.035))] p-6 shadow-panel">
@@ -1338,6 +1347,25 @@ function IaComercialPanel() {
           </div>
         </div>
       ) : null}
+
+      <div className="sticky bottom-4 z-20 rounded-[18px] border border-border bg-card/90 p-3 shadow-[0_18px_45px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-xs leading-5 text-muted-foreground">
+            Salva dados dinamicos, prompt SDR, agente orquestrador e supervisor no banco.
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void saveSettings()}
+              className="ap-button-primary inline-flex h-10 items-center justify-center rounded-[14px] px-5 text-sm font-extrabold"
+            >
+              Salvar todos os prompts
+            </button>
+            {saved ? <span className="text-sm font-semibold text-success">Prompts atualizados</span> : null}
+            {error ? <span className="text-sm font-semibold text-danger">{error}</span> : null}
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
