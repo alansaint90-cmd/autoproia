@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { Topbar } from "@/components/topbar";
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   aiPerformance,
   dashboardStats,
@@ -235,11 +235,27 @@ export default function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("Hoje");
   const [periodFilterOpen, setPeriodFilterOpen] = useState(false);
   const [runtimeMetrics, setRuntimeMetrics] = useState<DashboardRuntimeMetrics | null>(null);
+  const periodFilterCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bestSeller = sellerClosingExtended.reduce((best, seller) => (seller.closed > best.closed ? seller : best));
   const rankedSellers = sellerClosingExtended.slice().sort((a, b) => b.closed - a.closed);
   const displayStats = runtimeMetrics?.stats ?? dashboardStats;
   const displayOriginData = runtimeMetrics?.leadsByOrigin?.length ? runtimeMetrics.leadsByOrigin : leadsByOrigin;
   const cards = buildDashboardCards(displayStats);
+
+  const cancelPeriodFilterClose = () => {
+    if (periodFilterCloseTimer.current) {
+      clearTimeout(periodFilterCloseTimer.current);
+      periodFilterCloseTimer.current = null;
+    }
+  };
+
+  const schedulePeriodFilterClose = () => {
+    cancelPeriodFilterClose();
+    periodFilterCloseTimer.current = setTimeout(() => {
+      setPeriodFilterOpen(false);
+      periodFilterCloseTimer.current = null;
+    }, 220);
+  };
 
   useEffect(() => {
     let active = true;
@@ -277,10 +293,14 @@ export default function DashboardPage() {
         title="Dashboard"
         subtitle="Numeros comerciais que mostram venda, velocidade e conversao"
         extraControls={
-          <div className="relative" onMouseLeave={() => setPeriodFilterOpen(false)}>
+          <div className="relative" onMouseEnter={cancelPeriodFilterClose} onMouseLeave={schedulePeriodFilterClose}>
             <button
               type="button"
               onClick={() => setPeriodFilterOpen((open) => !open)}
+              onMouseEnter={() => {
+                cancelPeriodFilterClose();
+                setPeriodFilterOpen(true);
+              }}
               className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/10 bg-[#0B1120]/82 px-4 text-sm font-black text-slate-100 shadow-[0_14px_34px_rgba(0,0,0,0.22)] transition hover:-translate-y-0.5 hover:border-primary/35 hover:bg-[#111827]"
               aria-label="Filtrar dados do dashboard"
             >
@@ -290,7 +310,11 @@ export default function DashboardPage() {
             </button>
 
             {periodFilterOpen ? (
-              <div className="absolute right-0 top-14 z-[140] w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#0B1120]/[0.98] p-2 shadow-[0_24px_70px_rgba(0,0,0,0.48)] backdrop-blur-xl">
+              <div
+                className="absolute right-0 top-12 z-[140] w-56 overflow-hidden rounded-2xl border border-white/10 bg-[#0B1120]/[0.98] p-2 shadow-[0_24px_70px_rgba(0,0,0,0.48)] backdrop-blur-xl"
+                onMouseEnter={cancelPeriodFilterClose}
+                onMouseLeave={schedulePeriodFilterClose}
+              >
                 <p className="px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">Periodo dos dados</p>
                 <div className="grid gap-1">
                   {dashboardPeriods.map((period) => {
@@ -498,12 +522,30 @@ export default function DashboardPage() {
 
 function BusinessPulsePanel({ compact = false }: { compact?: boolean }) {
   const visibleEvents = compact ? commercialPulse.slice(0, 3) : commercialPulse;
+  const [showHealthTooltip, setShowHealthTooltip] = useState(false);
 
   return (
-    <article className="relative flex h-full min-h-0 flex-col self-stretch overflow-hidden rounded-[22px] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(17,24,39,0.86),rgba(11,17,32,0.96))] p-5 shadow-panel transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-[0_22px_58px_rgba(0,0,0,0.30)]">
+    <article className="relative isolate flex h-full min-h-0 flex-col self-stretch overflow-hidden rounded-[22px] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(17,24,39,0.86),rgba(11,17,32,0.96))] p-5 shadow-panel transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-[0_22px_58px_rgba(0,0,0,0.30)]">
       <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/20 to-transparent" />
+      {showHealthTooltip ? (
+        <div className="pointer-events-none absolute right-4 top-4 z-[80] w-[min(310px,calc(100%-2rem))] rounded-2xl border border-primary/25 bg-[#050914] p-4 text-left shadow-[0_30px_90px_rgba(0,0,0,0.86),0_0_0_1px_rgba(0,0,0,0.78),inset_0_1px_0_rgba(255,255,255,0.08)] ring-1 ring-black/90">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-primary">
+              <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.95)]" />
+              Saude comercial
+            </span>
+            <span className="rounded-full border border-emerald-400/25 bg-emerald-400/12 px-2 py-0.5 text-[10px] font-black text-emerald-200">
+              87%
+            </span>
+          </div>
+          <p className="text-xs font-black leading-5 text-white">Operacao saudavel e em aceleracao</p>
+          <p className="mt-1.5 text-[11px] leading-4 text-slate-300">
+            IA: matriculas e qualificacoes estao subindo agora. Priorize os leads quentes e mantenha o follow-up ativo para nao perder conversao.
+          </p>
+        </div>
+      ) : null}
 
-      <div className={cn("relative flex items-start justify-between gap-4", compact ? "mb-4" : "mb-6")}>
+      <div className={cn("relative z-10 flex items-start justify-between gap-4", compact ? "mb-4" : "mb-6")}>
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-sky-300/25 bg-sky-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-sky-100 shadow-[0_0_24px_rgba(56,189,248,0.10)]">
             <span className="size-1.5 rounded-full bg-sky-300 shadow-[0_0_14px_rgba(125,211,252,0.95)]" />
@@ -513,28 +555,17 @@ function BusinessPulsePanel({ compact = false }: { compact?: boolean }) {
           <p className="mt-1 text-sm text-muted-foreground">{compact ? "Eventos prioritarios agora" : "Eventos comerciais em tempo real"}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <div className="group/health relative grid size-12 place-items-center rounded-[14px] border border-sky-300/20 bg-sky-300/8 text-sky-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_10px_26px_rgba(0,0,0,0.18)] backdrop-blur-sm">
+          <div
+            className="relative z-30 grid size-12 place-items-center rounded-[14px] border border-sky-300/20 bg-sky-300/8 text-sky-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_10px_26px_rgba(0,0,0,0.18)] backdrop-blur-sm"
+            onMouseEnter={() => setShowHealthTooltip(true)}
+            onMouseLeave={() => setShowHealthTooltip(false)}
+          >
             <PulseHealthIcon />
-            <div className="pointer-events-none absolute right-0 top-14 z-30 w-72 translate-y-2 rounded-2xl border border-primary/15 bg-[#0b1120]/96 p-4 text-left opacity-0 shadow-[0_24px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl transition-all duration-200 group-hover/health:translate-y-0 group-hover/health:opacity-100">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-primary">
-                  <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.95)]" />
-                  Saude comercial
-                </span>
-                <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200">
-                  87%
-                </span>
-              </div>
-              <p className="text-sm font-black text-foreground">Operacao saudavel e em aceleracao</p>
-              <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                IA: matriculas e qualificacoes estao subindo agora. Priorize os leads quentes e mantenha o follow-up ativo para nao perder conversao.
-              </p>
-            </div>
           </div>
         </div>
       </div>
 
-      <div className={cn("relative min-h-0", compact ? "space-y-2.5 overflow-hidden" : "space-y-3")}>
+      <div className={cn("relative z-0 min-h-0", compact ? "space-y-2.5 overflow-hidden" : "space-y-3")}>
         {visibleEvents.map((event, index) => (
           <div
             key={event.label}

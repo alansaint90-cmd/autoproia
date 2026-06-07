@@ -417,7 +417,7 @@ export default function ConversasPage() {
   const [replyAttachment, setReplyAttachment] = useState<QuickReplyAttachment | undefined>();
   const [draftMessage, setDraftMessage] = useState("");
   const [draftAttachment, setDraftAttachment] = useState<QuickReplyAttachment | undefined>();
-  const [showLeadProfile, setShowLeadProfile] = useState(true);
+  const [showLeadProfile, setShowLeadProfile] = useState(false);
   const [deleteReplyId, setDeleteReplyId] = useState<string | null>(null);
   const [replyFeedback, setReplyFeedback] = useState("");
   const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
@@ -1235,10 +1235,10 @@ export default function ConversasPage() {
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => setShowLeadProfile((current) => !current)}
+                onDoubleClick={() => setShowLeadProfile((current) => !current)}
                 className="group flex min-w-0 flex-1 items-center gap-3 rounded-2xl px-1.5 py-1 text-left transition hover:bg-white/[0.035]"
-                title={showLeadProfile ? "Fechar dados do contato" : "Abrir dados do contato"}
-                aria-label={`${showLeadProfile ? "Fechar" : "Abrir"} dados do contato ${active.lead.name}`}
+                title={showLeadProfile ? "Duplo clique para recolher dados do contato" : "Duplo clique para abrir dados do contato"}
+                aria-label={`${showLeadProfile ? "Recolher" : "Abrir"} dados do contato ${active.lead.name} com duplo clique`}
               >
                 <LeadInitialAvatar name={active.lead.name} avatar={active.lead.avatar} temperature={active.lead.temperature} size="lg" />
                 <span className="min-w-0 flex-1 truncate text-base font-extrabold transition group-hover:text-primary">
