@@ -18,10 +18,20 @@ export type AuthInviteResult = {
   emailSent: boolean;
 };
 
+export type PasswordResetResult = {
+  emailSent: boolean;
+  resetUrl?: string;
+  resetUrlVisible: boolean;
+};
+
 export type SuperAdminBootstrapResult = {
   user: typeof users.$inferSelect;
   inviteUrl?: string;
   emailSent?: boolean;
+};
+
+export type SuperAdminRecoveryResult = SuperAdminBootstrapResult & {
+  inviteUrlVisible: boolean;
 };
 
 export type LoginResult =
@@ -43,6 +53,19 @@ function normalizeEmail(email: string) {
 
 function inviteUrl(token: string) {
   return `${env.APP_URL.replace(/\/$/, "")}/criar-senha?token=${encodeURIComponent(token)}`;
+}
+
+async function ensureSystemUser() {
+  await db
+    .insert(users)
+    .values({
+      id: systemUserId,
+      name: "Auto Pro IA",
+      email: "sistema@autoproia.local",
+      role: "admin",
+      modified_by: systemUserId
+    })
+    .onConflictDoNothing();
 }
 
 async function sendInviteEmail(input: { email: string; name: string; url: string }) {
@@ -78,6 +101,40 @@ async function sendInviteEmail(input: { email: string; name: string; url: string
   return response.ok;
 }
 
+async function sendPasswordResetEmail(input: { email: string; name: string; url: string }) {
+  if (!env.RESEND_API_KEY) return false;
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      from: env.AUTH_EMAIL_FROM,
+      to: input.email,
+      subject: "Redefina sua senha no Auto Pro IA",
+      html: `
+        <div style="font-family:Arial,sans-serif;background:#0b1120;color:#f9fafb;padding:32px">
+          <div style="max-width:560px;margin:auto;background:#111827;border:1px solid #243244;border-radius:18px;padding:28px">
+            <h1 style="margin:0 0 12px;font-size:24px">Redefinicao de senha</h1>
+            <p style="line-height:1.6;color:#cbd5e1">Ola, ${input.name}. Clique no botao abaixo para criar uma nova senha de acesso.</p>
+            <a href="${input.url}" style="display:inline-block;margin-top:18px;background:#FACC15;color:#0B1120;text-decoration:none;font-weight:800;padding:14px 18px;border-radius:12px">Redefinir senha</a>
+            <p style="margin-top:22px;font-size:12px;color:#94a3b8">Este link expira em 24 horas.</p>
+            <p style="margin-top:10px;font-size:12px;color:#64748b">Se voce nao solicitou esta alteracao, ignore este email.</p>
+          </div>
+        </div>
+      `
+    })
+  });
+
+  if (!response.ok) {
+    console.warn("[auth] failed to send password reset email", await response.text());
+  }
+
+  return response.ok;
+}
+
 async function createInviteForUser(user: typeof users.$inferSelect) {
   const token = createAuthToken();
   const now = new Date();
@@ -100,7 +157,31 @@ async function createInviteForUser(user: typeof users.$inferSelect) {
   return { inviteUrl: url, emailSent };
 }
 
+async function createPasswordResetForUser(user: typeof users.$inferSelect) {
+  const token = createAuthToken();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+  await db
+    .update(users)
+    .set({
+      invite_token_hash: await hashAuthToken(token),
+      invite_expires_at: expiresAt,
+      invited_at: now,
+      updated_at: now,
+      modified_by: user.id
+    })
+    .where(eq(users.id, user.id));
+
+  const url = inviteUrl(token);
+  const emailSent = await sendPasswordResetEmail({ email: user.email, name: user.name, url });
+
+  return { resetUrl: url, emailSent };
+}
+
 export async function ensureSuperAdmin(): Promise<SuperAdminBootstrapResult> {
+  await ensureSystemUser();
+
   const email = normalizeEmail(env.SUPERADMIN_EMAIL);
   const [existing] = await db.select().from(users).where(eq(users.email, email)).limit(1);
 
@@ -152,7 +233,74 @@ export async function ensureSuperAdmin(): Promise<SuperAdminBootstrapResult> {
   return { user };
 }
 
+export async function recoverSuperAdminAccess(input: {
+  email: string;
+  recoverySecret?: string;
+}): Promise<SuperAdminRecoveryResult> {
+  const email = normalizeEmail(input.email);
+  const superAdminEmail = normalizeEmail(env.SUPERADMIN_EMAIL);
+
+  if (email !== superAdminEmail) {
+    throw new Error("Email nao corresponde ao superadmin configurado.");
+  }
+
+  const bootstrap = await ensureSuperAdmin();
+  const user = bootstrap.user;
+
+  if (user.role !== "super_admin") {
+    throw new Error("Usuario configurado nao possui papel de superadmin.");
+  }
+
+  const invite = await createInviteForUser(user);
+  const secretAllowsLink = Boolean(env.AUTH_RECOVERY_SECRET && input.recoverySecret === env.AUTH_RECOVERY_SECRET);
+  const localAllowsLink = process.env.NODE_ENV !== "production" && !env.RESEND_API_KEY;
+  const inviteUrlVisible = secretAllowsLink || localAllowsLink;
+
+  console.info("[auth] superadmin recovery requested", {
+    email,
+    emailSent: invite.emailSent,
+    inviteUrlVisible
+  });
+
+  return {
+    user,
+    emailSent: invite.emailSent,
+    inviteUrl: inviteUrlVisible ? invite.inviteUrl : undefined,
+    inviteUrlVisible
+  };
+}
+
+export async function requestPasswordReset(input: { email: string }): Promise<PasswordResetResult> {
+  const email = normalizeEmail(input.email);
+  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+
+  if (!user || user.is_deleted) {
+    console.info("[auth] password reset requested for unknown email", { email });
+    return {
+      emailSent: false,
+      resetUrlVisible: false
+    };
+  }
+
+  const reset = await createPasswordResetForUser(user);
+  const resetUrlVisible = process.env.NODE_ENV !== "production" && !env.RESEND_API_KEY;
+
+  console.info("[auth] password reset requested", {
+    email,
+    emailSent: reset.emailSent,
+    resetUrlVisible
+  });
+
+  return {
+    emailSent: reset.emailSent,
+    resetUrl: resetUrlVisible ? reset.resetUrl : undefined,
+    resetUrlVisible
+  };
+}
+
 export async function inviteUser(input: { name: string; email: string; role: Role }) {
+  await ensureSystemUser();
+
   const email = normalizeEmail(input.email);
   const token = createAuthToken();
   const now = new Date();

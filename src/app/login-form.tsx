@@ -24,6 +24,8 @@ export function LoginForm() {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [firstAccessUrl, setFirstAccessUrl] = useState("");
+  const [recoverySecret, setRecoverySecret] = useState("");
+  const [showRecoverySecret, setShowRecoverySecret] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -110,6 +112,85 @@ export function LoginForm() {
     }
   }
 
+  async function recoverSuperAdmin() {
+    setError("");
+    setFirstAccessUrl("");
+
+    if (!email.trim()) {
+      setError("Informe o email do Superadmin para recuperar o acesso.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/recover-superadmin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, recoverySecret: recoverySecret || undefined })
+      });
+      const payload = await readJsonResponse<{
+        error?: string;
+        message?: string;
+        inviteUrl?: string;
+        emailSent?: boolean;
+      }>(response);
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Nao foi possivel recuperar o acesso.");
+      }
+
+      if (payload.inviteUrl) {
+        setFirstAccessUrl(payload.inviteUrl);
+      }
+
+      setError(payload.message || "Recuperacao solicitada.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Nao foi possivel recuperar o acesso.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function requestPasswordReset() {
+    setError("");
+    setFirstAccessUrl("");
+
+    if (!email.trim()) {
+      setError("Informe seu email para recuperar a senha.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/request-password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email })
+      });
+      const payload = await readJsonResponse<{
+        error?: string;
+        message?: string;
+        resetUrl?: string;
+      }>(response);
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Nao foi possivel solicitar recuperacao.");
+      }
+
+      if (payload.resetUrl) {
+        setFirstAccessUrl(payload.resetUrl);
+      }
+
+      setError(payload.message || "Se este email estiver cadastrado, enviaremos um link de recuperacao.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Nao foi possivel solicitar recuperacao.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <form className="space-y-7" onSubmit={submit}>
       <label className="block">
@@ -157,9 +238,39 @@ export function LoginForm() {
           />
           <span>Manter conectado</span>
         </label>
-        <button type="button" className="font-semibold text-primary" onClick={prepareSuperAdmin}>
-          Criar acesso inicial
+        <div className="flex flex-wrap justify-end gap-3">
+          <button type="button" className="font-semibold text-primary" onClick={requestPasswordReset}>
+            Esqueci minha senha
+          </button>
+          <button type="button" className="font-semibold text-primary" onClick={prepareSuperAdmin}>
+            Criar acesso inicial
+          </button>
+          <button type="button" className="font-semibold text-primary" onClick={recoverSuperAdmin}>
+            Recuperar acesso
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <button
+          type="button"
+          className="text-xs font-bold text-muted-foreground transition hover:text-primary"
+          onClick={() => setShowRecoverySecret((current) => !current)}
+        >
+          {showRecoverySecret ? "Ocultar codigo de recuperacao" : "Tenho codigo de recuperacao"}
         </button>
+        {showRecoverySecret ? (
+          <span className="flex h-11 items-center rounded-[16px] border border-border bg-input/45 px-4 transition focus-within:border-primary/60 focus-within:ring-4 focus-within:ring-primary/10">
+            <input
+              type="password"
+              value={recoverySecret}
+              onChange={(event) => setRecoverySecret(event.target.value)}
+              placeholder="Codigo configurado em AUTH_RECOVERY_SECRET"
+              className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-foreground outline-none"
+              aria-label="Codigo de recuperacao"
+            />
+          </span>
+        ) : null}
       </div>
 
       {error ? (
@@ -170,7 +281,7 @@ export function LoginForm() {
               href={firstAccessUrl}
               className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-xs font-black uppercase tracking-[0.08em] text-primary-foreground transition hover:brightness-105"
             >
-              Abrir criacao de senha
+              Abrir link de senha
             </a>
           ) : null}
         </div>

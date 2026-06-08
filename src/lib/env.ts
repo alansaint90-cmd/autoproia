@@ -27,6 +27,7 @@ const envSchema = z.object({
   AUTH_COOKIE_NAME: z.string().default("auto_pro_ia_session"),
   SUPERADMIN_EMAIL: z.string().email().default("admin@autopro.ia"),
   SUPERADMIN_NAME: z.string().default("Superadmin"),
+  AUTH_RECOVERY_SECRET: optionalString,
   RESEND_API_KEY: optionalString,
   AUTH_EMAIL_FROM: z.string().min(1).default("Auto Pro IA <noreply@autoproia.site>")
 });
@@ -53,6 +54,7 @@ function readEnv() {
     AUTH_COOKIE_NAME: process.env.AUTH_COOKIE_NAME,
     SUPERADMIN_EMAIL: process.env.SUPERADMIN_EMAIL,
     SUPERADMIN_NAME: process.env.SUPERADMIN_NAME,
+    AUTH_RECOVERY_SECRET: process.env.AUTH_RECOVERY_SECRET,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     AUTH_EMAIL_FROM: process.env.AUTH_EMAIL_FROM
   });

@@ -17,13 +17,13 @@ export default async function CreatePasswordPage({
           <BrandLogo size={34} />
           <div>
             <p className="text-sm font-black uppercase tracking-[0.16em]">Auto Pro IA</p>
-            <p className="mt-1 text-xs font-semibold text-muted-foreground">Criacao de acesso seguro</p>
+            <p className="mt-1 text-xs font-semibold text-muted-foreground">Acesso seguro</p>
           </div>
         </div>
 
-        <h1 className="text-3xl font-black tracking-tight">Crie sua senha</h1>
+        <h1 className="text-3xl font-black tracking-tight">Crie ou redefina sua senha</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Defina uma senha para acessar o painel. O convite expira por seguranca.
+          Defina uma senha para acessar o painel. O link expira por seguranca.
         </p>
 
         <CreatePasswordForm token={token} />
