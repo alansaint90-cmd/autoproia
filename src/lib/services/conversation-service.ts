@@ -3,7 +3,7 @@ import { db } from "@/lib/db/client";
 import { conversations, handoffEvents, leads, messages, users } from "@/lib/db/schema";
 import { SYSTEM_USER_ID } from "@/lib/constants";
 import { generateAiReply } from "@/lib/services/ai-agent";
-import { sendWhatsAppText } from "@/lib/services/evolution-api";
+import { sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
 import {
   appendRecentConversationContext,
   drainConversationBuffer,
@@ -164,6 +164,7 @@ export async function processBufferedConversation(conversationId: string) {
     contextSummary: conversation.context_summary,
     messages: messagesForContext
   });
+  const cleanReply = sanitizeWhatsAppText(reply);
 
   console.info("[conversation-service] sending whatsapp reply", { conversationId, phone: lead.phone });
   await sendWhatsAppText({ phone: lead.phone, text: reply });
@@ -174,7 +175,7 @@ export async function processBufferedConversation(conversationId: string) {
     .values({
       conversation_id: conversationId,
       role: "ai",
-      content: reply,
+      content: cleanReply,
       metadata: { source: "openai", bufferedMessageIds: buffered.map((item) => item.messageId) },
       modified_by: SYSTEM_USER_ID
     })
@@ -199,7 +200,7 @@ export async function processBufferedConversation(conversationId: string) {
     conversationId,
     messageId: aiMessage.id,
     role: aiMessage.role,
-    content: aiMessage.content,
+    content: cleanReply,
     createdAt: new Date().toISOString()
   });
 

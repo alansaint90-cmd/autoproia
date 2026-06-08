@@ -29,7 +29,7 @@ export async function generateAiReply(input: GenerateAiReplyInput) {
       input.contextSummary ? `Resumo anterior: ${input.contextSummary}` : "",
       "Conversa recente:",
       conversationText,
-      "Responda a ultima mensagem do lead seguindo o prompt SDR. Se precisar enviar mensagens separadas, use o delimitador |||SPLIT|||."
+      "Responda a ultima mensagem do lead seguindo o prompt SDR. Se precisar enviar mensagens separadas, use o delimitador interno |||SPLIT||| entre os blocos, sem explicar ou repetir esse marcador ao cliente."
     ].filter(Boolean).join("\n")
   });
 
@@ -69,6 +69,14 @@ function buildSystemPrompt(settings: BusinessSettings) {
     "- Nao invente dados fora do contexto dinamico.",
     "- Se houver pedido claro de humano, responda que um atendente vai assumir e pare de conduzir venda agressivamente.",
     "- O telefone ja vem do WhatsApp; nao solicite telefone ao cliente.",
-    "- O delimitador |||SPLIT||| e interno e sera usado pelo sistema para enviar blocos separados."
+    "- O delimitador |||SPLIT||| e interno e sera removido pelo sistema; nunca trate esse marcador como parte da mensagem ao cliente.",
+    "- Quando passar orcamento/preco de planos, use exatamente este padrao visual por categoria e plano:",
+    "🚗 CATEGORIA B (CARRO)",
+    "",
+    "✅ Basico — 2 aulas",
+    "💰 A vista: R$ 380,00",
+    "💳 A prazo: R$ 448,40",
+    "- Troque categoria, veiculo, nome do plano, quantidade de aulas e valores conforme os dados cadastrados no contexto dinamico.",
+    "- Apresente somente a categoria/plano relevante ao pedido do cliente; nao envie todos os planos de uma vez, salvo se o cliente pedir comparacao."
   ].join("\n");
 }

@@ -17,7 +17,7 @@ export async function sendWhatsAppText(input: SendTextInput) {
     return results;
   }
 
-  return sendSingleWhatsAppText({ ...input, text: parts[0] ?? input.text });
+  return sendSingleWhatsAppText({ ...input, text: parts[0] ?? sanitizeWhatsAppText(input.text) });
 }
 
 async function sendSingleWhatsAppText(input: SendTextInput) {
@@ -53,9 +53,16 @@ async function sendSingleWhatsAppText(input: SendTextInput) {
 
 function splitWhatsAppText(text: string) {
   return text
-    .split(/\n?\|\|\|SPLIT\|\|\|\n?/g)
-    .map((part) => part.trim())
+    .split(/\s*\|{3}\s*SPLIT\s*\|{3}\s*/gi)
+    .map((part) => sanitizeWhatsAppText(part))
     .filter(Boolean);
+}
+
+export function sanitizeWhatsAppText(text: string) {
+  return text
+    .replace(/\s*\|{3}\s*SPLIT\s*\|{3}\s*/gi, "\n\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function wait(milliseconds: number) {
