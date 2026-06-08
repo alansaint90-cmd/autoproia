@@ -18,6 +18,12 @@ export type AuthInviteResult = {
   emailSent: boolean;
 };
 
+export type SuperAdminBootstrapResult = {
+  user: typeof users.$inferSelect;
+  inviteUrl?: string;
+  emailSent?: boolean;
+};
+
 export type LoginResult =
   | {
       passwordChangeRequired: false;
@@ -72,11 +78,46 @@ async function sendInviteEmail(input: { email: string; name: string; url: string
   return response.ok;
 }
 
-export async function ensureSuperAdmin() {
+async function createInviteForUser(user: typeof users.$inferSelect) {
+  const token = createAuthToken();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+  await db
+    .update(users)
+    .set({
+      invite_token_hash: await hashAuthToken(token),
+      invite_expires_at: expiresAt,
+      invited_at: now,
+      updated_at: now,
+      modified_by: user.id
+    })
+    .where(eq(users.id, user.id));
+
+  const url = inviteUrl(token);
+  const emailSent = await sendInviteEmail({ email: user.email, name: user.name, url });
+
+  return { inviteUrl: url, emailSent };
+}
+
+export async function ensureSuperAdmin(): Promise<SuperAdminBootstrapResult> {
   const email = normalizeEmail(env.SUPERADMIN_EMAIL);
   const [existing] = await db.select().from(users).where(eq(users.email, email)).limit(1);
 
-  if (existing) return existing;
+  if (existing) {
+    if (!existing.password_set_at) {
+      const invite = await createInviteForUser(existing);
+      console.info("[auth] superadmin first access invite refreshed", {
+        email,
+        inviteUrl: invite.inviteUrl,
+        emailSent: invite.emailSent
+      });
+
+      return { user: existing, ...invite };
+    }
+
+    return { user: existing };
+  }
 
   const token = createAuthToken();
   const now = new Date();
@@ -100,10 +141,15 @@ export async function ensureSuperAdmin() {
     const url = inviteUrl(token);
     const emailSent = await sendInviteEmail({ email, name: env.SUPERADMIN_NAME, url });
     console.info("[auth] superadmin invite created", { email, inviteUrl: url, emailSent });
+    return { user: created, inviteUrl: url, emailSent };
   }
 
   const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-  return user;
+  if (!user) {
+    throw new Error("Nao foi possivel preparar o superadmin.");
+  }
+
+  return { user };
 }
 
 export async function inviteUser(input: { name: string; email: string; role: Role }) {
@@ -180,7 +226,15 @@ export async function login(input: { email: string; password: string; remember?:
     .where(eq(users.email, normalizeEmail(input.email)))
     .limit(1);
 
-  if (!user || user.is_deleted || !(await verifyPassword(input.password, user.password_hash))) {
+  if (!user || user.is_deleted) {
+    throw new Error("Email ou senha invalidos.");
+  }
+
+  if (!user.password_hash && !user.password_set_at) {
+    throw new Error("Acesso inicial pendente. Clique em Criar acesso inicial ou solicite um convite ao administrador.");
+  }
+
+  if (!(await verifyPassword(input.password, user.password_hash))) {
     throw new Error("Email ou senha invalidos.");
   }
 

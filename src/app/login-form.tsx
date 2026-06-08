@@ -23,11 +23,13 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
+  const [firstAccessUrl, setFirstAccessUrl] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setFirstAccessUrl("");
 
     if (!email.trim() || !password.trim()) {
       setError("Informe o email e a senha para entrar.");
@@ -67,17 +69,40 @@ export function LoginForm() {
 
   async function prepareSuperAdmin() {
     setError("");
+    setFirstAccessUrl("");
     setLoading(true);
 
     try {
       const response = await fetch("/api/auth/bootstrap", { method: "POST" });
-      const payload = await readJsonResponse<{ error?: string }>(response);
+      const payload = await readJsonResponse<{
+        error?: string;
+        inviteUrl?: string;
+        emailSent?: boolean;
+        user?: {
+          firstAccessRequired?: boolean;
+          passwordReady?: boolean;
+        };
+      }>(response);
 
       if (!response.ok) {
         throw new Error(payload.error || "Nao foi possivel preparar o superadmin.");
       }
 
-      setError("Superadmin preparado. Verifique o log do servidor ou o e-mail configurado para criar a senha.");
+      if (payload.inviteUrl) {
+        setFirstAccessUrl(payload.inviteUrl);
+        setError(
+          payload.emailSent
+            ? "Link de primeiro acesso enviado por email. Voce tambem pode abrir pelo botao abaixo."
+            : "Link de primeiro acesso gerado. Abra pelo botao abaixo para criar sua senha."
+        );
+        return;
+      }
+
+      setError(
+        payload.user?.passwordReady
+          ? "Superadmin ja possui senha criada. Use email e senha para entrar."
+          : "Superadmin preparado. Tente entrar com a senha temporaria para criar a senha definitiva."
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Nao foi possivel preparar o superadmin.");
     } finally {
@@ -138,9 +163,17 @@ export function LoginForm() {
       </div>
 
       {error ? (
-        <p className="rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm font-semibold leading-6 text-primary">
-          {error}
-        </p>
+        <div className="space-y-3 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm font-semibold leading-6 text-primary">
+          <p>{error}</p>
+          {firstAccessUrl ? (
+            <a
+              href={firstAccessUrl}
+              className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-xs font-black uppercase tracking-[0.08em] text-primary-foreground transition hover:brightness-105"
+            >
+              Abrir criacao de senha
+            </a>
+          ) : null}
+        </div>
       ) : null}
 
       <button
