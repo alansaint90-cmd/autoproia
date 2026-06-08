@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
+import { appendRecentConversationContext } from "@/lib/services/message-buffer";
 import { assertPermission } from "@/lib/services/permission-service";
+import { pauseLeadFollowUp } from "@/lib/services/follow-up-service";
 import { publishRealtimeEvent } from "@/lib/services/realtime";
 import { sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
 
@@ -97,10 +99,17 @@ export async function POST(request: NextRequest) {
       set
         last_message_preview = ${text},
         last_interaction_at = now(),
+        next_follow_up_at = null,
+        follow_up_paused_at = now(),
+        pipeline_stage = case
+          when pipeline_stage in ('fechado', 'perdido', 'matricula_pendente') then pipeline_stage
+          else 'atendimento'
+        end,
         updated_at = now(),
         modified_by = ${session.userId}
       where id = ${target.lead_id}
     `);
+    await pauseLeadFollowUp(target.lead_id, session.userId);
 
     const message = {
       id: createdMessage?.id ?? randomUUID(),
@@ -108,6 +117,14 @@ export async function POST(request: NextRequest) {
       text,
       time: createdMessage?.created_at ? formatMessageTime(createdMessage.created_at) : "agora"
     };
+
+    await appendRecentConversationContext({
+      conversationId: target.conversation_id,
+      messageId: message.id,
+      role: "human",
+      content: text,
+      createdAt: new Date().toISOString()
+    });
 
     await publishRealtimeEvent({
       type: "message.created",

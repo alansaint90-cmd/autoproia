@@ -27,6 +27,10 @@ type LeadRow = {
   last_message_preview: string | null;
   last_interaction_at: Date | string | null;
   enrollment_closed_at: Date | string | null;
+  follow_up_count: string | number | bigint;
+  last_follow_up_at: Date | string | null;
+  next_follow_up_at: Date | string | null;
+  follow_up_paused_at: Date | string | null;
   responsible: string | null;
   conversation_id: string | null;
   conversation_status: string | null;
@@ -160,6 +164,10 @@ export async function queryLeads(params: LeadQueryParams = {}) {
       l.last_message_preview,
       l.last_interaction_at,
       l.enrollment_closed_at,
+      l.follow_up_count,
+      l.last_follow_up_at,
+      l.next_follow_up_at,
+      l.follow_up_paused_at,
       coalesce(u.name, 'Ricardo IA') as responsible,
       c.id as conversation_id,
       c.status as conversation_status,
@@ -201,6 +209,10 @@ export async function queryLeads(params: LeadQueryParams = {}) {
       interest: lead.interest ?? "carro",
       conversationId: lead.conversation_id,
       conversationStatus: lead.conversation_status,
+      followUpCount: toNumber(lead.follow_up_count),
+      lastFollowUpAt: lead.last_follow_up_at ? new Date(lead.last_follow_up_at).toISOString() : null,
+      nextFollowUpAt: lead.next_follow_up_at ? new Date(lead.next_follow_up_at).toISOString() : null,
+      followUpPausedAt: lead.follow_up_paused_at ? new Date(lead.follow_up_paused_at).toISOString() : null,
       createdAt: new Date(lead.created_at).toISOString(),
       updatedAt: new Date(lead.updated_at).toISOString()
     };

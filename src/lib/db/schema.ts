@@ -1,6 +1,7 @@
 import {
   boolean,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -52,6 +53,10 @@ export const leads = pgTable(
     last_message_preview: text("last_message_preview"),
     last_interaction_at: timestamp("last_interaction_at", { withTimezone: true }),
     enrollment_closed_at: timestamp("enrollment_closed_at", { withTimezone: true }),
+    follow_up_count: integer("follow_up_count").notNull().default(0),
+    last_follow_up_at: timestamp("last_follow_up_at", { withTimezone: true }),
+    next_follow_up_at: timestamp("next_follow_up_at", { withTimezone: true }),
+    follow_up_paused_at: timestamp("follow_up_paused_at", { withTimezone: true }),
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
     responsible_id: uuid("responsible_id").references(() => users.id, { onDelete: "restrict" }),
     ...baseAuditColumns,

@@ -5,6 +5,12 @@ import { SYSTEM_USER_ID } from "@/lib/constants";
 import { generateAiReply } from "@/lib/services/ai-agent";
 import { fetchWhatsAppProfilePicture, sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
 import {
+  pauseLeadFollowUp,
+  resetLeadFollowUpOnCustomerReply,
+  resumeLeadFollowUp,
+  scheduleLeadFollowUp
+} from "@/lib/services/follow-up-service";
+import {
   appendRecentConversationContext,
   drainConversationBuffer,
   getRecentConversationContext,
@@ -21,6 +27,9 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
   const leadSignal = classifyLeadSignal(input.text);
   const lead = await upsertLead(input, leadSignal);
   const conversation = await upsertConversation(lead.id, input.externalChatId);
+  if (!input.fromMe) {
+    await resetLeadFollowUpOnCustomerReply(lead.id);
+  }
 
   if (input.externalMessageId) {
     const [existingMessage] = await db
@@ -167,7 +176,7 @@ export async function processBufferedConversation(conversationId: string) {
   const cleanReply = sanitizeWhatsAppText(reply);
 
   console.info("[conversation-service] sending whatsapp reply", { conversationId, phone: lead.phone });
-  await sendWhatsAppText({ phone: lead.phone, text: reply });
+  await sendWhatsAppText({ phone: lead.phone, text: cleanReply });
   console.info("[conversation-service] whatsapp reply sent", { conversationId });
 
   const [aiMessage] = await db
@@ -203,6 +212,8 @@ export async function processBufferedConversation(conversationId: string) {
     content: cleanReply,
     createdAt: new Date().toISOString()
   });
+
+  await scheduleLeadFollowUp(lead.id);
 
   return { skipped: false, message: aiMessage };
 }
@@ -243,11 +254,17 @@ async function changeConversationStatus(
     .where(and(eq(conversations.id, conversationId), eq(conversations.is_deleted, false)))
     .returning();
 
-  if (toStatus === "human") {
+  if (toStatus === "human" || toStatus === "ai") {
+    if (toStatus === "human") {
+      await pauseLeadFollowUp(current.lead_id, userId);
+    } else {
+      await resumeLeadFollowUp(current.lead_id, userId);
+    }
+
     await db
       .update(leads)
       .set({
-        pipeline_stage: "atendimento",
+        pipeline_stage: toStatus === "human" ? "atendimento" : "ia",
         last_interaction_at: new Date(),
         updated_at: new Date(),
         modified_by: userId

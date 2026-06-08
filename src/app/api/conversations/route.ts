@@ -21,6 +21,10 @@ type ConversationRow = {
   pipeline_stage: string;
   last_message_preview: string | null;
   last_interaction_at: Date | string | null;
+  follow_up_count: string | number | bigint;
+  last_follow_up_at: Date | string | null;
+  next_follow_up_at: Date | string | null;
+  follow_up_paused_at: Date | string | null;
   interest: string | null;
   responsible_name: string | null;
   messages: Array<{
@@ -80,6 +84,10 @@ export async function GET(request: NextRequest) {
         l.pipeline_stage,
         l.last_message_preview,
         l.last_interaction_at,
+        l.follow_up_count,
+        l.last_follow_up_at,
+        l.next_follow_up_at,
+        l.follow_up_paused_at,
         l.interest,
         u.name as responsible_name,
         coalesce(
@@ -148,7 +156,11 @@ export async function GET(request: NextRequest) {
           stage: row.pipeline_stage,
           interest: row.interest ?? "carro",
           notes: row.last_message_preview ?? "",
-          sentiment: row.sentiment
+          sentiment: row.sentiment,
+          followUpCount: Number(row.follow_up_count ?? 0),
+          lastFollowUpAt: row.last_follow_up_at ? new Date(row.last_follow_up_at).toISOString() : null,
+          nextFollowUpAt: row.next_follow_up_at ? new Date(row.next_follow_up_at).toISOString() : null,
+          followUpPausedAt: row.follow_up_paused_at ? new Date(row.follow_up_paused_at).toISOString() : null
         },
         online: false,
         unread: 0,

@@ -420,6 +420,7 @@ export default function ConversasPage() {
   const [draftAttachment, setDraftAttachment] = useState<QuickReplyAttachment | undefined>();
   const [isSendingDraft, setIsSendingDraft] = useState(false);
   const [isChangingHandoff, setIsChangingHandoff] = useState(false);
+  const [isFollowUpActionRunning, setIsFollowUpActionRunning] = useState(false);
   const [showLeadProfile, setShowLeadProfile] = useState(false);
   const [deleteReplyId, setDeleteReplyId] = useState<string | null>(null);
   const [replyFeedback, setReplyFeedback] = useState("");
@@ -843,6 +844,75 @@ export default function ConversasPage() {
       window.alert(error instanceof Error ? error.message : "Nao foi possivel devolver a conversa para IA.");
     } finally {
       setIsChangingHandoff(false);
+    }
+  }
+
+  async function runFollowUpAction(action: "send-now" | "pause" | "resume") {
+    if (!active || isFollowUpActionRunning) return;
+
+    setIsFollowUpActionRunning(true);
+    try {
+      const response = await fetch("/api/leads/follow-up", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: active.lead.id, action })
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        result?: { followUpNumber?: number; nextFollowUpAt?: string | null; message?: string };
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Nao foi possivel executar o follow-up.");
+      }
+
+      setAvailableConversations((items) =>
+        items.map((conversation) => {
+          if (conversation.lead.id !== active.lead.id) return conversation;
+
+          const lead = conversation.lead as Conversation["lead"] & {
+            followUpCount?: number;
+            nextFollowUpAt?: string | null;
+            followUpPausedAt?: string | null;
+          };
+          const nextLead = { ...lead };
+
+          if (action === "pause") {
+            nextLead.followUpPausedAt = new Date().toISOString();
+            nextLead.nextFollowUpAt = null;
+          }
+          if (action === "resume") {
+            nextLead.followUpPausedAt = null;
+          }
+          if (action === "send-now") {
+            nextLead.followUpCount = payload.result?.followUpNumber ?? (lead.followUpCount ?? 0) + 1;
+            nextLead.nextFollowUpAt = payload.result?.nextFollowUpAt ?? null;
+          }
+
+          const nextMessages = action === "send-now" && payload.result?.message
+            ? [
+                ...conversation.messages,
+                {
+                  id: `follow-up-${Date.now()}`,
+                  from: "ia" as const,
+                  text: payload.result.message,
+                  time: "agora"
+                }
+              ]
+            : conversation.messages;
+
+          return {
+            ...conversation,
+            lead: nextLead,
+            preview: action === "send-now" && payload.result?.message ? payload.result.message : conversation.preview,
+            messages: nextMessages
+          };
+        })
+      );
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel executar o follow-up.");
+    } finally {
+      setIsFollowUpActionRunning(false);
     }
   }
 
@@ -1656,6 +1726,40 @@ export default function ConversasPage() {
                 helper={sentimentBar[getLeadSentiment(active)].label}
                 width={sentimentBar[getLeadSentiment(active)].width}
               />
+            </div>
+            <div className="mt-3 rounded-2xl border border-white/[0.08] bg-[#0B1120]/62 p-2.5">
+              <div className="flex items-center justify-between gap-2 text-[10px]">
+                <span className="font-black uppercase tracking-[0.16em] text-slate-400">Follow-up</span>
+                <span className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 font-bold text-slate-300">
+                  {((active.lead as Conversation["lead"] & { followUpCount?: number }).followUpCount ?? 0)}/5
+                </span>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => void runFollowUpAction("send-now")}
+                  disabled={isFollowUpActionRunning}
+                  className="rounded-xl border border-[#FACC15]/22 bg-[#FACC15]/10 px-2 py-2 text-[10px] font-black text-[#FACC15] transition hover:bg-[#FACC15]/16 disabled:opacity-50"
+                >
+                  Enviar agora
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void runFollowUpAction("pause")}
+                  disabled={isFollowUpActionRunning}
+                  className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-2 py-2 text-[10px] font-black text-slate-300 transition hover:bg-white/[0.07] disabled:opacity-50"
+                >
+                  Pausar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void runFollowUpAction("resume")}
+                  disabled={isFollowUpActionRunning}
+                  className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-2 py-2 text-[10px] font-black text-sky-100 transition hover:bg-sky-400/14 disabled:opacity-50"
+                >
+                  Retomar
+                </button>
+              </div>
             </div>
           </section>
 
