@@ -2,7 +2,8 @@ import Redis from "ioredis";
 import { env } from "@/lib/env";
 
 const bufferTtlSeconds = 60 * 10;
-const processingWindowSeconds = 60;
+const processingMarkerTtlSeconds = 60;
+const processingQuietWindowMs = 8_000;
 const recentContextTtlSeconds = 60 * 60 * 24 * 7;
 const recentContextLimit = 30;
 let redisClient: Redis | null = null;
@@ -57,15 +58,19 @@ export async function getRecentConversationContext(conversationId: string) {
 
 export async function scheduleBufferProcessing(conversationId: string) {
   const redis = getRedis();
-  await redis.set(processingKey(conversationId), "pending", "EX", processingWindowSeconds);
+  await redis.set(processingKey(conversationId), String(Date.now()), "EX", processingMarkerTtlSeconds);
   console.info("[message-buffer] processing scheduled", { conversationId });
 }
 
 export async function shouldProcessBuffer(conversationId: string) {
   const redis = getRedis();
   const status = await redis.get(processingKey(conversationId));
-  console.info("[message-buffer] processing status", { conversationId, status });
-  return status === "pending";
+  const scheduledAt = Number(status);
+  const elapsedMs = Number.isFinite(scheduledAt) ? Date.now() - scheduledAt : 0;
+  const shouldProcess = Boolean(status && elapsedMs >= processingQuietWindowMs);
+
+  console.info("[message-buffer] processing status", { conversationId, status, elapsedMs, shouldProcess });
+  return shouldProcess;
 }
 
 function getRedis() {

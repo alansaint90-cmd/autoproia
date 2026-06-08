@@ -32,28 +32,11 @@ import { cn } from "@/lib/utils";
 const sellers = ["Todos", ...sellerClosing.map((seller) => seller.seller)];
 const origins = ["Todas", ...leadsByOrigin.map((origin) => origin.label)];
 
-const monthlyReport = [
-  { month: "Jan", leads: 186, enrollments: 39, revenue: 84200 },
-  { month: "Fev", leads: 214, enrollments: 48, revenue: 103600 },
-  { month: "Mar", leads: 251, enrollments: 57, revenue: 124300 },
-  { month: "Abr", leads: 236, enrollments: 52, revenue: 112900 },
-  { month: "Mai", leads: 309, enrollments: 74, revenue: 164400 },
-  { month: "Jun", leads: 352, enrollments: 86, revenue: 189700 },
-  { month: "Jul", leads: 337, enrollments: 79, revenue: 176200 },
-  { month: "Ago", leads: 371, enrollments: 93, revenue: 204600 },
-  { month: "Set", leads: 402, enrollments: 104, revenue: 229300 },
-  { month: "Out", leads: 431, enrollments: 118, revenue: 261800 },
-  { month: "Nov", leads: 416, enrollments: 107, revenue: 238900 },
-  { month: "Dez", leads: 448, enrollments: 126, revenue: 279600 }
-];
+const monthlyReport = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"].map(
+  (month) => ({ month, leads: 0, enrollments: 0, revenue: 0 })
+);
 
-const lossReasons = [
-  { label: "Preco", value: 31, color: "bg-rose-400" },
-  { label: "Sem resposta", value: 24, color: "bg-yellow-300" },
-  { label: "Horario", value: 18, color: "bg-sky-400" },
-  { label: "Concorrente", value: 15, color: "bg-violet-400" },
-  { label: "Documentacao", value: 12, color: "bg-emerald-400" }
-];
+const lossReasons: Array<{ label: string; value: number; color: string }> = [];
 
 const periodMultiplier: Record<string, number> = {
   "7d": 0.28,
@@ -100,25 +83,14 @@ export default function RelatoriosPage() {
   const [realReportData, setRealReportData] = useState<RealReportData>(null);
 
   const report = useMemo(() => {
-    const { origin, period, seller } = appliedFilters;
-    const multiplier = periodMultiplier[period] ?? 1;
-    const sellerWeight = seller === "Todos" ? 1 : 0.32 + sellers.indexOf(seller) * 0.08;
-    const originWeight = origin === "Todas" ? 1 : 0.38 + origins.indexOf(origin) * 0.07;
-    const factor = multiplier * sellerWeight * originWeight;
-    const totalLeads = Math.round(438 * factor);
-    const enrollments = Math.round(126 * factor);
-    const revenue = Math.round(279600 * factor);
-    const conversion = totalLeads > 0 ? Number(((enrollments / totalLeads) * 100).toFixed(1)) : 0;
-    const averageTicket = enrollments > 0 ? Math.round(revenue / enrollments) : 0;
-
     const fallbackReport = {
-      totalLeads,
-      enrollments,
-      revenue,
-      conversion,
-      averageTicket,
-      aiHandled: Math.round(312 * factor),
-      responseTime: period === "7d" ? "31s" : "38s"
+      totalLeads: 0,
+      enrollments: 0,
+      revenue: 0,
+      conversion: 0,
+      averageTicket: 0,
+      aiHandled: 0,
+      responseTime: "0s"
     };
 
     return realReportData ? {
@@ -138,7 +110,7 @@ export default function RelatoriosPage() {
     }
 
     const seller = appliedFilters.seller;
-    const max = Math.max(...sellerClosing.map((item) => item.closed));
+    const max = Math.max(1, ...sellerClosing.map((item) => item.closed));
     return sellerClosing
       .filter((item) => seller === "Todos" || item.seller === seller)
       .sort((a, b) => b.closed - a.closed)
@@ -219,7 +191,7 @@ export default function RelatoriosPage() {
         sellers: realSellers
       });
     } catch (error) {
-      console.warn("[relatorios] usando fallback mockado", error);
+      console.warn("[relatorios] falha ao carregar dados reais", error);
       setRealReportData(null);
     }
 
@@ -689,7 +661,7 @@ function GeneratedReport({
         <h2 className="text-lg font-black">Conversao mensal</h2>
         <div className="mt-5 grid h-56 grid-cols-12 items-end gap-2">
           {monthlyReport.map((month) => {
-            const maxLeads = Math.max(...monthlyReport.map((item) => item.leads));
+            const maxLeads = Math.max(1, ...monthlyReport.map((item) => item.leads));
             const height = Math.max(12, (month.leads / maxLeads) * 100);
             return (
               <div key={month.month} className="flex h-full flex-col justify-end gap-2">
@@ -737,8 +709,8 @@ function PdfList({ title, items }: { title: string; items: string[] }) {
 }
 
 function MonthlyReportChart() {
-  const maxLeads = Math.max(...monthlyReport.map((item) => item.leads));
-  const maxEnrollments = Math.max(...monthlyReport.map((item) => item.enrollments));
+  const maxLeads = Math.max(1, ...monthlyReport.map((item) => item.leads));
+  const maxEnrollments = Math.max(1, ...monthlyReport.map((item) => item.enrollments));
 
   return (
     <div className="rounded-2xl border border-white/[0.07] bg-background/35 p-4">
@@ -853,7 +825,7 @@ function OriginReport({ data }: { data: typeof leadsByOrigin }) {
 }
 
 function FunnelReport() {
-  const max = Math.max(...funnelData.map((item) => item.value));
+  const max = Math.max(1, ...funnelData.map((item) => item.value));
   const colors = [
     "from-cyan-300 to-sky-500",
     "from-primary to-yellow-500",
@@ -889,7 +861,7 @@ function FunnelReport() {
 }
 
 function LossReport() {
-  const total = lossReasons.reduce((sum, item) => sum + item.value, 0);
+  const total = Math.max(1, lossReasons.reduce((sum, item) => sum + item.value, 0));
 
   return (
     <div className="grid h-full content-between gap-3">

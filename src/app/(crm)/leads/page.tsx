@@ -30,7 +30,6 @@ import {
   Zap
 } from "lucide-react";
 import { Topbar } from "@/components/topbar";
-import { leads as mockLeads } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 type LeadStage =
@@ -80,8 +79,6 @@ type LeadDraft = {
 };
 
 type QuickFilter = "todos" | "quentes" | "sem_resposta" | "ia" | "matriculas" | "hoje" | "whatsapp" | "meta";
-
-const STORAGE_KEY = "auto-pro-ia:kanban-leads";
 
 const origins = ["WhatsApp", "Meta Ads", "Google Ads", "Instagram", "Indicacao", "Site"];
 
@@ -251,22 +248,7 @@ function stageTone(stage: LeadStage) {
 }
 
 function createInitialLeads(): LeadRecord[] {
-  return mockLeads.map((lead, index) => ({
-    id: lead.id,
-    name: lead.name,
-    phone: lead.phone,
-    origin: lead.origin,
-    status: stageFromMock[lead.stage] ?? "novo",
-    temperature: lead.temperature,
-    sentiment: ["positivo", "duvida", "neutro", "negativo"][index % 4] as LeadRecord["sentiment"],
-    lastMessage: quickMessages[index % quickMessages.length],
-    lastInteraction: lead.lastInteraction,
-    responsible: lead.responsible,
-    avatar: lead.avatar,
-    initials: initialsFromName(lead.name),
-    notes: lead.notes ?? "Sem observacoes adicionais.",
-    interest: lead.interest
-  }));
+  return [];
 }
 
 function migrateStoredLeads(leads: LeadRecord[]) {
@@ -405,23 +387,18 @@ export default function LeadsPage() {
         if (!response.ok) throw new Error("Falha ao carregar leads reais.");
         const data = await response.json() as { leads?: LeadRecord[] };
 
-        if (mounted && data.leads?.length) {
-          setLeads(migrateStoredLeads(data.leads));
+        if (mounted) {
+          setLeads(migrateStoredLeads(data.leads ?? []));
           if (search) setQuery(search);
           return;
         }
       } catch (error) {
-        console.warn("[leads] usando fallback local", error);
+        console.warn("[leads] falha ao carregar dados reais", error);
       }
 
       if (!mounted) return;
 
-      try {
-        const stored = window.localStorage.getItem(STORAGE_KEY);
-        setLeads(stored ? migrateStoredLeads(JSON.parse(stored) as LeadRecord[]) : createInitialLeads());
-      } catch {
-        setLeads(createInitialLeads());
-      }
+      setLeads(createInitialLeads());
 
       const search = new URLSearchParams(window.location.search).get("search");
       if (search) {
@@ -435,16 +412,6 @@ export default function LeadsPage() {
       mounted = false;
     };
   }, []);
-
-  useEffect(() => {
-    try {
-      if (leads.length > 0) {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
-        window.dispatchEvent(new Event("auto-pro-ia:kanban-leads-updated"));
-      }
-    } catch {
-    }
-  }, [leads]);
 
   const activeLeads = useMemo(() => leads.filter((lead) => !lead.archived), [leads]);
 

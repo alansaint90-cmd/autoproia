@@ -14,6 +14,30 @@ function parseDate(value: string | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+const uiToDbStage: Record<string, string> = {
+  novo: "novo",
+  ia: "ia",
+  atendimento: "atendimento",
+  qualificado: "atendimento",
+  orcamento: "atendimento",
+  negociacao: "followup",
+  interessado: "followup",
+  followup: "followup",
+  perdido: "perdido",
+  matricula_pendente: "matricula_pendente",
+  matricula_realizada: "fechado",
+  fechado: "fechado"
+};
+
+function normalizeStage(value: unknown) {
+  if (typeof value !== "string") return "novo";
+  return uiToDbStage[value] ?? "novo";
+}
+
+function nonEmptyString(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
@@ -79,6 +103,91 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Nao foi possivel excluir o lead." },
+      { status: 403 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getSession();
+    await assertPermission(session.role, "createLeads");
+
+    const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+    const name = nonEmptyString(body.name);
+    const phone = nonEmptyString(body.phone);
+
+    if (!name || !phone) {
+      return NextResponse.json({ error: "Informe nome e telefone do lead." }, { status: 400 });
+    }
+
+    await db
+      .insert(leads)
+      .values({
+        name,
+        phone,
+        origin: nonEmptyString(body.origin) ?? "WhatsApp",
+        interest: nonEmptyString(body.interest),
+        temperature: nonEmptyString(body.temperature) ?? "quente",
+        sentiment: nonEmptyString(body.sentiment) ?? "positivo",
+        pipeline_stage: normalizeStage(body.status),
+        last_message_preview: nonEmptyString(body.lastMessage) ?? "Novo lead cadastrado manualmente.",
+        last_interaction_at: new Date(),
+        modified_by: session.userId
+      });
+
+    const [lead] = await queryLeads({ search: phone, limit: 1 });
+
+    return NextResponse.json({ ok: true, lead });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Nao foi possivel criar o lead." },
+      { status: 403 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getSession();
+    const body = await request.json().catch(() => ({})) as Record<string, unknown>;
+    const leadId = nonEmptyString(body.id);
+
+    if (!leadId) {
+      return NextResponse.json({ error: "Informe o lead para atualizar." }, { status: 400 });
+    }
+
+    if (body.status !== undefined) {
+      await assertPermission(session.role, "moveKanban");
+    } else {
+      await assertPermission(session.role, "editLeads");
+    }
+
+    const update: Partial<typeof leads.$inferInsert> = {
+      updated_at: new Date(),
+      modified_by: session.userId
+    };
+
+    if (body.name !== undefined) update.name = nonEmptyString(body.name);
+    if (body.phone !== undefined) {
+      const phone = nonEmptyString(body.phone);
+      if (!phone) return NextResponse.json({ error: "Telefone invalido." }, { status: 400 });
+      update.phone = phone;
+    }
+    if (body.origin !== undefined) update.origin = nonEmptyString(body.origin) ?? "WhatsApp";
+    if (body.interest !== undefined) update.interest = nonEmptyString(body.interest);
+    if (body.temperature !== undefined) update.temperature = nonEmptyString(body.temperature) ?? "morno";
+    if (body.sentiment !== undefined) update.sentiment = nonEmptyString(body.sentiment) ?? "neutro";
+    if (body.status !== undefined) update.pipeline_stage = normalizeStage(body.status);
+    if (body.lastMessage !== undefined) update.last_message_preview = nonEmptyString(body.lastMessage);
+    if (body.status !== undefined || body.lastMessage !== undefined) update.last_interaction_at = new Date();
+
+    await db.update(leads).set(update).where(eq(leads.id, leadId));
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Nao foi possivel atualizar o lead." },
       { status: 403 }
     );
   }

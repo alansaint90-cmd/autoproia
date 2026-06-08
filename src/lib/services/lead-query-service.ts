@@ -42,9 +42,14 @@ type SellerRow = { seller: string | null; closed: string | number | bigint; reve
 const stageMap: Record<string, string> = {
   novo: "novo",
   ia: "ia",
+  qualificado: "atendimento",
   atendimento: "atendimento",
+  orcamento: "atendimento",
+  negociacao: "followup",
+  interessado: "followup",
   followup: "followup",
   matricula_pendente: "matricula_pendente",
+  matricula_realizada: "matricula_realizada",
   fechado: "matricula_realizada",
   perdido: "perdido"
 };

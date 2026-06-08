@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { Topbar } from "@/components/topbar";
 import { cn } from "@/lib/utils";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import {
   aiPerformance,
   dashboardStats,
@@ -29,11 +29,7 @@ import {
   sellerClosing
 } from "@/lib/mock-data";
 
-const sellerClosingExtended = [
-  ...sellerClosing,
-  { seller: "Ana Consultora", closed: 16, revenue: "R$ 38.400", conversion: 22 },
-  { seller: "Beatriz SDR", closed: 13, revenue: "R$ 31.200", conversion: 19 }
-];
+const sellerClosingExtended = sellerClosing;
 
 const aiMetricIcons = [Bot, Target, Clock3, UserPlus];
 
@@ -163,28 +159,15 @@ const chartSurfaceClass =
 const neutralChartSurfaceClass =
   "relative overflow-hidden rounded-[22px] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(17,24,39,0.78),rgba(11,17,32,0.92))] p-4";
 
-const commercialPulse = [
-  { label: "Ana fechou matricula CNH B", time: "agora", icon: CarPulseIcon },
-  { label: "IA qualificou 4 novos leads", time: "2 min", icon: BadgeDollarSign },
-  { label: "Lead quente: Pedro H.", time: "8 min", icon: Flame },
-  { label: "12 conversas atribuidas", time: "12 min", icon: MessageCircleMore },
-  { label: "Conversao Meta Ads +18%", time: "1 h", icon: TrendingUp }
-];
+const commercialPulse: Array<{
+  label: string;
+  time: string;
+  icon: ComponentType<{ size?: number; className?: string }>;
+}> = [];
 
-const monthlyConversion = [
-  { month: "Jan", leads: 180, enrollments: 42 },
-  { month: "Fev", leads: 220, enrollments: 58 },
-  { month: "Mar", leads: 260, enrollments: 71 },
-  { month: "Abr", leads: 240, enrollments: 64 },
-  { month: "Mai", leads: 310, enrollments: 89 },
-  { month: "Jun", leads: 348, enrollments: 102 },
-  { month: "Jul", leads: 332, enrollments: 96 },
-  { month: "Ago", leads: 365, enrollments: 112 },
-  { month: "Set", leads: 390, enrollments: 126 },
-  { month: "Out", leads: 418, enrollments: 141 },
-  { month: "Nov", leads: 402, enrollments: 132 },
-  { month: "Dez", leads: 436, enrollments: 154 }
-];
+const monthlyConversion = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"].map(
+  (month) => ({ month, leads: 0, enrollments: 0 })
+);
 
 const designPalette = {
   yellow: "#FACC15",
@@ -236,10 +219,10 @@ export default function DashboardPage() {
   const [periodFilterOpen, setPeriodFilterOpen] = useState(false);
   const [runtimeMetrics, setRuntimeMetrics] = useState<DashboardRuntimeMetrics | null>(null);
   const periodFilterCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const bestSeller = sellerClosingExtended.reduce((best, seller) => (seller.closed > best.closed ? seller : best));
   const rankedSellers = sellerClosingExtended.slice().sort((a, b) => b.closed - a.closed);
+  const bestSeller = rankedSellers[0] ?? null;
   const displayStats = runtimeMetrics?.stats ?? dashboardStats;
-  const displayOriginData = runtimeMetrics?.leadsByOrigin?.length ? runtimeMetrics.leadsByOrigin : leadsByOrigin;
+  const displayOriginData = runtimeMetrics?.leadsByOrigin ?? leadsByOrigin;
   const cards = buildDashboardCards(displayStats);
 
   const cancelPeriodFilterClose = () => {
@@ -410,14 +393,16 @@ export default function DashboardPage() {
                 <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-primary/80">Ranking comercial</p>
                 <h2 className="text-lg font-extrabold tracking-normal">Vendedor com mais fechamento</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {bestSeller.seller} lidera a disputa com {bestSeller.closed} matriculas no mes
+                  {bestSeller ? `${bestSeller.seller} lidera a disputa com ${bestSeller.closed} matriculas no mes` : "Aguardando fechamentos reais no periodo"}
                 </p>
               </div>
               <div className="group/ranking-hint relative shrink-0">
                 <DashboardIcon icon={Trophy} tone="border-[#FACC15]/28 bg-[#FACC15]/10 text-[#FACC15]" size={20} />
                 <div className="pointer-events-none absolute right-0 top-12 z-30 w-64 translate-y-2 rounded-2xl border border-white/10 bg-[#0B1120]/[0.98] p-3 text-left opacity-0 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-all duration-200 group-hover/ranking-hint:translate-y-0 group-hover/ranking-hint:opacity-100">
                   <p className="text-xs font-black uppercase tracking-[0.12em] text-primary">Destaque comercial</p>
-                  <p className="mt-2 text-sm font-bold text-foreground">{bestSeller.seller} lidera o ranking de fechamento.</p>
+                  <p className="mt-2 text-sm font-bold text-foreground">
+                    {bestSeller ? `${bestSeller.seller} lidera o ranking de fechamento.` : "Sem fechamentos registrados ainda."}
+                  </p>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
                     Use este bloco para comparar produtividade, receita e ritmo de matriculas por vendedor.
                   </p>
@@ -426,7 +411,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="mb-4 grid h-[214px] grid-cols-3 items-end gap-3 rounded-2xl border border-white/[0.06] bg-[#0B1120]/38 px-4 pb-4 pt-8">
-              {[rankedSellers[1], rankedSellers[0], rankedSellers[2]].map((seller, podiumIndex) => {
+              {[rankedSellers[1], rankedSellers[0], rankedSellers[2]].filter(Boolean).map((seller, podiumIndex) => {
                 const position = podiumIndex === 0 ? 2 : podiumIndex === 1 ? 1 : 3;
                 const PodiumIcon = position === 1 ? Trophy : Medal;
                 const height = position === 1 ? "h-[172px]" : position === 2 ? "h-[134px]" : "h-[118px]";
@@ -466,9 +451,13 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid max-h-[204px] gap-2 overflow-y-auto pr-1 md:grid-cols-2 [scrollbar-color:rgba(11,95,165,0.45)_transparent] [scrollbar-width:thin]">
-              {rankedSellers.map((seller, index) => (
+              {rankedSellers.length ? rankedSellers.map((seller, index) => (
                 <SellerRow key={seller.seller} seller={seller} position={index + 1} />
-              ))}
+              )) : (
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 text-sm font-bold text-muted-foreground md:col-span-2">
+                  Nenhum vendedor com fechamento real neste periodo.
+                </div>
+              )}
             </div>
           </article>
 
@@ -478,7 +467,7 @@ export default function DashboardPage() {
             icon={Bot}
           >
             <div className="grid gap-3">
-              {aiPerformance.map((item, index) => {
+              {aiPerformance.length ? aiPerformance.map((item, index) => {
                 const MetricIcon = aiMetricIcons[index] ?? Bot;
 
                 return (
@@ -510,7 +499,11 @@ export default function DashboardPage() {
                   </Tooltip>
                 </div>
                 );
-              })}
+              }) : (
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 text-sm font-bold text-muted-foreground">
+                  Aguardando metricas reais da IA comercial.
+                </div>
+              )}
             </div>
           </ChartPanel>
         </section>
@@ -566,7 +559,7 @@ function BusinessPulsePanel({ compact = false }: { compact?: boolean }) {
       </div>
 
       <div className={cn("relative z-0 min-h-0", compact ? "space-y-2.5 overflow-hidden" : "space-y-3")}>
-        {visibleEvents.map((event, index) => (
+        {visibleEvents.length ? visibleEvents.map((event, index) => (
           <div
             key={event.label}
             className={cn(
@@ -591,7 +584,11 @@ function BusinessPulsePanel({ compact = false }: { compact?: boolean }) {
             </span>
             <Tooltip>{event.time} - evento comercial em tempo real</Tooltip>
           </div>
-        ))}
+        )) : (
+          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.028] p-4 text-sm font-bold text-muted-foreground">
+            Aguardando eventos reais do WhatsApp e do funil comercial.
+          </div>
+        )}
       </div>
     </article>
   );
@@ -603,7 +600,8 @@ function FunnelHealthDonut() {
     value: origin.value,
     color: originDonutColors[index] ?? "#334155"
   }));
-  const total = data.reduce((sum, item) => sum + item.value, 0);
+  const rawTotal = data.reduce((sum, item) => sum + item.value, 0);
+  const total = Math.max(1, rawTotal);
   const radius = 43;
   const circumference = 2 * Math.PI * radius;
   let accumulated = 0;
@@ -620,7 +618,7 @@ function FunnelHealthDonut() {
           <DashboardIcon icon={UserPlus} tone="border-sky-300/18 bg-sky-300/8 text-sky-100" size={19} />
           <div className="pointer-events-none absolute right-0 top-12 z-30 w-64 translate-y-2 rounded-2xl border border-white/10 bg-[#0B1120]/[0.98] p-3 text-left opacity-0 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-all duration-200 group-hover/origin-hint:translate-y-0 group-hover/origin-hint:opacity-100">
             <p className="text-xs font-black uppercase tracking-[0.12em] text-primary">Leads por origem</p>
-            <p className="mt-2 text-sm font-bold text-foreground">{total} leads captados nos canais ativos.</p>
+            <p className="mt-2 text-sm font-bold text-foreground">{rawTotal} leads captados nos canais ativos.</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               Compare volume por canal e acompanhe onde vale concentrar investimento e atendimento.
             </p>
@@ -656,13 +654,13 @@ function FunnelHealthDonut() {
           <div className="absolute inset-0 grid place-items-center text-center">
               <span>
               <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">Total</span>
-              <span className="block font-mono text-3xl font-black text-primary">{total}</span>
+              <span className="block font-mono text-3xl font-black text-primary">{rawTotal}</span>
             </span>
           </div>
         </div>
 
         <div className="grid gap-2">
-          {data.map((item) => (
+          {data.length ? data.map((item) => (
             <div key={item.label} className="grid grid-cols-[1fr_auto] items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.028] px-3 py-2">
               <span className="inline-flex min-w-0 items-center gap-2 text-xs font-black">
                 <span className="size-2.5 rounded-full" style={{ backgroundColor: item.color }} />
@@ -670,7 +668,11 @@ function FunnelHealthDonut() {
               </span>
               <span className="font-mono text-xs font-black text-slate-200">{Math.round((item.value / total) * 100)}%</span>
             </div>
-          ))}
+          )) : (
+            <div className="rounded-xl border border-white/[0.07] bg-white/[0.028] px-3 py-4 text-xs font-bold text-muted-foreground">
+              Sem origens reais no periodo.
+            </div>
+          )}
         </div>
       </div>
     </article>
@@ -727,7 +729,7 @@ function SellerRow({
   seller: { seller: string; closed: number; revenue: string; conversion: number };
   position: number;
 }) {
-  const maxClosed = Math.max(...sellerClosingExtended.map((item) => item.closed));
+  const maxClosed = Math.max(1, ...sellerClosingExtended.map((item) => item.closed));
   const progress = Math.round((seller.closed / maxClosed) * 100);
   const RankIcon = position === 1 ? Trophy : Medal;
   const rankTone =
@@ -781,8 +783,8 @@ function MonthlyConversionChart() {
   const [activeIndex, setActiveIndex] = useState(monthlyConversion.length - 1);
   const [isHovering, setIsHovering] = useState(false);
   const [visibleSeries, setVisibleSeries] = useState({ leads: true, enrollments: true });
-  const maxLeads = Math.max(...monthlyConversion.map((item) => item.leads));
-  const maxEnrollments = Math.max(...monthlyConversion.map((item) => item.enrollments));
+  const maxLeads = Math.max(1, ...monthlyConversion.map((item) => item.leads));
+  const maxEnrollments = Math.max(1, ...monthlyConversion.map((item) => item.enrollments));
   const plotStart = 54;
   const plotEnd = 566;
   const plotBottom = 218;
@@ -792,7 +794,7 @@ function MonthlyConversionChart() {
     const x = plotStart + index * xStep;
     const yLeads = plotBottom - (item.leads / maxLeads) * plotHeight;
     const yEnrollments = plotBottom - (item.enrollments / maxEnrollments) * 142;
-    const rate = Math.round((item.enrollments / item.leads) * 1000) / 10;
+    const rate = item.leads > 0 ? Math.round((item.enrollments / item.leads) * 1000) / 10 : 0;
     const yRate = plotBottom - (rate / 38) * 132;
 
     return { ...item, x, yLeads, yEnrollments, yRate, rate };
@@ -805,7 +807,7 @@ function MonthlyConversionChart() {
   const bestMonth = points.reduce((best, point) => (point.rate > best.rate ? point : best), points[0]);
   const totalLeads = monthlyConversion.reduce((sum, item) => sum + item.leads, 0);
   const totalEnrollments = monthlyConversion.reduce((sum, item) => sum + item.enrollments, 0);
-  const totalRate = Math.round((totalEnrollments / totalLeads) * 1000) / 10;
+  const totalRate = totalLeads > 0 ? Math.round((totalEnrollments / totalLeads) * 1000) / 10 : 0;
 
   const leadLine = points.map((point) => `${point.x},${point.yLeads}`).join(" ");
   const enrollmentLine = points.map((point) => `${point.x},${point.yEnrollments}`).join(" ");
@@ -1083,11 +1085,12 @@ function OriginDonut({
 }) {
   const [activeOrigin, setActiveOrigin] = useState<number | null>(null);
   const [activeFunnel, setActiveFunnel] = useState<number | null>(null);
-  const total = Math.max(1, data.reduce((sum, item) => sum + item.value, 0));
+  const rawTotal = data.reduce((sum, item) => sum + item.value, 0);
+  const total = Math.max(1, rawTotal);
   const activeOriginData = activeOrigin !== null ? data[activeOrigin] : null;
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
-  const funnelMax = Math.max(...funnelData.map((item) => item.value));
+  const funnelMax = Math.max(1, ...funnelData.map((item) => item.value));
   const funnelColors = [
     ["#38BDF8", "#0B5FA5"],
     ["#FACC15", "#EAB308"],
@@ -1146,7 +1149,7 @@ function OriginDonut({
             <div className={cn("grid place-items-center rounded-full border border-[#0B5FA5]/20 bg-[#0b1120]/95 text-center shadow-[inset_0_0_28px_rgba(0,0,0,0.35)]", compact ? "size-[64px]" : "size-[82px]")}>
               <span>
                 <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">Total</span>
-                <span className={cn("block font-mono font-black text-primary", compact ? "text-xl" : "text-2xl")}>{total}</span>
+                <span className={cn("block font-mono font-black text-primary", compact ? "text-xl" : "text-2xl")}>{rawTotal}</span>
               </span>
             </div>
           </div>
@@ -1162,7 +1165,7 @@ function OriginDonut({
         </div>
 
         <div className="grid gap-1.5">
-          {data.map((origin, index) => {
+          {data.length ? data.map((origin, index) => {
             const percent = Math.round((origin.value / total) * 100);
             const isActive = activeOrigin === index;
 
@@ -1188,7 +1191,11 @@ function OriginDonut({
                 <span className="font-mono text-xs font-black text-foreground">{percent}%</span>
               </button>
             );
-          })}
+          }) : (
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-2 text-[11px] font-bold text-muted-foreground">
+              Sem origens reais no periodo.
+            </div>
+          )}
         </div>
       </div>
 
@@ -1202,7 +1209,7 @@ function OriginDonut({
         </div>
 
         <div className="grid gap-2">
-          {funnelData.map((item, index) => {
+          {funnelData.length ? funnelData.map((item, index) => {
             const percent = Math.round((item.value / funnelMax) * 100);
             const funnelWidth = Math.max(26, 100 - index * 14);
             const isActive = activeFunnel === index;
@@ -1238,7 +1245,11 @@ function OriginDonut({
                 </div>
               </button>
             );
-          })}
+          }) : (
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 py-4 text-xs font-bold text-muted-foreground">
+              Sem dados reais de funil ainda.
+            </div>
+          )}
           </div>
       </div>
       )}

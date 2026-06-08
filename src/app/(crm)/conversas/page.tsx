@@ -13,6 +13,7 @@ import {
   Gauge,
   ImageIcon,
   LockKeyhole,
+  MessageCircle,
   MessageSquareText,
   Mic,
   Music2,
@@ -390,7 +391,7 @@ function createConversationFromKanbanLead(lead: KanbanStoredLead): Conversation 
 }
 
 export default function ConversasPage() {
-  const [activeId, setActiveId] = useState(conversations[0].lead.id);
+  const [activeId, setActiveId] = useState(conversations[0]?.lead.id ?? "");
   const [availableConversations, setAvailableConversations] = useState<Conversation[]>(conversations);
   const [manualConversationIds, setManualConversationIds] = useState<string[]>([]);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>(defaultQuickReplies);
@@ -453,14 +454,14 @@ export default function ConversasPage() {
       ].some((value) => value.toLowerCase().includes(normalized))
     );
   }, [archivedConversationIds, availableConversations, blockedConversationIds, conversationQuery, favoriteConversationIds, inboxView, manualConversationIds, mutedConversationIds, pinnedConversationIds]);
-  const active = availableConversations.find((conversation) => conversation.lead.id === activeId) ?? availableConversations[0] ?? conversations[0];
+  const active = availableConversations.find((conversation) => conversation.lead.id === activeId) ?? availableConversations[0] ?? null;
   const editingReply = quickReplies.find((reply) => reply.id === editingReplyId);
   const canSendDraft = draftMessage.trim().length > 0 || Boolean(draftAttachment);
-  const isManualAttendance = manualConversationIds.includes(active.lead.id) || active.status === "human";
-  const isActiveFavorite = favoriteConversationIds.includes(active.lead.id);
-  const isActiveMuted = mutedConversationIds.includes(active.lead.id);
-  const hasTemporaryMessages = temporaryMessageIds.includes(active.lead.id);
-  const hasAdvancedPrivacy = privacyConversationIds.includes(active.lead.id);
+  const isManualAttendance = active ? manualConversationIds.includes(active.lead.id) || active.status === "human" : false;
+  const isActiveFavorite = active ? favoriteConversationIds.includes(active.lead.id) : false;
+  const isActiveMuted = active ? mutedConversationIds.includes(active.lead.id) : false;
+  const hasTemporaryMessages = active ? temporaryMessageIds.includes(active.lead.id) : false;
+  const hasAdvancedPrivacy = active ? privacyConversationIds.includes(active.lead.id) : false;
   const currentAgent = "Carla Vendas";
   const favoriteCount = availableConversations.filter((conversation, index) => favoriteConversationIds.includes(conversation.lead.id) || conversation.lead.temperature === "quente" || index === 0).length;
   const archivedCount = archivedConversationIds.length;
@@ -557,32 +558,42 @@ export default function ConversasPage() {
   }, [archivedConversationIds, blockedConversationIds, favoriteConversationIds, mutedConversationIds, pinnedConversationIds, privacyConversationIds, temporaryMessageIds]);
 
   useEffect(() => {
-    let mergedConversations = conversations;
+    let mounted = true;
 
-    try {
-      const stored = window.localStorage.getItem(kanbanLeadStorageKey);
-      const parsed = stored ? (JSON.parse(stored) as KanbanStoredLead[]) : [];
+    async function loadRealConversations() {
+      try {
+        const response = await fetch("/api/conversations?limit=120", { cache: "no-store" });
+        if (!response.ok) throw new Error("Falha ao carregar conversas reais.");
+        const data = await response.json() as { conversations?: Conversation[] };
+        const mergedConversations = data.conversations ?? [];
 
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const kanbanConversations = parsed
-          .filter((lead) => lead?.id && lead?.name && !("archived" in lead && lead.archived))
-          .map(createConversationFromKanbanLead);
-        const kanbanIds = new Set(kanbanConversations.map((conversation) => conversation.lead.id));
-        mergedConversations = [
-          ...kanbanConversations,
-          ...conversations.filter((conversation) => !kanbanIds.has(conversation.lead.id))
-        ];
+        if (!mounted) return;
+
+        setAvailableConversations(mergedConversations);
+
+        const leadId = new URLSearchParams(window.location.search).get("lead");
+        if (leadId && mergedConversations.some((conversation) => conversation.lead.id === leadId)) {
+          setActiveId(leadId);
+          return;
+        }
+
+        setActiveId(mergedConversations[0]?.lead.id ?? "");
+      } catch (error) {
+        console.warn("[conversas] falha ao carregar conversas reais", error);
+        if (mounted) {
+          setAvailableConversations([]);
+          setActiveId("");
+        }
       }
-    } catch {
-      mergedConversations = conversations;
     }
 
-    setAvailableConversations(mergedConversations);
+    loadRealConversations();
+    const interval = window.setInterval(loadRealConversations, 10_000);
 
-    const leadId = new URLSearchParams(window.location.search).get("lead");
-    if (leadId && mergedConversations.some((conversation) => conversation.lead.id === leadId)) {
-      setActiveId(leadId);
-    }
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
@@ -690,6 +701,7 @@ export default function ConversasPage() {
   }
 
   function assumeConversation() {
+    if (!active) return;
     setManualConversationIds((ids) => (ids.includes(active.lead.id) ? ids : [...ids, active.lead.id]));
     setAvailableConversations((items) =>
       items.map((conversation) =>
@@ -709,6 +721,7 @@ export default function ConversasPage() {
   }
 
   function returnConversationToAi() {
+    if (!active) return;
     setManualConversationIds((ids) => ids.filter((id) => id !== active.lead.id));
     setAvailableConversations((items) =>
       items.map((conversation) =>
@@ -904,6 +917,41 @@ export default function ConversasPage() {
       top: Math.max(84, rect.top + rect.height / 2),
       left: Math.min(window.innerWidth - 360, rect.right + 18)
     });
+  }
+
+  if (!active) {
+    return (
+      <>
+        <Topbar
+          title="Central de Atendimento"
+          subtitle="WhatsApp + IA com intervencao humana sem perda de contexto"
+          searchValue={conversationQuery}
+          onSearchChange={setConversationQuery}
+        />
+        <div className="grid h-[calc(100dvh-64px)] min-h-0 grid-cols-1 overflow-hidden bg-[radial-gradient(circle_at_42%_0%,rgba(11,95,165,0.10),transparent_34%),#0B1120] md:grid-cols-[380px_1fr]">
+          <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-white/[0.08] bg-[#060a12]/95 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-sm font-extrabold">Caixa de entrada</h2>
+              <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">
+                0 ativos
+              </span>
+            </div>
+            <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 text-sm font-bold text-muted-foreground">
+              Aguardando conversas reais recebidas pela Evolution API.
+            </div>
+          </aside>
+          <main className="grid place-items-center p-6">
+            <div className="max-w-md rounded-[22px] border border-white/[0.08] bg-card/70 p-6 text-center shadow-panel">
+              <MessageCircle className="mx-auto size-9 text-primary" />
+              <h2 className="mt-4 text-lg font-black">Nenhuma conversa real ainda</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Quando o WhatsApp enviar mensagens pelo webhook, elas devem aparecer aqui com o lead e o historico real.
+              </p>
+            </div>
+          </main>
+        </div>
+      </>
+    );
   }
 
   return (

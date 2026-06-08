@@ -19,7 +19,6 @@ import {
   X
 } from "lucide-react";
 import { Topbar } from "@/components/topbar";
-import { leads as mockLeads } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 type PipelineStage =
@@ -62,8 +61,6 @@ type LeadDraft = {
 type PipelineGroup = "Comercial" | "Follow-up" | "Fechamento";
 
 const pipelineGroups: PipelineGroup[] = ["Comercial", "Follow-up", "Fechamento"];
-
-const STORAGE_KEY = "auto-pro-ia:kanban-leads";
 
 const pipelineStages: Array<{
   id: PipelineStage;
@@ -146,20 +143,7 @@ function initialsFromName(name: string) {
 }
 
 function createInitialLeads(): LeadCard[] {
-  return mockLeads.map((lead, index) => ({
-    id: lead.id,
-    name: lead.name,
-    phone: lead.phone,
-    origin: lead.origin,
-    status: stageFromMock[lead.stage],
-    temperature: lead.temperature,
-    sentiment: ["positivo", "duvida", "neutro", "negativo"][index % 4] as LeadCard["sentiment"],
-    lastMessage: quickMessages[index % quickMessages.length],
-    lastInteraction: lead.lastInteraction,
-    responsible: lead.responsible,
-    initials: initialsFromName(lead.name),
-    notes: lead.notes ?? "Lead cadastrado para acompanhamento comercial."
-  }));
+  return [];
 }
 
 function migrateStoredLeads(storedLeads: LeadCard[]) {
@@ -263,26 +247,13 @@ export default function KanbanPage() {
         if (!response.ok) throw new Error("Falha ao carregar leads reais.");
         const data = await response.json() as { leads?: LeadCard[] };
 
-        if (mounted && data.leads?.length) {
-          setLeads(migrateStoredLeads(data.leads));
+        if (mounted) {
+          setLeads(migrateStoredLeads(data.leads ?? []));
           setHasHydrated(true);
           return;
         }
       } catch (error) {
-        console.warn("[kanban] usando fallback local", error);
-      }
-
-      try {
-        const stored = window.localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          if (mounted) {
-            setLeads(migrateStoredLeads(JSON.parse(stored) as LeadCard[]));
-            setHasHydrated(true);
-          }
-          return;
-        }
-      } catch {
-        window.localStorage.removeItem(STORAGE_KEY);
+        console.warn("[kanban] falha ao carregar dados reais", error);
       }
 
       if (mounted) {
@@ -297,12 +268,6 @@ export default function KanbanPage() {
       mounted = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (leads.length > 0) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
-    }
-  }, [leads]);
 
   const activeLead = useMemo(
     () => leads.find((lead) => lead.id === activeLeadId) ?? null,
@@ -344,7 +309,10 @@ export default function KanbanPage() {
   const selectedTemperatureLabel = temperatureFilter === "todos" ? "Temperatura" : temperatureFilter;
   const selectedSentimentLabel = sentimentFilter === "todos" ? "Sentimento" : sentimentFilter;
 
-  function moveLead(leadId: string, status: PipelineStage) {
+  async function moveLead(leadId: string, status: PipelineStage) {
+    const previousLead = leads.find((lead) => lead.id === leadId);
+    if (!previousLead || previousLead.status === status) return;
+
     setMovedLeadId(leadId);
     setLeads((current) =>
       current.map((lead) =>
@@ -358,6 +326,32 @@ export default function KanbanPage() {
       )
     );
     window.setTimeout(() => setMovedLeadId(null), 420);
+
+    try {
+      const response = await fetch("/api/leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: leadId, status })
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Nao foi possivel mover o lead.");
+      }
+    } catch (error) {
+      setLeads((current) =>
+        current.map((lead) =>
+          lead.id === leadId
+            ? {
+                ...lead,
+                status: previousLead.status,
+                lastInteraction: previousLead.lastInteraction
+              }
+            : lead
+        )
+      );
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel mover o lead.");
+    }
   }
 
   function openCreateModal() {
@@ -388,27 +382,42 @@ export default function KanbanPage() {
     setDraft(emptyDraft);
   }
 
-  function saveLead() {
+  async function saveLead() {
     if (!draft.name.trim()) {
       return;
     }
 
     if (isCreating) {
-      const newLead: LeadCard = {
-        id: `lead-${Date.now()}`,
-        ...draft,
-        lastMessage: draft.lastMessage.trim() || "Novo lead cadastrado manualmente.",
-        notes: draft.notes.trim() || "Lead criado pelo botao Novo Lead.",
-        initials: initialsFromName(draft.name),
-        lastInteraction: "agora"
-      };
-      setLeads((current) => [newLead, ...current]);
-      setQuery("");
-      setOriginFilter("Todos");
-      setStatusFilter("todos");
-      setTemperatureFilter("todos");
-      setSentimentFilter("todos");
-      closeModal();
+      try {
+        const response = await fetch("/api/leads", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...draft,
+            lastMessage: draft.lastMessage.trim() || "Novo lead cadastrado manualmente."
+          })
+        });
+        const payload = await response.json().catch(() => ({})) as { lead?: LeadCard; error?: string };
+
+        if (!response.ok || !payload.lead) {
+          throw new Error(payload.error ?? "Nao foi possivel criar o lead.");
+        }
+
+        const [createdLead] = migrateStoredLeads([payload.lead]);
+        if (!createdLead) {
+          throw new Error("Lead criado, mas nao foi possivel sincronizar o retorno.");
+        }
+
+        setLeads((current) => [createdLead, ...current]);
+        setQuery("");
+        setOriginFilter("Todos");
+        setStatusFilter("todos");
+        setTemperatureFilter("todos");
+        setSentimentFilter("todos");
+        closeModal();
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : "Nao foi possivel criar o lead.");
+      }
       return;
     }
 
@@ -416,19 +425,37 @@ export default function KanbanPage() {
       return;
     }
 
-    setLeads((current) =>
-      current.map((lead) =>
-        lead.id === activeLead.id
-          ? {
-              ...lead,
-              ...draft,
-              initials: initialsFromName(draft.name),
-              lastInteraction: "agora"
-            }
-          : lead
-      )
-    );
-    closeModal();
+    try {
+      const response = await fetch("/api/leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: activeLead.id,
+          ...draft
+        })
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Nao foi possivel atualizar o lead.");
+      }
+
+      setLeads((current) =>
+        current.map((lead) =>
+          lead.id === activeLead.id
+            ? {
+                ...lead,
+                ...draft,
+                initials: initialsFromName(draft.name),
+                lastInteraction: "agora"
+              }
+            : lead
+        )
+      );
+      closeModal();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel atualizar o lead.");
+    }
   }
 
   function archiveLead(leadId: string) {
