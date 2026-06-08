@@ -419,6 +419,7 @@ export default function ConversasPage() {
   const [draftMessage, setDraftMessage] = useState("");
   const [draftAttachment, setDraftAttachment] = useState<QuickReplyAttachment | undefined>();
   const [isSendingDraft, setIsSendingDraft] = useState(false);
+  const [isChangingHandoff, setIsChangingHandoff] = useState(false);
   const [showLeadProfile, setShowLeadProfile] = useState(false);
   const [deleteReplyId, setDeleteReplyId] = useState<string | null>(null);
   const [replyFeedback, setReplyFeedback] = useState("");
@@ -467,6 +468,7 @@ export default function ConversasPage() {
   const favoriteCount = availableConversations.filter((conversation, index) => favoriteConversationIds.includes(conversation.lead.id) || conversation.lead.temperature === "quente" || index === 0).length;
   const archivedCount = archivedConversationIds.length;
   const mutedCount = mutedConversationIds.filter((id) => !archivedConversationIds.includes(id)).length;
+  const activeConversationId = active ? (active as Conversation & { id?: string }).id : undefined;
 
   useEffect(() => {
     if (!conversationQuery.trim() || filteredConversations.length === 0) {
@@ -758,40 +760,90 @@ export default function ConversasPage() {
     }
   }
 
-  function assumeConversation() {
-    if (!active) return;
-    setManualConversationIds((ids) => (ids.includes(active.lead.id) ? ids : [...ids, active.lead.id]));
-    setAvailableConversations((items) =>
-      items.map((conversation) =>
-        conversation.lead.id === active.lead.id
-          ? {
-              ...conversation,
-              status: "human",
-              lead: {
-                ...conversation.lead,
-                responsible: currentAgent
-              },
-              preview: "Atendimento assumido por Carla Vendas."
-            }
-          : conversation
-      )
-    );
+  async function assumeConversation() {
+    if (!active || isChangingHandoff) return;
+
+    if (!activeConversationId) {
+      window.alert("Conversa ainda nao sincronizada com o banco.");
+      return;
+    }
+
+    setIsChangingHandoff(true);
+
+    try {
+      const response = await fetch(`/api/conversations/${activeConversationId}/assume`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "Atendente assumiu manualmente pela central." })
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Nao foi possivel assumir a conversa.");
+      }
+
+      setManualConversationIds((ids) => (ids.includes(active.lead.id) ? ids : [...ids, active.lead.id]));
+      setAvailableConversations((items) =>
+        items.map((conversation) =>
+          conversation.lead.id === active.lead.id
+            ? {
+                ...conversation,
+                status: "human",
+                lead: {
+                  ...conversation.lead,
+                  responsible: currentAgent
+                },
+                preview: "Atendimento assumido por Carla Vendas."
+              }
+            : conversation
+        )
+      );
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel assumir a conversa.");
+    } finally {
+      setIsChangingHandoff(false);
+    }
   }
 
-  function returnConversationToAi() {
-    if (!active) return;
-    setManualConversationIds((ids) => ids.filter((id) => id !== active.lead.id));
-    setAvailableConversations((items) =>
-      items.map((conversation) =>
-        conversation.lead.id === active.lead.id
-          ? {
-              ...conversation,
-              status: "ai",
-              preview: "IA retomou o atendimento automatico."
-            }
-          : conversation
-      )
-    );
+  async function returnConversationToAi() {
+    if (!active || isChangingHandoff) return;
+
+    if (!activeConversationId) {
+      window.alert("Conversa ainda nao sincronizada com o banco.");
+      return;
+    }
+
+    setIsChangingHandoff(true);
+
+    try {
+      const response = await fetch(`/api/conversations/${activeConversationId}/return-to-ai`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "Atendimento devolvido manualmente para IA." })
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Nao foi possivel devolver a conversa para IA.");
+      }
+
+      setManualConversationIds((ids) => ids.filter((id) => id !== active.lead.id));
+      setAvailableConversations((items) =>
+        items.map((conversation) =>
+          conversation.lead.id === active.lead.id
+            ? {
+                ...conversation,
+                status: "ai",
+                preview: "IA retomou o atendimento automatico."
+              }
+            : conversation
+        )
+      );
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel devolver a conversa para IA.");
+    } finally {
+      setIsChangingHandoff(false);
+    }
   }
 
   function applyQuickReply(reply: QuickReply) {
@@ -1363,9 +1415,10 @@ export default function ConversasPage() {
                 {isManualAttendance ? `Piloto: ${currentAgent}` : "IA conduzindo"}
               </span>
               <button
-                onClick={isManualAttendance ? returnConversationToAi : assumeConversation}
+                onClick={() => void (isManualAttendance ? returnConversationToAi() : assumeConversation())}
+                disabled={isChangingHandoff}
                 className={cn(
-                  "inline-flex h-10 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition hover:-translate-y-0.5",
+                  "inline-flex h-10 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0",
                   isManualAttendance
                     ? "border-[#0B5FA5]/50 bg-[#0B5FA5]/16 text-blue-100 shadow-[0_0_22px_rgba(11,95,165,0.14)] hover:border-[#38BDF8]/45 hover:bg-[#0B5FA5]/24"
                     : "border-[#0B5FA5]/35 bg-[#0B5FA5]/10 text-blue-100 hover:border-[#0B5FA5]/55 hover:bg-[#0B5FA5]/18"
@@ -1375,8 +1428,8 @@ export default function ConversasPage() {
                 {isManualAttendance ? "Devolver para IA" : "Pausar IA"}
               </button>
               <button
-                onClick={assumeConversation}
-                disabled={isManualAttendance}
+                onClick={() => void assumeConversation()}
+                disabled={isManualAttendance || isChangingHandoff}
                 className={cn(
                   "inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-xs font-bold shadow-glow transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0",
                   isManualAttendance

@@ -151,7 +151,7 @@ export async function queryLeads(params: LeadQueryParams = {}) {
       l.id,
       l.name,
       l.phone,
-      null::text as avatar,
+      l.avatar_url as avatar,
       l.origin,
       l.interest,
       l.temperature,

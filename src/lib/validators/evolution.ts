@@ -10,6 +10,9 @@ export const evolutionWebhookSchema = z.object({
       fromMe: z.boolean().default(false)
     }),
     pushName: z.string().optional(),
+    profilePictureUrl: z.string().optional(),
+    profilePicUrl: z.string().optional(),
+    picture: z.string().optional(),
     message: z.record(z.string(), z.unknown()).optional(),
     messageType: z.string().optional(),
     messageTimestamp: z.number().optional()

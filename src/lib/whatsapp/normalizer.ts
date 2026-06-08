@@ -5,6 +5,7 @@ export type NormalizedInboundMessage = {
   externalMessageId?: string;
   phone: string;
   leadName?: string;
+  avatarUrl?: string;
   text: string;
   fromMe: boolean;
 };
@@ -21,6 +22,7 @@ export function normalizeEvolutionMessage(input: EvolutionWebhookInput): Normali
     externalMessageId: input.data.key.id,
     phone: input.data.key.remoteJid.replace(/\D/g, ""),
     leadName: input.data.pushName,
+    avatarUrl: input.data.profilePictureUrl ?? input.data.profilePicUrl ?? input.data.picture,
     text,
     fromMe: input.data.key.fromMe
   };

@@ -5,6 +5,19 @@ type SendTextInput = {
   text: string;
 };
 
+type ProfilePictureResponse = {
+  profilePictureUrl?: string;
+  profilePicUrl?: string;
+  picture?: string;
+  url?: string;
+  data?: {
+    profilePictureUrl?: string;
+    profilePicUrl?: string;
+    picture?: string;
+    url?: string;
+  };
+};
+
 export async function sendWhatsAppText(input: SendTextInput) {
   const parts = splitWhatsAppText(input.text);
 
@@ -18,6 +31,47 @@ export async function sendWhatsAppText(input: SendTextInput) {
   }
 
   return sendSingleWhatsAppText({ ...input, text: parts[0] ?? sanitizeWhatsAppText(input.text) });
+}
+
+export async function fetchWhatsAppProfilePicture(phone: string) {
+  const cleanPhone = phone.replace(/\D/g, "");
+  if (!cleanPhone) return null;
+
+  const url = new URL(`/chat/fetchProfilePictureUrl/${env.EVOLUTION_INSTANCE_NAME}`, env.EVOLUTION_API_URL);
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: env.EVOLUTION_API_KEY
+      },
+      body: JSON.stringify({
+        number: cleanPhone
+      })
+    });
+
+    if (!response.ok) {
+      console.warn("[evolution-api] profile picture fetch skipped", { status: response.status });
+      return null;
+    }
+
+    const data = await response.json().catch(() => null) as ProfilePictureResponse | null;
+    const avatarUrl = data?.profilePictureUrl
+      ?? data?.profilePicUrl
+      ?? data?.picture
+      ?? data?.url
+      ?? data?.data?.profilePictureUrl
+      ?? data?.data?.profilePicUrl
+      ?? data?.data?.picture
+      ?? data?.data?.url
+      ?? null;
+
+    return typeof avatarUrl === "string" && avatarUrl.startsWith("http") ? avatarUrl : null;
+  } catch (error) {
+    console.warn("[evolution-api] profile picture fetch failed", error);
+    return null;
+  }
 }
 
 async function sendSingleWhatsAppText(input: SendTextInput) {

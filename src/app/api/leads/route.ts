@@ -126,6 +126,7 @@ export async function POST(request: NextRequest) {
       .values({
         name,
         phone,
+        avatar_url: nonEmptyString(body.avatar),
         origin: nonEmptyString(body.origin) ?? "WhatsApp",
         interest: nonEmptyString(body.interest),
         temperature: nonEmptyString(body.temperature) ?? "quente",
@@ -169,6 +170,7 @@ export async function PATCH(request: NextRequest) {
     };
 
     if (body.name !== undefined) update.name = nonEmptyString(body.name);
+    if (body.avatar !== undefined) update.avatar_url = nonEmptyString(body.avatar);
     if (body.phone !== undefined) {
       const phone = nonEmptyString(body.phone);
       if (!phone) return NextResponse.json({ error: "Telefone invalido." }, { status: 400 });

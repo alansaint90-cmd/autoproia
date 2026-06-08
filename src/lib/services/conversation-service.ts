@@ -3,7 +3,7 @@ import { db } from "@/lib/db/client";
 import { conversations, handoffEvents, leads, messages, users } from "@/lib/db/schema";
 import { SYSTEM_USER_ID } from "@/lib/constants";
 import { generateAiReply } from "@/lib/services/ai-agent";
-import { sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
+import { fetchWhatsAppProfilePicture, sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
 import {
   appendRecentConversationContext,
   drainConversationBuffer,
@@ -271,6 +271,7 @@ type LeadSignal = {
 async function upsertLead(input: NormalizedInboundMessage, signal: LeadSignal) {
   const now = new Date();
   const name = input.leadName?.trim() || undefined;
+  const avatarUrl = input.avatarUrl ?? await fetchWhatsAppProfilePicture(input.phone);
 
   const [existing] = await db
     .select()
@@ -283,6 +284,7 @@ async function upsertLead(input: NormalizedInboundMessage, signal: LeadSignal) {
       .update(leads)
       .set({
         name: existing.name ?? name,
+        avatar_url: avatarUrl ?? existing.avatar_url,
         interest: signal.interest ?? existing.interest,
         temperature: signal.temperature,
         sentiment: signal.sentiment,
@@ -304,6 +306,7 @@ async function upsertLead(input: NormalizedInboundMessage, signal: LeadSignal) {
     .values({
       name,
       phone: input.phone,
+      avatar_url: avatarUrl,
       origin: "whatsapp",
       interest: signal.interest,
       temperature: signal.temperature,

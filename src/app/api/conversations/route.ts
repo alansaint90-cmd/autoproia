@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import { assertPermission } from "@/lib/services/permission-service";
+import { fetchWhatsAppProfilePicture } from "@/lib/services/evolution-api";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,7 @@ type ConversationRow = {
   lead_id: string;
   lead_name: string | null;
   phone: string;
+  avatar_url: string | null;
   origin: string;
   temperature: string;
   sentiment: string;
@@ -71,6 +73,7 @@ export async function GET(request: NextRequest) {
         l.id as lead_id,
         l.name as lead_name,
         l.phone,
+        l.avatar_url,
         l.origin,
         l.temperature,
         l.sentiment,
@@ -109,6 +112,24 @@ export async function GET(request: NextRequest) {
       limit ${limit}
     `);
 
+    const missingAvatarRows = rows.filter((row) => !row.avatar_url).slice(0, 8);
+    if (missingAvatarRows.length > 0) {
+      await Promise.all(
+        missingAvatarRows.map(async (row) => {
+          const avatarUrl = await fetchWhatsAppProfilePicture(row.phone);
+          if (!avatarUrl) return;
+
+          row.avatar_url = avatarUrl;
+          await db.execute(sql`
+            update leads
+            set avatar_url = ${avatarUrl}, updated_at = now()
+            where id = ${row.lead_id}
+              and is_deleted = false
+          `);
+        })
+      );
+    }
+
     const conversations = rows.map((row) => {
       const name = row.lead_name?.trim() || row.phone;
       const lastMessage = row.messages?.at(-1)?.content ?? row.last_message_preview ?? "";
@@ -123,7 +144,7 @@ export async function GET(request: NextRequest) {
           temperature: row.temperature,
           lastInteraction: formatTime(row.last_interaction_at ?? row.last_message_at),
           responsible: row.responsible_name ?? "Equipe comercial",
-          avatar: "",
+          avatar: row.avatar_url ?? "",
           stage: row.pipeline_stage,
           interest: row.interest ?? "carro",
           notes: row.last_message_preview ?? "",
