@@ -162,16 +162,17 @@ export default function RelatoriosPage() {
 
   async function generateReport() {
     try {
-      const searchParams = new URLSearchParams({
-        start: new Date(`${filters.dateStart}T00:00:00`).toISOString(),
-        end: new Date(`${filters.dateEnd}T23:59:59`).toISOString(),
-        limit: "500"
+      const response = await fetch("/api/reports/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          start: new Date(`${filters.dateStart}T00:00:00`).toISOString(),
+          end: new Date(`${filters.dateEnd}T23:59:59`).toISOString(),
+          origin: filters.origin,
+          seller: filters.seller,
+          limit: 500
+        })
       });
-
-      if (filters.origin !== "Todas") searchParams.set("origin", filters.origin);
-      if (filters.seller !== "Todos") searchParams.set("seller", filters.seller);
-
-      const response = await fetch(`/api/leads?${searchParams.toString()}`, { cache: "no-store" });
       if (!response.ok) throw new Error("Falha ao gerar relatorio com dados reais.");
 
       const data = await response.json() as {
@@ -235,10 +236,10 @@ export default function RelatoriosPage() {
   }
 
   async function generatePdf() {
-    const permissionResponse = await fetch("/api/permissions/check?permission=exportPdf", { cache: "no-store" });
+    const permissionResponse = await fetch("/api/reports/export", { method: "POST" });
     const permissionPayload = await permissionResponse.json().catch(() => ({})) as { allowed?: boolean; error?: string };
 
-    if (!permissionResponse.ok || !permissionPayload.allowed) {
+    if (!permissionResponse.ok) {
       window.alert(permissionPayload.error || "Seu usuario nao tem permissao para gerar PDF.");
       return;
     }

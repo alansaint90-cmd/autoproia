@@ -27,6 +27,11 @@ import {
 } from "lucide-react";
 import { Topbar } from "@/components/topbar";
 import { aiBusinessSettingsKey, defaultAiBusinessSettings, type AiBusinessSettings } from "@/lib/ai-business-settings";
+import {
+  defaultIntegrationSettings,
+  type IntegrationSettings,
+  type IntegrationStatus
+} from "@/lib/integration-settings";
 import { defaultRolePermissions, type PermissionKey, type PermissionRecord, type PermissionRole } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
@@ -54,7 +59,6 @@ type CompanyProfile = {
 };
 
 const COMPANY_PROFILE_STORAGE_KEY = "auto-pro-ia:company-profile";
-const INTEGRATIONS_STORAGE_KEY = "auto-pro-ia:integrations";
 const THEME_STORAGE_KEY = "auto-pro-ia:theme";
 const USERS_STORAGE_KEY = "auto-pro-ia:users";
 const PREFERENCES_STORAGE_KEY = "auto-pro-ia:preferences";
@@ -151,47 +155,6 @@ const aiMessages = [
   { label: "Fora do horario", value: "Estamos fora de horario, retornaremos amanha as 8h." },
   { label: "Encerramento", value: "Obrigada pelo contato! Ate logo. 🚗" }
 ];
-
-type IntegrationStatus = "pending" | "connected" | "error";
-
-type IntegrationSettings = {
-  openai: {
-    apiKey: string;
-    model: string;
-    organization: string;
-    status: IntegrationStatus;
-  };
-  evolution: {
-    baseUrl: string;
-    apiKey: string;
-    instanceName: string;
-    webhookSecret: string;
-    status: IntegrationStatus;
-  };
-  minio: {
-    endpoint: string;
-    accessKey: string;
-    secretKey: string;
-    bucket: string;
-    region: string;
-    useSSL: boolean;
-    status: IntegrationStatus;
-  };
-};
-
-const defaultIntegrations: IntegrationSettings = {
-  openai: { apiKey: "", model: "gpt-4.1-mini", organization: "", status: "pending" },
-  evolution: { baseUrl: "", apiKey: "", instanceName: "", webhookSecret: "", status: "pending" },
-  minio: {
-    endpoint: "",
-    accessKey: "",
-    secretKey: "",
-    bucket: "autoproia-media",
-    region: "us-east-1",
-    useSSL: true,
-    status: "pending"
-  }
-};
 
 export default function ConfiguracoesPage() {
   const [activeTab, setActiveTab] = useState<TabId>("empresa");
@@ -739,24 +702,43 @@ function PermissoesPanel() {
 }
 
 function IntegracoesPanel() {
-  const [settings, setSettings] = useState<IntegrationSettings>(defaultIntegrations);
+  const [settings, setSettings] = useState<IntegrationSettings>(defaultIntegrationSettings);
   const [saved, setSaved] = useState(false);
+  const [message, setMessage] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "saving" | "error">("loading");
   const [showSecrets, setShowSecrets] = useState(false);
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(INTEGRATIONS_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Partial<IntegrationSettings>;
-        setSettings({
-          openai: { ...defaultIntegrations.openai, ...parsed.openai },
-          evolution: { ...defaultIntegrations.evolution, ...parsed.evolution },
-          minio: { ...defaultIntegrations.minio, ...parsed.minio }
-        });
+    let active = true;
+
+    async function loadIntegrations() {
+      setStatus("loading");
+      try {
+        const response = await fetch("/api/settings/integrations", { cache: "no-store" });
+        const data = await response.json().catch(() => ({})) as { settings?: IntegrationSettings; error?: string };
+
+        if (!response.ok) {
+          throw new Error(data.error || "Nao foi possivel carregar integracoes.");
+        }
+
+        if (active && data.settings) {
+          setSettings(data.settings);
+          setStatus("idle");
+        }
+      } catch (error) {
+        if (active) {
+          setSettings(defaultIntegrationSettings);
+          setStatus("error");
+          setMessage(error instanceof Error ? error.message : "Nao foi possivel carregar integracoes.");
+        }
       }
-    } catch {
-      setSettings(defaultIntegrations);
     }
+
+    loadIntegrations();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   function updateIntegration<T extends keyof IntegrationSettings, K extends keyof IntegrationSettings[T]>(
@@ -790,9 +772,31 @@ function IntegracoesPanel() {
     }));
   }
 
-  function saveIntegrations() {
-    window.localStorage.setItem(INTEGRATIONS_STORAGE_KEY, JSON.stringify(settings));
-    setSaved(true);
+  async function saveIntegrations() {
+    setStatus("saving");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/settings/integrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings })
+      });
+      const data = await response.json().catch(() => ({})) as { settings?: IntegrationSettings; error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error || "Nao foi possivel salvar integracoes.");
+      }
+
+      if (data.settings) setSettings(data.settings);
+      setSaved(true);
+      setStatus("idle");
+      setMessage("Conexoes salvas com sucesso.");
+    } catch (error) {
+      setSaved(false);
+      setStatus("error");
+      setMessage(error instanceof Error ? error.message : "Nao foi possivel salvar integracoes.");
+    }
   }
 
   return (
@@ -817,13 +821,20 @@ function IntegracoesPanel() {
             <button
               type="button"
               onClick={saveIntegrations}
+              disabled={status === "saving" || status === "loading"}
               className="inline-flex h-10 items-center justify-center rounded-[14px] bg-primary px-5 text-sm font-extrabold text-primary-foreground shadow-glow"
             >
-              Salvar conexoes
+              {status === "saving" ? "Salvando..." : "Salvar conexoes"}
             </button>
           </div>
         </div>
-        {saved ? <p className="mt-3 text-sm font-semibold text-success">Conexoes salvas com sucesso.</p> : null}
+        {status === "loading" ? <p className="mt-3 text-sm font-semibold text-muted-foreground">Carregando conexoes...</p> : null}
+        {message ? (
+          <p className={cn("mt-3 text-sm font-semibold", status === "error" ? "text-destructive" : "text-success")}>
+            {message}
+          </p>
+        ) : null}
+        {saved && !message ? <p className="mt-3 text-sm font-semibold text-success">Conexoes salvas com sucesso.</p> : null}
       </div>
 
       <IntegrationCard

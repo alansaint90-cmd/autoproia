@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { assertCan } from "@/lib/auth/rbac";
 import { getSession } from "@/lib/auth/session";
-import { getRolePermissions, saveRolePermissions } from "@/lib/services/permission-service";
+import { assertPermission, getRolePermissions, saveRolePermissions } from "@/lib/services/permission-service";
 
 export async function GET() {
   try {
@@ -19,7 +18,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await getSession();
-    assertCan(session.role, "admin");
+    await assertPermission(session.role, "manageUsers");
 
     const body = await request.json().catch(() => ({}));
     const permissions = await saveRolePermissions(body.permissions);
