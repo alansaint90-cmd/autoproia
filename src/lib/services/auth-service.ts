@@ -18,6 +18,17 @@ export type AuthInviteResult = {
   emailSent: boolean;
 };
 
+export type LoginResult =
+  | {
+      passwordChangeRequired: false;
+      user: typeof users.$inferSelect;
+    }
+  | {
+      passwordChangeRequired: true;
+      passwordChangeUrl: string;
+      user: typeof users.$inferSelect;
+    };
+
 const systemUserId = "00000000-0000-0000-0000-000000000001";
 
 function normalizeEmail(email: string) {
@@ -74,7 +85,6 @@ export async function ensureSuperAdmin() {
   const [created] = await db
     .insert(users)
     .values({
-      id: systemUserId,
       name: env.SUPERADMIN_NAME,
       email,
       role: "super_admin",
@@ -163,7 +173,7 @@ export async function acceptInvite(input: { token: string; password: string; nam
   return updated;
 }
 
-export async function login(input: { email: string; password: string; remember?: boolean }) {
+export async function login(input: { email: string; password: string; remember?: boolean }): Promise<LoginResult> {
   const [user] = await db
     .select()
     .from(users)
@@ -172,6 +182,29 @@ export async function login(input: { email: string; password: string; remember?:
 
   if (!user || user.is_deleted || !(await verifyPassword(input.password, user.password_hash))) {
     throw new Error("Email ou senha invalidos.");
+  }
+
+  if (!user.password_set_at) {
+    const token = createAuthToken();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    await db
+      .update(users)
+      .set({
+        invite_token_hash: await hashAuthToken(token),
+        invite_expires_at: expiresAt,
+        invited_at: now,
+        updated_at: now,
+        modified_by: user.id
+      })
+      .where(eq(users.id, user.id));
+
+    return {
+      passwordChangeRequired: true,
+      passwordChangeUrl: inviteUrl(token),
+      user
+    };
   }
 
   await db.update(users).set({ last_login_at: new Date(), updated_at: new Date() }).where(eq(users.id, user.id));
@@ -186,5 +219,8 @@ export async function login(input: { email: string; password: string; remember?:
     input.remember
   );
 
-  return user;
+  return {
+    passwordChangeRequired: false,
+    user
+  };
 }

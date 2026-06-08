@@ -3,6 +3,21 @@
 import { useState } from "react";
 import { LockKeyhole, Mail } from "lucide-react";
 
+async function readJsonResponse<T>(response: Response): Promise<T> {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    return response.json() as Promise<T>;
+  }
+
+  const text = await response.text();
+  throw new Error(
+    text.trim().startsWith("<!DOCTYPE")
+      ? "A rota de autenticacao retornou uma pagina HTML. Reinicie o servidor local e confirme se a API esta ativa."
+      : text || "Resposta invalida do servidor."
+  );
+}
+
 export function LoginForm() {
   const [email, setEmail] = useState("admin@autopro.ia");
   const [password, setPassword] = useState("");
@@ -27,10 +42,19 @@ export function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, remember })
       });
-      const payload = (await response.json()) as { error?: string };
+      const payload = await readJsonResponse<{
+        error?: string;
+        passwordChangeRequired?: boolean;
+        passwordChangeUrl?: string;
+      }>(response);
 
       if (!response.ok) {
         throw new Error(payload.error || "Nao foi possivel entrar.");
+      }
+
+      if (payload.passwordChangeRequired) {
+        window.location.href = payload.passwordChangeUrl || "/criar-senha";
+        return;
       }
 
       window.location.href = "/dashboard";
@@ -47,7 +71,7 @@ export function LoginForm() {
 
     try {
       const response = await fetch("/api/auth/bootstrap", { method: "POST" });
-      const payload = (await response.json()) as { error?: string };
+      const payload = await readJsonResponse<{ error?: string }>(response);
 
       if (!response.ok) {
         throw new Error(payload.error || "Nao foi possivel preparar o superadmin.");

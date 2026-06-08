@@ -1,8 +1,10 @@
 import { sql } from "drizzle-orm";
 import Redis from "ioredis";
 import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import { env } from "@/lib/env";
+import { assertPermission } from "@/lib/services/permission-service";
 
 export const runtime = "nodejs";
 
@@ -34,6 +36,16 @@ async function checkRedis() {
 }
 
 export async function GET() {
+  try {
+    const session = await getSession();
+    await assertPermission(session.role, "manageIntegrations");
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Acesso nao autorizado." },
+      { status: 401 }
+    );
+  }
+
   const [database, redis] = await Promise.all([checkDatabase(), checkRedis()]);
 
   return NextResponse.json({

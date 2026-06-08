@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+const optionalUrl = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().url().optional()
+);
+
+const optionalString = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().optional()
+);
+
 const envSchema = z.object({
   DATABASE_URL: z.string().url().default("postgres://auto_pro_ia:auto_pro_ia@localhost:5432/auto_pro_ia"),
   REDIS_URL: z.string().url().default("redis://localhost:6379"),
@@ -8,16 +18,16 @@ const envSchema = z.object({
   EVOLUTION_API_URL: z.string().url().default("http://localhost:8080"),
   EVOLUTION_API_KEY: z.string().min(1).default("missing-evolution-key"),
   EVOLUTION_INSTANCE_NAME: z.string().min(1).default("auto-pro-ia"),
-  EVOLUTION_WEBHOOK_SECRET: z.string().optional(),
-  SUPABASE_URL: z.string().url().optional(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  EVOLUTION_WEBHOOK_SECRET: optionalString,
+  SUPABASE_URL: optionalUrl,
+  SUPABASE_SERVICE_ROLE_KEY: optionalString,
   SUPABASE_REALTIME_CHANNEL: z.string().default("conversations"),
   APP_URL: z.string().url().default("http://localhost:3000"),
   AUTH_SESSION_SECRET: z.string().min(32).default("auto-pro-ia-local-session-secret-change-me"),
   AUTH_COOKIE_NAME: z.string().default("auto_pro_ia_session"),
   SUPERADMIN_EMAIL: z.string().email().default("admin@autopro.ia"),
   SUPERADMIN_NAME: z.string().default("Superadmin"),
-  RESEND_API_KEY: z.string().optional(),
+  RESEND_API_KEY: optionalString,
   AUTH_EMAIL_FROM: z.string().min(1).default("Auto Pro IA <noreply@autoproia.site>")
 });
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
+import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
+import { assertPermission } from "@/lib/services/permission-service";
 
 export const runtime = "nodejs";
 
@@ -73,6 +75,16 @@ async function groupQuery(query: ReturnType<typeof sql>) {
 }
 
 export async function GET(request: NextRequest) {
+  try {
+    const session = await getSession();
+    await assertPermission(session.role, "viewTeamReports");
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Acesso nao autorizado." },
+      { status: 401 }
+    );
+  }
+
   const period = getPeriodRange(request.nextUrl.searchParams.get("period"));
   const leadsCreatedRange = rangeClause(sql.raw("created_at"), period.start, period.end);
   const leadsUpdatedRange = rangeClause(sql.raw("updated_at"), period.start, period.end);

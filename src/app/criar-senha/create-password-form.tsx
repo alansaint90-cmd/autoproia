@@ -3,6 +3,21 @@
 import { useState } from "react";
 import { LockKeyhole, UserRound } from "lucide-react";
 
+async function readJsonResponse<T>(response: Response): Promise<T> {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    return response.json() as Promise<T>;
+  }
+
+  const text = await response.text();
+  throw new Error(
+    text.trim().startsWith("<!DOCTYPE")
+      ? "A rota de criacao de senha retornou uma pagina HTML. Reinicie o servidor local e tente novamente."
+      : text || "Resposta invalida do servidor."
+  );
+}
+
 export function CreatePasswordForm({ token }: { token: string }) {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
@@ -32,7 +47,7 @@ export function CreatePasswordForm({ token }: { token: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password, name: name || undefined })
       });
-      const payload = (await response.json()) as { error?: string };
+      const payload = await readJsonResponse<{ error?: string }>(response);
 
       if (!response.ok) {
         throw new Error(payload.error || "Nao foi possivel criar a senha.");

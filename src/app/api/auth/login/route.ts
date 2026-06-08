@@ -17,19 +17,39 @@ export async function POST(request: Request) {
     }
 
     const body = parsed.data;
-    const user = await login(body);
+    const result = await login(body);
+
+    if (result.passwordChangeRequired) {
+      return NextResponse.json({
+        passwordChangeRequired: true,
+        passwordChangeUrl: result.passwordChangeUrl,
+        user: {
+          id: result.user.id,
+          name: result.user.name,
+          email: result.user.email,
+          role: result.user.role
+        }
+      });
+    }
 
     return NextResponse.json({
       user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role
+        id: result.user.id,
+        name: result.user.name,
+        email: result.user.email,
+        role: result.user.role
       }
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const databaseError = message.includes("Failed query") || message.includes("ECONNREFUSED");
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Nao foi possivel entrar." },
+      {
+        error: databaseError
+          ? "Banco de dados local indisponivel ou sem schema. Inicie o Postgres e rode npm run db:push."
+          : message || "Nao foi possivel entrar."
+      },
       { status: 401 }
     );
   }

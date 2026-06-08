@@ -436,7 +436,15 @@ export default function KanbanPage() {
     closeModal();
   }
 
-  function deleteLead(leadId: string) {
+  async function deleteLead(leadId: string) {
+    const response = await fetch(`/api/leads?id=${encodeURIComponent(leadId)}`, { method: "DELETE" });
+    const payload = await response.json().catch(() => ({})) as { error?: string };
+
+    if (!response.ok) {
+      window.alert(payload.error || "Seu usuario nao tem permissao para excluir leads.");
+      return;
+    }
+
     setLeads((current) => current.filter((lead) => lead.id !== leadId));
     closeModal();
   }

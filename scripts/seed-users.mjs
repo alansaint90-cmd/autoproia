@@ -118,8 +118,8 @@ async function main() {
           ${email},
           ${user.role},
           ${passwordHash},
-          ${now},
-          ${now},
+          null,
+          null,
           null,
           null,
           null,
@@ -130,12 +130,24 @@ async function main() {
         on conflict (email) do update set
           name = excluded.name,
           role = excluded.role,
-          password_hash = excluded.password_hash,
-          password_set_at = excluded.password_set_at,
-          email_verified_at = excluded.email_verified_at,
-          invite_token_hash = null,
-          invite_expires_at = null,
-          invited_at = null,
+          password_hash = case
+            when users.password_set_at is null then excluded.password_hash
+            else users.password_hash
+          end,
+          password_set_at = users.password_set_at,
+          email_verified_at = users.email_verified_at,
+          invite_token_hash = case
+            when users.password_set_at is null then null
+            else users.invite_token_hash
+          end,
+          invite_expires_at = case
+            when users.password_set_at is null then null
+            else users.invite_expires_at
+          end,
+          invited_at = case
+            when users.password_set_at is null then null
+            else users.invited_at
+          end,
           updated_at = excluded.updated_at,
           is_deleted = false,
           modified_by = excluded.modified_by
@@ -143,7 +155,16 @@ async function main() {
     }
 
     const rows = await sql`
-      select name, email, role
+      select
+        name,
+        email,
+        role,
+        password_hash is not null as has_password,
+        password_set_at is not null as password_set,
+        case
+          when password_hash is not null and password_set_at is null then true
+          else false
+        end as first_access_required
       from users
       where email in ${sql(seedUsers.map((user) => user.email.trim().toLowerCase()))}
       order by
@@ -157,7 +178,13 @@ async function main() {
         name
     `;
 
-    console.log(JSON.stringify({ seeded: rows, credentials: seedUsers }, null, 2));
+    console.log(JSON.stringify({
+      seeded: rows,
+      credentials: seedUsers.map((user) => ({
+        ...user,
+        firstAccess: "Entre com esta senha temporaria; o sistema pedira para criar uma nova senha."
+      }))
+    }, null, 2));
   } finally {
     await sql.end();
   }

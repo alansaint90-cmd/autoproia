@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { Topbar } from "@/components/topbar";
 import { aiBusinessSettingsKey, defaultAiBusinessSettings, type AiBusinessSettings } from "@/lib/ai-business-settings";
+import { defaultRolePermissions, type PermissionKey, type PermissionRecord, type PermissionRole } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 
@@ -76,7 +77,7 @@ const fields: Array<{ key: keyof Omit<CompanyProfile, "logo">; label: string }> 
   { key: "city", label: "Cidade" }
 ];
 
-type RoleId = "admin" | "gerente" | "closer" | "sdr" | "financeiro" | "bot";
+type RoleId = PermissionRole;
 
 type UserRecord = {
   initials: string;
@@ -88,32 +89,6 @@ type UserRecord = {
   scope: "Todos os leads" | "Somente atribuídos" | "Financeiro" | "Sistema";
   status: "Ativo" | "Inativo";
 };
-
-type PermissionKey =
-  | "viewLeads"
-  | "createLeads"
-  | "editLeads"
-  | "deleteLeads"
-  | "assignLeads"
-  | "moveKanban"
-  | "viewConversations"
-  | "replyConversations"
-  | "assumeAi"
-  | "returnToAi"
-  | "viewOwnReports"
-  | "viewTeamReports"
-  | "exportPdf"
-  | "manageAi"
-  | "manageUsers"
-  | "manageIntegrations"
-  | "viewFinance";
-
-type PermissionRecord = {
-  key: PermissionKey;
-  module: string;
-  label: string;
-  description: string;
-} & Record<RoleId, boolean>;
 
 const roles: Array<{
   id: RoleId;
@@ -157,25 +132,7 @@ function aiNameFromStorage() {
   return defaultAiBusinessSettings.agentName;
 }
 
-const defaultPermissions: PermissionRecord[] = [
-  { key: "viewLeads", module: "Leads", label: "Ver leads", description: "Acessar lista, Kanban e perfil do lead.", admin: true, gerente: true, closer: true, sdr: true, financeiro: false, bot: true },
-  { key: "createLeads", module: "Leads", label: "Criar leads", description: "Cadastrar lead manualmente.", admin: true, gerente: true, closer: true, sdr: true, financeiro: false, bot: true },
-  { key: "editLeads", module: "Leads", label: "Editar leads", description: "Alterar dados, temperatura e observacoes.", admin: true, gerente: true, closer: true, sdr: true, financeiro: false, bot: true },
-  { key: "deleteLeads", module: "Leads", label: "Excluir leads", description: "Remover leads da base.", admin: true, gerente: true, closer: false, sdr: false, financeiro: false, bot: false },
-  { key: "assignLeads", module: "Leads", label: "Atribuir responsavel", description: "Distribuir leads para vendedores.", admin: true, gerente: true, closer: false, sdr: false, financeiro: false, bot: true },
-  { key: "moveKanban", module: "Kanban", label: "Mover Kanban", description: "Mover cards entre etapas do funil.", admin: true, gerente: true, closer: true, sdr: true, financeiro: false, bot: true },
-  { key: "viewConversations", module: "Conversas", label: "Ver conversas", description: "Visualizar historico do WhatsApp.", admin: true, gerente: true, closer: true, sdr: true, financeiro: false, bot: true },
-  { key: "replyConversations", module: "Conversas", label: "Responder conversas", description: "Enviar mensagens manuais.", admin: true, gerente: true, closer: true, sdr: true, financeiro: false, bot: false },
-  { key: "assumeAi", module: "Conversas", label: "Assumir da IA", description: "Pausar IA e assumir atendimento humano.", admin: true, gerente: true, closer: true, sdr: true, financeiro: false, bot: false },
-  { key: "returnToAi", module: "Conversas", label: "Devolver para IA", description: "Reativar fluxo automatico.", admin: true, gerente: true, closer: true, sdr: true, financeiro: false, bot: false },
-  { key: "viewOwnReports", module: "Relatorios", label: "Ver relatorio proprio", description: "Acompanhar propria performance.", admin: true, gerente: true, closer: true, sdr: true, financeiro: true, bot: false },
-  { key: "viewTeamReports", module: "Relatorios", label: "Ver relatorio da equipe", description: "Acessar ranking e funil geral.", admin: true, gerente: true, closer: false, sdr: false, financeiro: true, bot: false },
-  { key: "exportPdf", module: "Relatorios", label: "Exportar PDF", description: "Gerar PDF dos relatorios.", admin: true, gerente: true, closer: false, sdr: false, financeiro: true, bot: false },
-  { key: "viewFinance", module: "Financeiro", label: "Ver receita e vendas", description: "Visualizar valores, ticket e receita.", admin: true, gerente: true, closer: false, sdr: false, financeiro: true, bot: false },
-  { key: "manageAi", module: "IA", label: "Gerenciar IA", description: "Editar regras, prompts e automacoes.", admin: true, gerente: true, closer: false, sdr: false, financeiro: false, bot: false },
-  { key: "manageUsers", module: "Administracao", label: "Gerenciar usuarios", description: "Criar, editar e inativar usuarios.", admin: true, gerente: false, closer: false, sdr: false, financeiro: false, bot: false },
-  { key: "manageIntegrations", module: "Administracao", label: "Alterar integracoes", description: "Configurar APIs e credenciais.", admin: true, gerente: false, closer: false, sdr: false, financeiro: false, bot: false }
-];
+const defaultPermissions = defaultRolePermissions;
 
 const defaultPreferences = [
   { key: "sellerScope", title: "Vendedor ve somente leads atribuidos", description: "Closer e SDR ficam restritos aos proprios leads.", enabled: true },
@@ -617,6 +574,39 @@ function UsuariosPanel() {
 
 function PermissoesPanel() {
   const [permissionRows, setPermissionRows] = useState(defaultPermissions);
+  const [status, setStatus] = useState<"idle" | "loading" | "saving" | "saved" | "error">("loading");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadPermissions() {
+      try {
+        const response = await fetch("/api/settings/permissions", { cache: "no-store" });
+        const payload = await response.json() as { permissions?: PermissionRecord[]; error?: string };
+
+        if (!response.ok) {
+          throw new Error(payload.error || "Nao foi possivel carregar as permissoes.");
+        }
+
+        if (active && payload.permissions?.length) {
+          setPermissionRows(payload.permissions);
+          setStatus("idle");
+        }
+      } catch (error) {
+        if (active) {
+          setMessage(error instanceof Error ? error.message : "Nao foi possivel carregar as permissoes.");
+          setStatus("error");
+        }
+      }
+    }
+
+    loadPermissions();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function togglePermission(permissionKey: PermissionKey, roleId: RoleId) {
     setPermissionRows((current) =>
@@ -624,6 +614,37 @@ function PermissoesPanel() {
         permission.key === permissionKey ? { ...permission, [roleId]: !permission[roleId] } : permission
       )
     );
+    setStatus("idle");
+    setMessage("");
+  }
+
+  async function savePermissions() {
+    setStatus("saving");
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/settings/permissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ permissions: permissionRows })
+      });
+      const payload = await response.json() as { permissions?: PermissionRecord[]; error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Nao foi possivel salvar as permissoes.");
+      }
+
+      if (payload.permissions?.length) {
+        setPermissionRows(payload.permissions);
+      }
+
+      setStatus("saved");
+      setMessage("Permissoes salvas e aplicadas nas APIs.");
+      window.setTimeout(() => setStatus("idle"), 2200);
+    } catch (error) {
+      setStatus("error");
+      setMessage(error instanceof Error ? error.message : "Nao foi possivel salvar as permissoes.");
+    }
   }
 
   return (
@@ -696,6 +717,22 @@ function PermissoesPanel() {
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={savePermissions}
+          disabled={status === "saving" || status === "loading"}
+          className="inline-flex h-10 items-center justify-center rounded-[14px] bg-primary px-5 text-sm font-extrabold text-primary-foreground shadow-glow disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {status === "saving" ? "Salvando..." : "Salvar permissoes"}
+        </button>
+        {status === "loading" ? <span className="text-sm font-semibold text-muted-foreground">Carregando permissoes...</span> : null}
+        {message ? (
+          <span className={cn("text-sm font-semibold", status === "error" ? "text-destructive" : "text-success")}>
+            {message}
+          </span>
+        ) : null}
       </div>
     </section>
   );

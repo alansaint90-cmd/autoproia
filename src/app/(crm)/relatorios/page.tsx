@@ -234,7 +234,15 @@ export default function RelatoriosPage() {
     setIsReportOpen(true);
   }
 
-  function generatePdf() {
+  async function generatePdf() {
+    const permissionResponse = await fetch("/api/permissions/check?permission=exportPdf", { cache: "no-store" });
+    const permissionPayload = await permissionResponse.json().catch(() => ({})) as { allowed?: boolean; error?: string };
+
+    if (!permissionResponse.ok || !permissionPayload.allowed) {
+      window.alert(permissionPayload.error || "Seu usuario nao tem permissao para gerar PDF.");
+      return;
+    }
+
     const lines = [
       "AUTO PRO IA 1.1",
       "Relatorio comercial",
