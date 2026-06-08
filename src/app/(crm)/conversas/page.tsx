@@ -418,6 +418,7 @@ export default function ConversasPage() {
   const [replyAttachment, setReplyAttachment] = useState<QuickReplyAttachment | undefined>();
   const [draftMessage, setDraftMessage] = useState("");
   const [draftAttachment, setDraftAttachment] = useState<QuickReplyAttachment | undefined>();
+  const [isSendingDraft, setIsSendingDraft] = useState(false);
   const [showLeadProfile, setShowLeadProfile] = useState(false);
   const [deleteReplyId, setDeleteReplyId] = useState<string | null>(null);
   const [replyFeedback, setReplyFeedback] = useState("");
@@ -695,9 +696,66 @@ export default function ConversasPage() {
     window.setTimeout(() => setReplyFeedback(""), 2600);
   }
 
-  function sendDraftMessage() {
-    setDraftMessage("");
-    setDraftAttachment(undefined);
+  async function sendDraftMessage() {
+    if (!active || isSendingDraft) return;
+
+    const trimmedMessage = draftMessage.trim();
+    const textToSend = trimmedMessage || (draftAttachment ? `${attachmentLabel(draftAttachment.type)}: ${draftAttachment.name}` : "");
+    if (!textToSend) return;
+
+    setIsSendingDraft(true);
+
+    try {
+      const response = await fetch("/api/conversations/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadId: active.lead.id,
+          text: textToSend
+        })
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        message?: Conversation["messages"][number];
+      };
+
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || "Nao foi possivel enviar a mensagem.");
+      }
+
+      const sentMessage = payload.message ?? {
+        id: `manual-${Date.now()}`,
+        from: "human" as const,
+        text: textToSend,
+        time: "agora"
+      };
+
+      setAvailableConversations((items) =>
+        items.map((conversation) =>
+          conversation.lead.id === active.lead.id
+            ? {
+                ...conversation,
+                status: "human",
+                preview: sentMessage.text,
+                messages: [...conversation.messages, sentMessage],
+                lead: {
+                  ...conversation.lead,
+                  lastInteraction: "agora",
+                  responsible: currentAgent
+                }
+              }
+            : conversation
+        )
+      );
+      setManualConversationIds((ids) => (ids.includes(active.lead.id) ? ids : [...ids, active.lead.id]));
+      setDraftMessage("");
+      setDraftAttachment(undefined);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel enviar a mensagem.");
+    } finally {
+      setIsSendingDraft(false);
+    }
   }
 
   function assumeConversation() {
@@ -1463,6 +1521,12 @@ export default function ConversasPage() {
                   ref={draftTextareaRef}
                   value={draftMessage}
                   onChange={updateDraftMessage}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      void sendDraftMessage();
+                    }
+                  }}
                   placeholder="Digite sua mensagem..."
                   rows={1}
                   className="max-h-[72px] min-h-8 min-w-0 flex-1 resize-none overflow-y-auto bg-transparent py-1 text-sm leading-6 text-white outline-none placeholder:text-white/45 scrollbar-thin"
@@ -1475,8 +1539,11 @@ export default function ConversasPage() {
                 <Camera className="size-7 stroke-[1.8]" />
               </button>
               <button
-                onClick={sendDraftMessage}
-                className="grid size-10 shrink-0 place-items-center text-white/90 transition hover:text-white"
+                type="button"
+                onClick={() => void sendDraftMessage()}
+                disabled={!canSendDraft || isSendingDraft}
+                className="grid size-10 shrink-0 place-items-center text-white/90 transition hover:text-white disabled:cursor-not-allowed disabled:text-white/35"
+                aria-label={canSendDraft ? "Enviar mensagem" : "Gravar audio"}
               >
                 {canSendDraft ? <Send className="size-7 stroke-[1.8]" /> : <Mic className="size-8 stroke-[1.8]" />}
               </button>

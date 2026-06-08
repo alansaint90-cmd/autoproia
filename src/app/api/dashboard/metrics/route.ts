@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
-import { assertPermission } from "@/lib/services/permission-service";
+import { canRole } from "@/lib/services/permission-service";
 
 export const runtime = "nodejs";
 
@@ -77,7 +77,13 @@ async function groupQuery(query: ReturnType<typeof sql>) {
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
-    await assertPermission(session.role, "viewTeamReports");
+    const canViewDashboard = await canRole(session.role, "viewTeamReports")
+      || await canRole(session.role, "viewOwnReports")
+      || await canRole(session.role, "viewLeads");
+
+    if (!canViewDashboard) {
+      return NextResponse.json({ error: "Sem permissao para visualizar metricas." }, { status: 403 });
+    }
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Acesso nao autorizado." },
@@ -107,7 +113,7 @@ export async function GET(request: NextRequest) {
     temperature,
     origins
   ] = await Promise.all([
-    countQuery(sql`select count(*) as count from leads where is_deleted = false ${leadsCreatedRange}`),
+    countQuery(sql`select count(*) as count from leads where is_deleted = false ${leadsInteractionRange}`),
     countQuery(sql`select count(*) as count from conversations where is_deleted = false and status in ('ai', 'human') ${conversationsRange}`),
     countQuery(sql`
       select count(*) as count
