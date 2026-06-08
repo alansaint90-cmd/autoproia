@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, notInArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { conversations, handoffEvents, leads, messages, users } from "@/lib/db/schema";
 import { SYSTEM_USER_ID } from "@/lib/constants";
@@ -242,6 +242,24 @@ async function changeConversationStatus(
     })
     .where(and(eq(conversations.id, conversationId), eq(conversations.is_deleted, false)))
     .returning();
+
+  if (toStatus === "human") {
+    await db
+      .update(leads)
+      .set({
+        pipeline_stage: "atendimento",
+        last_interaction_at: new Date(),
+        updated_at: new Date(),
+        modified_by: userId
+      })
+      .where(
+        and(
+          eq(leads.id, current.lead_id),
+          eq(leads.is_deleted, false),
+          notInArray(leads.pipeline_stage, ["fechado", "perdido", "matricula_pendente"])
+        )
+      );
+  }
 
   await db.insert(handoffEvents).values({
     conversation_id: conversationId,

@@ -34,6 +34,7 @@ type LeadCard = {
   id: string;
   name: string;
   phone: string;
+  avatar?: string;
   origin: string;
   status: PipelineStage;
   temperature: "quente" | "morno" | "frio" | "urgente";
@@ -1015,11 +1016,15 @@ export default function KanbanPage() {
                           <div className="flex items-center gap-2.5 pl-1.5">
                             <div
                               className={cn(
-                                "grid size-8 shrink-0 place-items-center rounded-xl border text-[11px] font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_18px_rgba(0,0,0,0.18)]",
-                                avatarClasses[lead.status]
+                                "relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full border text-[11px] font-black shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_18px_rgba(0,0,0,0.18)]",
+                                lead.avatar ? "border-white/12 bg-[#111827]" : avatarClasses[lead.status]
                               )}
                             >
-                              {lead.initials}
+                              {lead.avatar ? (
+                                <img src={lead.avatar} alt="" className="absolute inset-0 size-full object-cover" />
+                              ) : (
+                                lead.initials
+                              )}
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1.5">

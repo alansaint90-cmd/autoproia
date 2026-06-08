@@ -59,6 +59,13 @@ type CompanyProfile = {
   logo?: string;
 };
 
+type CurrentUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+};
+
 const defaultCompanyProfile: CompanyProfile = {
   name: "AutoEscola Pro"
 };
@@ -88,6 +95,7 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
   const [showFallbackModal, setShowFallbackModal] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile>(defaultCompanyProfile);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [leadDraft, setLeadDraft] = useState(emptyLead);
 
   useEffect(() => {
@@ -109,6 +117,32 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
     return () => {
       window.removeEventListener("auto-pro-ia:company-profile-updated", loadCompanyProfile);
       window.removeEventListener("storage", loadCompanyProfile);
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCurrentUser() {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        if (!response.ok) return;
+
+        const data = await response.json() as { user?: CurrentUser | null };
+        if (mounted) {
+          setCurrentUser(data.user ?? null);
+        }
+      } catch {
+        if (mounted) {
+          setCurrentUser(null);
+        }
+      }
+    }
+
+    loadCurrentUser();
+
+    return () => {
+      mounted = false;
     };
   }, []);
 
@@ -151,7 +185,9 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
   }
 
   function exitApp() {
-    window.location.href = "/";
+    fetch("/api/auth/logout", { method: "POST" }).finally(() => {
+      window.location.href = "/";
+    });
   }
 
   function submitGlobalSearch() {
@@ -308,12 +344,29 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
                   </div>
                 </div>
 
+                <div className="mx-1 mt-2 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-3">
+                  <div className="flex items-center gap-3">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-xl border border-primary/30 bg-primary/15 text-xs font-black text-primary">
+                      {initialsFromName(currentUser?.name || "Usuario").slice(0, 2)}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black text-foreground">{currentUser?.name ?? "Usuario logado"}</p>
+                      <p className="truncate text-[11px] font-semibold text-muted-foreground">{currentUser?.email ?? "Sessao ativa"}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 inline-flex rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-primary">
+                    {(currentUser?.role ?? "usuario").replaceAll("_", " ")}
+                  </div>
+                </div>
+
                 <Link
                   href="/configuracoes"
                   className="mt-2 flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-white/[0.055] hover:text-foreground"
+                  title={currentUser ? `Visitar perfil de ${currentUser.name}` : "Visitar perfil"}
                 >
                   <UserRound className="size-4 text-primary" />
-                  Visitar perfil
+                  <span className="min-w-0 flex-1 truncate">Visitar perfil</span>
+                  {currentUser ? <span className="max-w-[92px] truncate text-xs text-muted-foreground">{currentUser.name}</span> : null}
                 </Link>
                 <button
                   type="button"
