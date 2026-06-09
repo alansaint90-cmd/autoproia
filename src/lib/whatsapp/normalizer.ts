@@ -7,11 +7,20 @@ export type NormalizedInboundMessage = {
   leadName?: string;
   avatarUrl?: string;
   text: string;
+  messageType?: string;
+  media?: {
+    type: "audio" | "image" | "video" | "document";
+    fileName?: string;
+    caption?: string;
+    mimeType?: string;
+    url?: string;
+  };
   fromMe: boolean;
 };
 
 export function normalizeEvolutionMessage(input: EvolutionWebhookInput): NormalizedInboundMessage | null {
-  const text = extractText(input.data.message);
+  const extracted = extractMessage(input.data.message);
+  const text = extracted.text;
 
   if (!text.trim()) {
     return null;
@@ -24,35 +33,103 @@ export function normalizeEvolutionMessage(input: EvolutionWebhookInput): Normali
     leadName: input.data.pushName,
     avatarUrl: input.data.profilePictureUrl ?? input.data.profilePicUrl ?? input.data.picture,
     text,
+    messageType: input.data.messageType,
+    media: extracted.media,
     fromMe: input.data.key.fromMe
   };
 }
 
-function extractText(message: Record<string, unknown> | undefined) {
-  if (!message) return "";
+function extractMessage(message: Record<string, unknown> | undefined): Pick<NormalizedInboundMessage, "text" | "media"> {
+  if (!message) return { text: "" };
 
-  const conversation = message.conversation;
-  if (typeof conversation === "string") return conversation;
+  const unwrapped = unwrapMessage(message);
 
-  const extended = message.extendedTextMessage;
-  if (isRecord(extended) && typeof extended.text === "string") return extended.text;
+  const conversation = unwrapped.conversation;
+  if (typeof conversation === "string") return { text: conversation };
 
-  const image = message.imageMessage;
-  if (isRecord(image) && typeof image.caption === "string") return image.caption;
-  if (isRecord(image)) return "[imagem recebida]";
+  const extended = unwrapped.extendedTextMessage;
+  if (isRecord(extended) && typeof extended.text === "string") return { text: extended.text };
 
-  const audio = message.audioMessage;
-  if (isRecord(audio)) return "[audio recebido]";
+  const image = unwrapped.imageMessage;
+  if (isRecord(image)) {
+    const caption = getString(image.caption);
+    return {
+      text: caption || "[imagem recebida]",
+      media: {
+        type: "image",
+        caption,
+        mimeType: getString(image.mimetype) ?? getString(image.mimeType),
+        url: getString(image.url)
+      }
+    };
+  }
 
-  const video = message.videoMessage;
-  if (isRecord(video) && typeof video.caption === "string") return video.caption;
-  if (isRecord(video)) return "[video recebido]";
+  const audio = unwrapped.audioMessage;
+  if (isRecord(audio)) {
+    return {
+      text: "[audio recebido]",
+      media: {
+        type: "audio",
+        mimeType: getString(audio.mimetype) ?? getString(audio.mimeType),
+        url: getString(audio.url)
+      }
+    };
+  }
 
-  const document = message.documentMessage;
-  if (isRecord(document) && typeof document.fileName === "string") return `[documento recebido: ${document.fileName}]`;
-  if (isRecord(document)) return "[documento recebido]";
+  const video = unwrapped.videoMessage;
+  if (isRecord(video)) {
+    const caption = getString(video.caption);
+    return {
+      text: caption || "[video recebido]",
+      media: {
+        type: "video",
+        caption,
+        mimeType: getString(video.mimetype) ?? getString(video.mimeType),
+        url: getString(video.url)
+      }
+    };
+  }
 
-  return "";
+  const document = unwrapped.documentMessage;
+  if (isRecord(document)) {
+    const fileName = getString(document.fileName);
+    const caption = getString(document.caption);
+    return {
+      text: caption || (fileName ? `[documento recebido: ${fileName}]` : "[documento recebido]"),
+      media: {
+        type: "document",
+        fileName,
+        caption,
+        mimeType: getString(document.mimetype) ?? getString(document.mimeType),
+        url: getString(document.url)
+      }
+    };
+  }
+
+  return { text: "" };
+}
+
+function unwrapMessage(message: Record<string, unknown>) {
+  const wrappers = [
+    "ephemeralMessage",
+    "viewOnceMessage",
+    "viewOnceMessageV2",
+    "documentWithCaptionMessage"
+  ];
+
+  let current = message;
+  for (const wrapper of wrappers) {
+    const wrapped = current[wrapper];
+    if (isRecord(wrapped) && isRecord(wrapped.message)) {
+      current = wrapped.message;
+    }
+  }
+
+  return current;
+}
+
+function getString(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

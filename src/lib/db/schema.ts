@@ -7,6 +7,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid
 } from "drizzle-orm/pg-core";
 
@@ -102,7 +103,7 @@ export const messages = pgTable(
   },
   (table) => ({
     conversationIdx: index("messages_conversation_idx").on(table.conversation_id),
-    externalMessageIdx: index("messages_external_message_idx").on(table.external_message_id)
+    externalMessageIdx: uniqueIndex("messages_external_message_unique_idx").on(table.external_message_id)
   })
 );
 

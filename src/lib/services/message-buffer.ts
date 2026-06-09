@@ -41,6 +41,12 @@ export async function drainConversationBuffer(conversationId: string) {
   return items.map((item) => JSON.parse(item) as BufferedMessage);
 }
 
+export async function clearConversationBuffer(conversationId: string) {
+  const redis = getRedis();
+  await redis.del(bufferKey(conversationId), processingKey(conversationId));
+  console.info("[message-buffer] buffer cleared", { conversationId });
+}
+
 export async function appendRecentConversationContext(message: RecentContextMessage) {
   const redis = getRedis();
   const key = recentContextKey(message.conversationId);

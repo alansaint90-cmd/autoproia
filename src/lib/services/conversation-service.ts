@@ -12,6 +12,7 @@ import {
 } from "@/lib/services/follow-up-service";
 import {
   appendRecentConversationContext,
+  clearConversationBuffer,
   drainConversationBuffer,
   getRecentConversationContext,
   pushToConversationBuffer,
@@ -24,27 +25,20 @@ import type { NormalizedInboundMessage } from "@/lib/whatsapp/normalizer";
 export async function registerInboundMessage(input: NormalizedInboundMessage) {
   await ensureSystemUser();
 
+  const duplicated = await findDuplicatedEvolutionMessage(input.externalMessageId);
+  if (duplicated) {
+    console.info("[conversation-service] duplicated evolution message ignored", {
+      conversationId: duplicated.conversation.id,
+      externalMessageId: input.externalMessageId
+    });
+    return { ...duplicated, duplicated: true };
+  }
+
   const leadSignal = classifyLeadSignal(input.text);
   const lead = await upsertLead(input, leadSignal);
   const conversation = await upsertConversation(lead.id, input.externalChatId);
   if (!input.fromMe) {
     await resetLeadFollowUpOnCustomerReply(lead.id);
-  }
-
-  if (input.externalMessageId) {
-    const [existingMessage] = await db
-      .select()
-      .from(messages)
-      .where(and(eq(messages.external_message_id, input.externalMessageId), eq(messages.is_deleted, false)))
-      .limit(1);
-
-    if (existingMessage) {
-      console.info("[conversation-service] duplicated evolution message ignored", {
-        conversationId: conversation.id,
-        externalMessageId: input.externalMessageId
-      });
-      return { lead, conversation, message: existingMessage };
-    }
   }
 
   const [message] = await db
@@ -54,10 +48,31 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
       external_message_id: input.externalMessageId,
       role: input.fromMe ? "human" : "lead",
       content: input.text,
-      metadata: { source: "evolution", leadSignal },
+      metadata: {
+        source: "evolution",
+        leadSignal,
+        messageType: input.messageType,
+        media: input.media
+      },
       modified_by: SYSTEM_USER_ID
     })
+    .onConflictDoNothing({ target: messages.external_message_id })
     .returning();
+
+  if (!message && input.externalMessageId) {
+    const duplicatedAfterRace = await findDuplicatedEvolutionMessage(input.externalMessageId);
+    if (duplicatedAfterRace) {
+      console.info("[conversation-service] duplicated evolution message ignored after insert race", {
+        conversationId: duplicatedAfterRace.conversation.id,
+        externalMessageId: input.externalMessageId
+      });
+      return { ...duplicatedAfterRace, duplicated: true };
+    }
+  }
+
+  if (!message) {
+    throw new Error("Nao foi possivel registrar a mensagem recebida.");
+  }
 
   await db
     .update(conversations)
@@ -93,7 +108,7 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
     await scheduleBufferProcessing(conversation.id);
   }
 
-  return { lead, conversation, message };
+  return { lead, conversation, message, duplicated: false };
 }
 
 async function ensureSystemUser() {
@@ -124,6 +139,9 @@ export async function processBufferedConversation(conversationId: string) {
     .limit(1);
 
   if (!conversation || conversation.status !== "ai") {
+    if (conversation && conversation.status !== "ai") {
+      await clearConversationBuffer(conversationId);
+    }
     console.info("[conversation-service] processing skipped by conversation status", {
       conversationId,
       status: conversation?.status
@@ -174,6 +192,20 @@ export async function processBufferedConversation(conversationId: string) {
     messages: messagesForContext
   });
   const cleanReply = sanitizeWhatsAppText(reply);
+
+  const [currentBeforeSend] = await db
+    .select({ status: conversations.status })
+    .from(conversations)
+    .where(and(eq(conversations.id, conversationId), eq(conversations.is_deleted, false)))
+    .limit(1);
+
+  if (!currentBeforeSend || currentBeforeSend.status !== "ai") {
+    console.info("[conversation-service] ai reply discarded because conversation left automatic mode", {
+      conversationId,
+      status: currentBeforeSend?.status
+    });
+    return { skipped: true };
+  }
 
   console.info("[conversation-service] sending whatsapp reply", { conversationId, phone: lead.phone });
   await sendWhatsAppText({ phone: lead.phone, text: cleanReply });
@@ -256,6 +288,7 @@ async function changeConversationStatus(
 
   if (toStatus === "human" || toStatus === "ai") {
     if (toStatus === "human") {
+      await clearConversationBuffer(conversationId);
       await pauseLeadFollowUp(current.lead_id, userId);
     } else {
       await resumeLeadFollowUp(current.lead_id, userId);
@@ -293,6 +326,36 @@ async function changeConversationStatus(
   });
 
   return updated;
+}
+
+async function findDuplicatedEvolutionMessage(externalMessageId?: string) {
+  if (!externalMessageId) return null;
+
+  const [message] = await db
+    .select()
+    .from(messages)
+    .where(and(eq(messages.external_message_id, externalMessageId), eq(messages.is_deleted, false)))
+    .limit(1);
+
+  if (!message) return null;
+
+  const [conversation] = await db
+    .select()
+    .from(conversations)
+    .where(and(eq(conversations.id, message.conversation_id), eq(conversations.is_deleted, false)))
+    .limit(1);
+
+  if (!conversation) return null;
+
+  const [lead] = await db
+    .select()
+    .from(leads)
+    .where(and(eq(leads.id, conversation.lead_id), eq(leads.is_deleted, false)))
+    .limit(1);
+
+  if (!lead) return null;
+
+  return { lead, conversation, message };
 }
 
 type LeadSignal = {

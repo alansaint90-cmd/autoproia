@@ -43,14 +43,14 @@ export async function POST(request: NextRequest) {
 
   const inbound = normalizeEvolutionMessage(parsed.data);
   if (!inbound) {
-    console.info("[evolution-webhook] ignored non-text message");
+    console.info("[evolution-webhook] ignored unsupported or empty message");
     return NextResponse.json({ ignored: true });
   }
 
   try {
     const result = await registerInboundMessage(inbound);
 
-    if (!inbound.fromMe && result.conversation.status === "ai") {
+    if (!result.duplicated && !inbound.fromMe && result.conversation.status === "ai") {
       setTimeout(() => {
         processBufferedConversation(result.conversation.id).catch((error) => {
           console.error("[evolution-webhook] buffer processing failed", error);
