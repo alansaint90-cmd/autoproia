@@ -60,7 +60,8 @@ export async function GET() {
       evolutionInstanceName: configured(env.EVOLUTION_INSTANCE_NAME),
       evolutionWebhookSecret: configured(env.EVOLUTION_WEBHOOK_SECRET),
       supabaseUrl: configured(env.SUPABASE_URL),
-      supabaseServiceRoleKey: configured(env.SUPABASE_SERVICE_ROLE_KEY)
+      supabaseServiceRoleKey: configured(env.SUPABASE_SERVICE_ROLE_KEY),
+      aiMessageBufferWindowMs: env.AI_MESSAGE_BUFFER_WINDOW_MS
     },
     services: {
       database,

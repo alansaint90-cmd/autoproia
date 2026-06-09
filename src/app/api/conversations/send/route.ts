@@ -1,13 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
+import { z } from "zod";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import { appendRecentConversationContext } from "@/lib/services/message-buffer";
 import { assertPermission } from "@/lib/services/permission-service";
 import { pauseLeadFollowUp } from "@/lib/services/follow-up-service";
 import { publishRealtimeEvent } from "@/lib/services/realtime";
-import { sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
+import { sanitizeWhatsAppText, sendWhatsAppMedia, sendWhatsAppText } from "@/lib/services/evolution-api";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,18 @@ type CreatedMessage = {
   id: string;
   created_at: Date | string;
 };
+
+const attachmentSchema = z.object({
+  name: z.string().min(1),
+  type: z.enum(["audio", "image", "video"]),
+  dataUrl: z.string().min(1)
+});
+
+const sendMessageSchema = z.object({
+  leadId: z.string().min(1),
+  text: z.string().default(""),
+  attachment: attachmentSchema.optional()
+});
 
 function formatMessageTime(value: Date | string) {
   const date = new Date(value);
@@ -43,11 +56,12 @@ export async function POST(request: NextRequest) {
     const session = await getSession();
     await assertPermission(session.role, "replyConversations");
 
-    const body = (await request.json().catch(() => ({}))) as { leadId?: unknown; text?: unknown };
-    const leadId = typeof body.leadId === "string" ? body.leadId.trim() : "";
-    const text = sanitizeWhatsAppText(typeof body.text === "string" ? body.text : "");
+    const body = sendMessageSchema.parse(await request.json().catch(() => ({})));
+    const leadId = body.leadId.trim();
+    const text = sanitizeWhatsAppText(body.text);
+    const attachment = body.attachment;
 
-    if (!leadId || !text) {
+    if (!leadId || (!text && !attachment)) {
       return NextResponse.json({ error: "Informe o lead e a mensagem para envio." }, { status: 400 });
     }
 
@@ -69,15 +83,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Conversa nao encontrada para este lead." }, { status: 404 });
     }
 
-    await sendWhatsAppText({ phone: target.phone, text });
+    if (attachment) {
+      await sendWhatsAppMedia({
+        phone: target.phone,
+        mediaType: attachment.type,
+        mediaDataUrl: attachment.dataUrl,
+        fileName: attachment.name,
+        caption: text || undefined
+      });
+    } else {
+      await sendWhatsAppText({ phone: target.phone, text });
+    }
+
+    const messageContent = text || `${attachment?.type === "audio" ? "Audio" : attachment?.type === "image" ? "Imagem" : "Video"}: ${attachment?.name}`;
 
     const [createdMessage] = await db.execute<CreatedMessage>(sql`
       insert into messages (conversation_id, role, content, metadata, modified_by)
       values (
         ${target.conversation_id},
         'human',
-        ${text},
-        ${JSON.stringify({ source: "manual", userId: session.userId, sender: session.name })}::jsonb,
+        ${messageContent},
+        ${JSON.stringify({
+          source: "manual",
+          userId: session.userId,
+          sender: session.name,
+          attachment: attachment ? { name: attachment.name, type: attachment.type } : null
+        })}::jsonb,
         ${session.userId}
       )
       returning id, created_at
@@ -97,7 +128,7 @@ export async function POST(request: NextRequest) {
     await db.execute(sql`
       update leads
       set
-        last_message_preview = ${text},
+        last_message_preview = ${messageContent},
         last_interaction_at = now(),
         next_follow_up_at = null,
         follow_up_paused_at = now(),
@@ -114,7 +145,7 @@ export async function POST(request: NextRequest) {
     const message = {
       id: createdMessage?.id ?? randomUUID(),
       from: "human" as const,
-      text,
+      text: messageContent,
       time: createdMessage?.created_at ? formatMessageTime(createdMessage.created_at) : "agora"
     };
 
@@ -122,7 +153,7 @@ export async function POST(request: NextRequest) {
       conversationId: target.conversation_id,
       messageId: message.id,
       role: "human",
-      content: text,
+      content: messageContent,
       createdAt: new Date().toISOString()
     });
 

@@ -5,6 +5,14 @@ type SendTextInput = {
   text: string;
 };
 
+export type SendMediaInput = {
+  phone: string;
+  mediaType: "audio" | "image" | "video";
+  mediaDataUrl: string;
+  fileName: string;
+  caption?: string;
+};
+
 type ProfilePictureResponse = {
   profilePictureUrl?: string;
   profilePicUrl?: string;
@@ -31,6 +39,43 @@ export async function sendWhatsAppText(input: SendTextInput) {
   }
 
   return sendSingleWhatsAppText({ ...input, text: parts[0] ?? sanitizeWhatsAppText(input.text) });
+}
+
+export async function sendWhatsAppMedia(input: SendMediaInput) {
+  const url = new URL(`/message/sendMedia/${env.EVOLUTION_INSTANCE_NAME}`, env.EVOLUTION_API_URL);
+  const maskedPhone = input.phone.replace(/\d(?=\d{4})/g, "*");
+  const media = stripDataUrlPrefix(input.mediaDataUrl);
+
+  console.info("[evolution-api] sending media", {
+    url: url.toString(),
+    phone: maskedPhone,
+    mediaType: input.mediaType,
+    fileName: input.fileName
+  });
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: env.EVOLUTION_API_KEY
+    },
+    body: JSON.stringify({
+      number: input.phone,
+      mediatype: input.mediaType,
+      media,
+      caption: input.caption ? sanitizeWhatsAppText(input.caption) : undefined,
+      fileName: input.fileName
+    })
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "");
+    console.error("[evolution-api] media send failed", { status: response.status, body: errorBody });
+    throw new Error(`Evolution API falhou ao enviar midia: ${response.status}`);
+  }
+
+  console.info("[evolution-api] media send success", { status: response.status });
+  return response.json() as Promise<unknown>;
 }
 
 export async function fetchWhatsAppProfilePicture(phone: string) {
@@ -110,6 +155,11 @@ function splitWhatsAppText(text: string) {
     .split(/\s*\|{3}\s*SPLIT\s*\|{3}\s*/gi)
     .map((part) => sanitizeWhatsAppText(part))
     .filter(Boolean);
+}
+
+function stripDataUrlPrefix(value: string) {
+  const [, payload] = value.match(/^data:[^;]+;base64,(.+)$/i) ?? [];
+  return payload ?? value;
 }
 
 export function sanitizeWhatsAppText(text: string) {

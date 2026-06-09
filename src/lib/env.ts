@@ -10,6 +10,15 @@ const optionalString = z.preprocess(
   z.string().optional()
 );
 
+const integerFromEnv = (defaultValue: number, minimum: number, maximum: number) =>
+  z.preprocess(
+    (value) => {
+      if (typeof value === "string" && value.trim() !== "") return Number(value);
+      return value;
+    },
+    z.number().int().min(minimum).max(maximum).default(defaultValue)
+  );
+
 const envSchema = z.object({
   DATABASE_URL: z.string().url().default("postgres://auto_pro_ia:auto_pro_ia@localhost:5432/auto_pro_ia"),
   REDIS_URL: z.string().url().default("redis://localhost:6379"),
@@ -29,7 +38,8 @@ const envSchema = z.object({
   SUPERADMIN_NAME: z.string().default("Superadmin"),
   AUTH_RECOVERY_SECRET: optionalString,
   RESEND_API_KEY: optionalString,
-  AUTH_EMAIL_FROM: z.string().min(1).default("Auto Pro IA <noreply@autoproia.site>")
+  AUTH_EMAIL_FROM: z.string().min(1).default("Auto Pro IA <noreply@autoproia.site>"),
+  AI_MESSAGE_BUFFER_WINDOW_MS: integerFromEnv(12_000, 8_000, 15_000)
 });
 
 type Env = z.infer<typeof envSchema>;
@@ -56,7 +66,8 @@ function readEnv() {
     SUPERADMIN_NAME: process.env.SUPERADMIN_NAME,
     AUTH_RECOVERY_SECRET: process.env.AUTH_RECOVERY_SECRET,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
-    AUTH_EMAIL_FROM: process.env.AUTH_EMAIL_FROM
+    AUTH_EMAIL_FROM: process.env.AUTH_EMAIL_FROM,
+    AI_MESSAGE_BUFFER_WINDOW_MS: process.env.AI_MESSAGE_BUFFER_WINDOW_MS
   });
 
   return cachedEnv;

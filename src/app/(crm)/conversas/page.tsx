@@ -60,7 +60,14 @@ type QuickReplyAttachment = {
   dataUrl: string;
 };
 
-type Conversation = (typeof conversations)[number];
+type Conversation = (typeof conversations)[number] & {
+  id?: string;
+  archived?: boolean;
+  muted?: boolean;
+  pinned?: boolean;
+  blocked?: boolean;
+  cleared?: boolean;
+};
 type KanbanStoredLead = {
   id: string;
   name: string;
@@ -391,8 +398,8 @@ function createConversationFromKanbanLead(lead: KanbanStoredLead): Conversation 
 }
 
 export default function ConversasPage() {
-  const [activeId, setActiveId] = useState(conversations[0]?.lead.id ?? "");
-  const [availableConversations, setAvailableConversations] = useState<Conversation[]>(conversations);
+  const [activeId, setActiveId] = useState("");
+  const [availableConversations, setAvailableConversations] = useState<Conversation[]>([]);
   const [manualConversationIds, setManualConversationIds] = useState<string[]>([]);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>(defaultQuickReplies);
   const [conversationQuery, setConversationQuery] = useState("");
@@ -574,6 +581,10 @@ export default function ConversasPage() {
         if (!mounted) return;
 
         setAvailableConversations(mergedConversations);
+        setArchivedConversationIds(mergedConversations.filter((conversation) => conversation.archived).map((conversation) => conversation.lead.id));
+        setBlockedConversationIds(mergedConversations.filter((conversation) => conversation.blocked).map((conversation) => conversation.lead.id));
+        setMutedConversationIds(mergedConversations.filter((conversation) => conversation.muted).map((conversation) => conversation.lead.id));
+        setPinnedConversationIds(mergedConversations.filter((conversation) => conversation.pinned).map((conversation) => conversation.lead.id));
 
         const leadId = new URLSearchParams(window.location.search).get("lead");
         if (leadId && mergedConversations.some((conversation) => conversation.lead.id === leadId)) {
@@ -601,22 +612,51 @@ export default function ConversasPage() {
   }, []);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(quickReplyStorageKey);
-    if (!stored) return;
+    let mounted = true;
 
-    try {
-      const parsed = JSON.parse(stored) as QuickReply[];
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        setQuickReplies(parsed);
+    async function loadQuickReplies() {
+      try {
+        const response = await fetch("/api/conversations/quick-replies", { cache: "no-store" });
+        const data = (await response.json().catch(() => ({}))) as { quickReplies?: QuickReply[] };
+        if (!mounted) return;
+
+        if (response.ok && Array.isArray(data.quickReplies) && data.quickReplies.length > 0) {
+          setQuickReplies(data.quickReplies);
+          return;
+        }
+
+        const stored = window.localStorage.getItem(quickReplyStorageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored) as QuickReply[];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setQuickReplies(parsed);
+          }
+        }
+      } catch {
+        if (mounted) setQuickReplies(defaultQuickReplies);
       }
-    } catch {
-      setQuickReplies(defaultQuickReplies);
     }
+
+    loadQuickReplies();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  useEffect(() => {
-    window.localStorage.setItem(quickReplyStorageKey, JSON.stringify(quickReplies));
-  }, [quickReplies]);
+  async function persistQuickReplies(nextReplies: QuickReply[]) {
+    window.localStorage.setItem(quickReplyStorageKey, JSON.stringify(nextReplies));
+
+    const response = await fetch("/api/conversations/quick-replies", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ quickReplies: nextReplies })
+    });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!response.ok) {
+      throw new Error(payload.error || "Nao foi possivel salvar respostas rapidas.");
+    }
+  }
 
   useEffect(() => {
     const textarea = draftTextareaRef.current;
@@ -650,27 +690,31 @@ export default function ConversasPage() {
     setManageReplies(false);
   }
 
-  function saveQuickReply() {
+  async function saveQuickReply() {
     const trimmedName = replyName.trim();
     const trimmedMessage = replyMessage.trim();
     if (!trimmedName || (!trimmedMessage && !replyAttachment)) return;
 
-    if (editingReplyId) {
-      setQuickReplies((items) =>
-        items.map((item) =>
+    const nextReplies = editingReplyId
+      ? quickReplies.map((item) =>
           item.id === editingReplyId ? { ...item, name: trimmedName, message: trimmedMessage, attachment: replyAttachment } : item
         )
-      );
-    } else {
-      setQuickReplies((items) => [
-        ...items,
-        {
-          id: crypto.randomUUID(),
-          name: trimmedName,
-          message: trimmedMessage,
-          attachment: replyAttachment
-        }
-      ]);
+      : [
+          ...quickReplies,
+          {
+            id: crypto.randomUUID(),
+            name: trimmedName,
+            message: trimmedMessage,
+            attachment: replyAttachment
+          }
+        ];
+
+    try {
+      await persistQuickReplies(nextReplies);
+      setQuickReplies(nextReplies);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel salvar resposta rapida.");
+      return;
     }
 
     setEditingReplyId(null);
@@ -680,8 +724,10 @@ export default function ConversasPage() {
     setManageReplies(false);
   }
 
-  function deleteQuickReply(replyId: string) {
-    setQuickReplies((items) => items.filter((item) => item.id !== replyId));
+  async function deleteQuickReply(replyId: string) {
+    const nextReplies = quickReplies.filter((item) => item.id !== replyId);
+    await persistQuickReplies(nextReplies);
+    setQuickReplies(nextReplies);
     if (editingReplyId === replyId) {
       setEditingReplyId(null);
       setReplyName("");
@@ -690,10 +736,16 @@ export default function ConversasPage() {
     }
   }
 
-  function confirmDeleteQuickReply() {
+  async function confirmDeleteQuickReply() {
     if (!deleteReplyId) return;
 
-    deleteQuickReply(deleteReplyId);
+    try {
+      await deleteQuickReply(deleteReplyId);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel excluir resposta rapida.");
+      return;
+    }
+
     setDeleteReplyId(null);
     setReplyFeedback("Mensagem excluida com sucesso.");
     window.setTimeout(() => setReplyFeedback(""), 2600);
@@ -714,7 +766,8 @@ export default function ConversasPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           leadId: active.lead.id,
-          text: textToSend
+          text: trimmedMessage,
+          attachment: draftAttachment
         })
       });
       const payload = (await response.json().catch(() => ({}))) as {
@@ -962,10 +1015,47 @@ export default function ConversasPage() {
     }
   }
 
-  function toggleArchiveConversation(conversationId: string) {
+  function conversationApiIdFromLeadId(leadId: string) {
+    return availableConversations.find((conversation) => conversation.lead.id === leadId)?.id;
+  }
+
+  async function persistConversationAction(leadId: string, action: "archive" | "unarchive" | "mute" | "unmute" | "pin" | "unpin" | "block" | "unblock" | "clear" | "delete") {
+    const conversationId = conversationApiIdFromLeadId(leadId);
+    if (!conversationId) {
+      window.alert("Conversa ainda nao sincronizada com o banco.");
+      return false;
+    }
+
+    const response = await fetch(`/api/conversations/${conversationId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action })
+    });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!response.ok) {
+      throw new Error(payload.error || "Nao foi possivel atualizar a conversa.");
+    }
+
+    return true;
+  }
+
+  async function toggleArchiveConversation(conversationId: string) {
     const isArchived = archivedConversationIds.includes(conversationId);
 
+    try {
+      const persisted = await persistConversationAction(conversationId, isArchived ? "unarchive" : "archive");
+      if (!persisted) return;
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel arquivar a conversa.");
+      return;
+    }
+
     setArchivedConversationIds((ids) => (isArchived ? ids.filter((id) => id !== conversationId) : [conversationId, ...ids]));
+    setAvailableConversations((items) =>
+      items.map((conversation) =>
+        conversation.lead.id === conversationId ? { ...conversation, archived: !isArchived } : conversation
+      )
+    );
     setOpenConversationMenuId(null);
 
     if (!isArchived && activeId === conversationId) {
@@ -973,13 +1063,41 @@ export default function ConversasPage() {
     }
   }
 
-  function toggleMuteConversation(conversationId: string) {
+  async function toggleMuteConversation(conversationId: string) {
+    const isMuted = mutedConversationIds.includes(conversationId);
+    try {
+      const persisted = await persistConversationAction(conversationId, isMuted ? "unmute" : "mute");
+      if (!persisted) return;
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel silenciar a conversa.");
+      return;
+    }
+
     setMutedConversationIds((ids) => (ids.includes(conversationId) ? ids.filter((id) => id !== conversationId) : [conversationId, ...ids]));
+    setAvailableConversations((items) =>
+      items.map((conversation) =>
+        conversation.lead.id === conversationId ? { ...conversation, muted: !isMuted } : conversation
+      )
+    );
     setOpenConversationMenuId(null);
   }
 
-  function togglePinConversation(conversationId: string) {
+  async function togglePinConversation(conversationId: string) {
+    const isPinned = pinnedConversationIds.includes(conversationId);
+    try {
+      const persisted = await persistConversationAction(conversationId, isPinned ? "unpin" : "pin");
+      if (!persisted) return;
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel fixar a conversa.");
+      return;
+    }
+
     setPinnedConversationIds((ids) => (ids.includes(conversationId) ? ids.filter((id) => id !== conversationId) : [conversationId, ...ids]));
+    setAvailableConversations((items) =>
+      items.map((conversation) =>
+        conversation.lead.id === conversationId ? { ...conversation, pinned: !isPinned } : conversation
+      )
+    );
     setOpenConversationMenuId(null);
   }
 
@@ -995,10 +1113,18 @@ export default function ConversasPage() {
     setPrivacyConversationIds((ids) => (ids.includes(conversationId) ? ids.filter((id) => id !== conversationId) : [conversationId, ...ids]));
   }
 
-  function toggleBlockConversation(conversationId: string) {
+  async function toggleBlockConversation(conversationId: string) {
     const isBlocked = blockedConversationIds.includes(conversationId);
     const confirmed = window.confirm(isBlocked ? "Deseja desbloquear esta conversa?" : "Deseja bloquear esta conversa?");
     if (!confirmed) return;
+
+    try {
+      const persisted = await persistConversationAction(conversationId, isBlocked ? "unblock" : "block");
+      if (!persisted) return;
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel bloquear a conversa.");
+      return;
+    }
 
     setBlockedConversationIds((ids) => (isBlocked ? ids.filter((id) => id !== conversationId) : [conversationId, ...ids]));
     setAvailableConversations((items) =>
@@ -1006,6 +1132,7 @@ export default function ConversasPage() {
         conversation.lead.id === conversationId
           ? {
               ...conversation,
+              blocked: !isBlocked,
               status: "human",
               preview: isBlocked ? "Conversa desbloqueada." : "Conversa bloqueada."
             }
@@ -1015,15 +1142,24 @@ export default function ConversasPage() {
     setOpenConversationMenuId(null);
   }
 
-  function clearConversation(conversationId: string) {
+  async function clearConversation(conversationId: string) {
     const confirmed = window.confirm("Deseja limpar o historico desta conversa?");
     if (!confirmed) return;
+
+    try {
+      const persisted = await persistConversationAction(conversationId, "clear");
+      if (!persisted) return;
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel limpar a conversa.");
+      return;
+    }
 
     setAvailableConversations((items) =>
       items.map((conversation) =>
         conversation.lead.id === conversationId
           ? {
               ...conversation,
+              cleared: true,
               unread: 0,
               preview: "Conversa limpa.",
               messages: []
@@ -1034,9 +1170,17 @@ export default function ConversasPage() {
     setOpenConversationMenuId(null);
   }
 
-  function deleteConversation(conversationId: string) {
+  async function deleteConversation(conversationId: string) {
     const confirmed = window.confirm("Deseja apagar esta conversa da caixa de entrada?");
     if (!confirmed) return;
+
+    try {
+      const persisted = await persistConversationAction(conversationId, "delete");
+      if (!persisted) return;
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel apagar a conversa.");
+      return;
+    }
 
     setAvailableConversations((items) => items.filter((conversation) => conversation.lead.id !== conversationId));
     setArchivedConversationIds((ids) => ids.filter((id) => id !== conversationId));

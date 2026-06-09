@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { processBufferedConversation, registerInboundMessage } from "@/lib/services/conversation-service";
+import { getMessageBufferWindowMs } from "@/lib/services/message-buffer";
 import { evolutionWebhookSchema } from "@/lib/validators/evolution";
 import { normalizeEvolutionMessage } from "@/lib/whatsapp/normalizer";
 
@@ -51,11 +52,12 @@ export async function POST(request: NextRequest) {
     const result = await registerInboundMessage(inbound);
 
     if (!result.duplicated && !inbound.fromMe && result.conversation.status === "ai") {
+      const bufferWindowMs = getMessageBufferWindowMs();
       setTimeout(() => {
         processBufferedConversation(result.conversation.id).catch((error) => {
           console.error("[evolution-webhook] buffer processing failed", error);
         });
-      }, 8_000);
+      }, bufferWindowMs);
     }
 
     console.info("[evolution-webhook] message registered", {

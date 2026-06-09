@@ -11,6 +11,11 @@ type ConversationRow = {
   conversation_id: string;
   status: "ai" | "human" | "paused" | "closed";
   last_message_at: Date | string | null;
+  archived_at: Date | string | null;
+  muted_at: Date | string | null;
+  pinned_at: Date | string | null;
+  blocked_at: Date | string | null;
+  cleared_at: Date | string | null;
   lead_id: string;
   lead_name: string | null;
   phone: string;
@@ -74,6 +79,11 @@ export async function GET(request: NextRequest) {
         c.id as conversation_id,
         c.status,
         c.last_message_at,
+        c.archived_at,
+        c.muted_at,
+        c.pinned_at,
+        c.blocked_at,
+        c.cleared_at,
         l.id as lead_id,
         l.name as lead_name,
         l.phone,
@@ -106,6 +116,7 @@ export async function GET(request: NextRequest) {
               from messages m
               where m.conversation_id = c.id
                 and m.is_deleted = false
+                and (c.cleared_at is null or m.created_at > c.cleared_at)
               order by m.created_at desc
               limit 40
             ) ordered_messages
@@ -144,6 +155,11 @@ export async function GET(request: NextRequest) {
 
       return {
         id: row.conversation_id,
+        archived: Boolean(row.archived_at),
+        muted: Boolean(row.muted_at),
+        pinned: Boolean(row.pinned_at),
+        blocked: Boolean(row.blocked_at),
+        cleared: Boolean(row.cleared_at),
         lead: {
           id: row.lead_id,
           name,

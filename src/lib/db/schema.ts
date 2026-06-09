@@ -80,6 +80,11 @@ export const conversations = pgTable(
     ai_paused_reason: text("ai_paused_reason"),
     last_message_at: timestamp("last_message_at", { withTimezone: true }).notNull().defaultNow(),
     context_summary: text("context_summary"),
+    archived_at: timestamp("archived_at", { withTimezone: true }),
+    muted_at: timestamp("muted_at", { withTimezone: true }),
+    pinned_at: timestamp("pinned_at", { withTimezone: true }),
+    blocked_at: timestamp("blocked_at", { withTimezone: true }),
+    cleared_at: timestamp("cleared_at", { withTimezone: true }),
     ...baseAuditColumns,
     modified_by: uuid("modified_by").notNull().references(() => users.id, { onDelete: "restrict" })
   },

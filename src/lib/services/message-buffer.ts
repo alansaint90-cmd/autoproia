@@ -3,7 +3,6 @@ import { env } from "@/lib/env";
 
 const bufferTtlSeconds = 60 * 10;
 const processingMarkerTtlSeconds = 60;
-const processingQuietWindowMs = 8_000;
 const recentContextTtlSeconds = 60 * 60 * 24 * 7;
 const recentContextLimit = 30;
 let redisClient: Redis | null = null;
@@ -65,7 +64,10 @@ export async function getRecentConversationContext(conversationId: string) {
 export async function scheduleBufferProcessing(conversationId: string) {
   const redis = getRedis();
   await redis.set(processingKey(conversationId), String(Date.now()), "EX", processingMarkerTtlSeconds);
-  console.info("[message-buffer] processing scheduled", { conversationId });
+  console.info("[message-buffer] processing scheduled", {
+    conversationId,
+    quietWindowMs: getMessageBufferWindowMs()
+  });
 }
 
 export async function shouldProcessBuffer(conversationId: string) {
@@ -73,10 +75,15 @@ export async function shouldProcessBuffer(conversationId: string) {
   const status = await redis.get(processingKey(conversationId));
   const scheduledAt = Number(status);
   const elapsedMs = Number.isFinite(scheduledAt) ? Date.now() - scheduledAt : 0;
-  const shouldProcess = Boolean(status && elapsedMs >= processingQuietWindowMs);
+  const quietWindowMs = getMessageBufferWindowMs();
+  const shouldProcess = Boolean(status && elapsedMs >= quietWindowMs);
 
-  console.info("[message-buffer] processing status", { conversationId, status, elapsedMs, shouldProcess });
+  console.info("[message-buffer] processing status", { conversationId, status, elapsedMs, quietWindowMs, shouldProcess });
   return shouldProcess;
+}
+
+export function getMessageBufferWindowMs() {
+  return env.AI_MESSAGE_BUFFER_WINDOW_MS;
 }
 
 function getRedis() {

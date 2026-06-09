@@ -218,6 +218,12 @@ export async function processBufferedConversation(conversationId: string) {
     return { skipped: true };
   }
 
+  console.info("[conversation-service] buffered messages grouped for ai reply", {
+    conversationId,
+    count: buffered.length,
+    messageIds: buffered.map((item) => item.messageId)
+  });
+
   const recentMessages = await db
     .select()
     .from(messages)
