@@ -142,7 +142,7 @@ const emptyDraft: LeadDraft = {
   status: "novo",
   temperature: "quente",
   sentiment: "positivo",
-  responsible: "Carla Vendas",
+  responsible: "Equipe comercial",
   interest: "carro",
   lastMessage: "",
   notes: ""

@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
+import { loadEnvFile } from "node:process";
 import postgres from "postgres";
+
+try {
+  loadEnvFile(".env");
+} catch {
+  // Production usually provides DATABASE_URL via environment variables.
+}
 
 const databaseUrl = process.env.DATABASE_URL ?? "postgres://auto_pro_ia:auto_pro_ia@localhost:5432/auto_pro_ia";
 const systemUserId = "00000000-0000-0000-0000-000000000001";
@@ -331,6 +338,11 @@ async function ensureMessages(sql, lead, conversationId, index) {
 }
 
 async function main() {
+  if (process.env.ALLOW_FAKE_DASHBOARD_SEED !== "true") {
+    console.log("[seed-dashboard-dates] skipped. Set ALLOW_FAKE_DASHBOARD_SEED=true to create demo leads.");
+    return;
+  }
+
   const sql = postgres(databaseUrl, { prepare: false });
   const leads = leadNames.map((_, index) => buildLead(index));
 

@@ -85,7 +85,6 @@ type KanbanStoredLead = {
 };
 
 const quickReplyStorageKey = "auto-pro-ia:quick-replies";
-const kanbanLeadStorageKey = "auto-pro-ia:kanban-leads";
 
 const temperatureEmoji: Record<Conversation["lead"]["temperature"], string> = {
   quente: "🔥",

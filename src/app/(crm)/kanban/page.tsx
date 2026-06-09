@@ -162,7 +162,7 @@ const emptyDraft: LeadDraft = {
   temperature: "quente",
   sentiment: "positivo",
   lastMessage: "",
-  responsible: "Carla Vendas",
+  responsible: "Equipe comercial",
   notes: ""
 };
 

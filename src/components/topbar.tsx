@@ -2,45 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
-import { Bell, Bot, CheckCircle2, LogOut, MessageCircle, Search, TrendingUp, UserRound, X } from "lucide-react";
+import { Bell, Bot, LogOut, Search, UserRound, X } from "lucide-react";
 
-const KANBAN_STORAGE_KEY = "auto-pro-ia:kanban-leads";
 const COMPANY_PROFILE_STORAGE_KEY = "auto-pro-ia:company-profile";
 
-const notifications = [
-  {
-    id: "n1",
-    title: "Novo lead qualificado",
-    description: "Ana Beatriz respondeu sobre CNH B e esta pronta para atendimento.",
-    time: "2 min",
-    icon: Bot,
-    tone: "text-primary"
-  },
-  {
-    id: "n2",
-    title: "Conversa aguardando humano",
-    description: "Pedro H. pediu negociacao de parcelas no WhatsApp.",
-    time: "8 min",
-    icon: MessageCircle,
-    tone: "text-primary"
-  },
-  {
-    id: "n3",
-    title: "Matricula fechada",
-    description: "Carla Vendas confirmou uma matricula CNH B.",
-    time: "14 min",
-    icon: CheckCircle2,
-    tone: "text-success"
-  },
-  {
-    id: "n4",
-    title: "Campanha acima da media",
-    description: "Meta Ads subiu 18% em conversao na ultima hora.",
-    time: "32 min",
-    icon: TrendingUp,
-    tone: "text-[#0f4c8a]"
-  }
-];
+const notifications: Array<{
+  id: string;
+  title: string;
+  description: string;
+  time: string;
+  icon: typeof Bot;
+  tone: string;
+}> = [];
 
 const emptyLead = {
   name: "",
@@ -50,7 +23,7 @@ const emptyLead = {
   temperature: "quente",
   sentiment: "positivo",
   lastMessage: "",
-  responsible: "Carla Vendas",
+  responsible: "Equipe comercial",
   notes: ""
 };
 
@@ -156,32 +129,45 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
     setShowFallbackModal(true);
   }
 
-  function saveFallbackLead() {
+  async function saveFallbackLead() {
     if (!leadDraft.name.trim()) {
       return;
     }
 
-    const newLead = {
-      id: `lead-${Date.now()}`,
+    if (!leadDraft.phone.trim()) {
+      window.alert("Informe o WhatsApp do lead para salvar.");
+      return;
+    }
+
+    const payload = {
       name: leadDraft.name.trim(),
-      phone: leadDraft.phone.trim() || "+55 00 90000-0000",
+      phone: leadDraft.phone.trim(),
       origin: leadDraft.origin,
       status: leadDraft.status,
       temperature: leadDraft.temperature,
       sentiment: leadDraft.sentiment,
-      lastMessage: leadDraft.lastMessage.trim() || "Novo lead cadastrado manualmente.",
-      lastInteraction: "agora",
-      responsible: leadDraft.responsible.trim() || "Carla Vendas",
-      initials: initialsFromName(leadDraft.name),
-      notes: leadDraft.notes.trim() || "Lead criado pelo botao Novo Lead."
+      lastMessage: leadDraft.lastMessage.trim() || "Lead cadastrado manualmente.",
+      interest: leadDraft.notes.trim() || undefined
     };
 
-    const stored = window.localStorage.getItem(KANBAN_STORAGE_KEY);
-    const current = stored ? JSON.parse(stored) : [];
-    window.localStorage.setItem(KANBAN_STORAGE_KEY, JSON.stringify([newLead, ...current]));
-    window.dispatchEvent(new Event("auto-pro-ia:kanban-leads-updated"));
-    setShowFallbackModal(false);
-    setLeadDraft(emptyLead);
+    try {
+      const response = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) {
+        throw new Error(data.error ?? "Nao foi possivel salvar o lead.");
+      }
+
+      window.dispatchEvent(new Event("auto-pro-ia:leads-updated"));
+      setShowFallbackModal(false);
+      setLeadDraft(emptyLead);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel salvar o lead.");
+    }
   }
 
   function exitApp() {
@@ -276,7 +262,9 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
               className="ap-button-ghost relative grid size-10 place-items-center rounded-2xl text-primary transition duration-200 hover:-translate-y-0.5 active:translate-y-0"
             >
               <Bell className="size-4" />
-              <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-danger" />
+              {notifications.length > 0 ? (
+                <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-danger" />
+              ) : null}
             </button>
 
             <div className="pointer-events-none absolute right-0 top-10 z-[120] w-80 translate-y-2 pt-2 opacity-0 transition-all duration-200 group-hover/notifications:pointer-events-auto group-hover/notifications:translate-y-0 group-hover/notifications:opacity-100">
@@ -288,7 +276,11 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
                   </span>
                 </div>
                 <div className="space-y-1.5">
-                  {notifications.slice(0, 3).map((notification) => {
+                  {notifications.length === 0 ? (
+                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.035] p-3 text-xs leading-5 text-muted-foreground">
+                      Sem notificacoes reais no momento.
+                    </div>
+                  ) : notifications.slice(0, 3).map((notification) => {
                     const Icon = notification.icon;
 
                     return (
@@ -510,7 +502,11 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
             </div>
 
             <div className="max-h-[62vh] space-y-2 overflow-y-auto p-4 scrollbar-thin">
-              {notifications.map((notification) => {
+              {notifications.length === 0 ? (
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-5 text-sm text-muted-foreground">
+                  Nenhuma notificacao real registrada agora.
+                </div>
+              ) : notifications.map((notification) => {
                 const Icon = notification.icon;
 
                 return (
