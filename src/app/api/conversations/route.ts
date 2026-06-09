@@ -190,7 +190,7 @@ export async function GET(request: NextRequest) {
         online: false,
         unread: 0,
         preview: lastMessage,
-        status: row.status === "human" ? "human" : "ai",
+        status: row.status,
         messages: (row.messages ?? []).map((message) => ({
           id: message.id,
           from: message.role === "ai" ? "ia" : message.role === "human" ? "human" : "lead",

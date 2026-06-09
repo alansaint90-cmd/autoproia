@@ -410,12 +410,28 @@ async function changeConversationStatus(
     .where(and(eq(conversations.id, conversationId), eq(conversations.is_deleted, false)))
     .returning();
 
+  if (!updated) {
+    throw new Error("Nao foi possivel atualizar o status da conversa.");
+  }
+
   if (toStatus === "human" || toStatus === "ai") {
     if (toStatus === "human") {
-      await clearConversationBuffer(conversationId);
-      await pauseLeadFollowUp(current.lead_id, userId);
+      try {
+        await clearConversationBuffer(conversationId);
+      } catch (error) {
+        console.warn("[conversation-service] failed to clear buffer after human handoff", error);
+      }
+      try {
+        await pauseLeadFollowUp(current.lead_id, userId);
+      } catch (error) {
+        console.warn("[conversation-service] failed to pause follow-up after handoff", error);
+      }
     } else {
-      await resumeLeadFollowUp(current.lead_id, userId);
+      try {
+        await resumeLeadFollowUp(current.lead_id, userId);
+      } catch (error) {
+        console.warn("[conversation-service] failed to resume follow-up after return to ai", error);
+      }
     }
 
     await db
@@ -435,33 +451,45 @@ async function changeConversationStatus(
       );
   }
 
-  await db.insert(handoffEvents).values({
-    conversation_id: conversationId,
-    from_status: current.status,
-    to_status: toStatus,
-    reason,
-    modified_by: userId
-  });
+  try {
+    await db.insert(handoffEvents).values({
+      conversation_id: conversationId,
+      from_status: current.status,
+      to_status: toStatus,
+      reason,
+      modified_by: userId
+    });
+  } catch (error) {
+    console.warn("[conversation-service] failed to write handoff event", error);
+  }
 
-  await logAiDecision({
-    conversationId,
-    leadId: current.lead_id,
-    action: toStatus === "human" ? "human_handoff_triggered" : "ai_mode_restored",
-    reason: reason ?? (toStatus === "human" ? "Atendente assumiu a conversa manualmente." : "Atendente devolveu a conversa para a IA."),
-    mode: toStatus,
-    safetyStatus: "ok",
-    metadata: {
-      fromStatus: current.status,
-      toStatus
-    },
-    modifiedBy: userId
-  });
+  try {
+    await logAiDecision({
+      conversationId,
+      leadId: current.lead_id,
+      action: toStatus === "human" ? "human_handoff_triggered" : "ai_mode_restored",
+      reason: reason ?? (toStatus === "human" ? "Atendente assumiu a conversa manualmente." : "Atendente devolveu a conversa para a IA."),
+      mode: toStatus,
+      safetyStatus: "ok",
+      metadata: {
+        fromStatus: current.status,
+        toStatus
+      },
+      modifiedBy: userId
+    });
+  } catch (error) {
+    console.warn("[conversation-service] failed to log handoff decision", error);
+  }
 
-  await publishRealtimeEvent({
-    type: "handoff.changed",
-    conversationId,
-    payload: { conversation: updated }
-  });
+  try {
+    await publishRealtimeEvent({
+      type: "handoff.changed",
+      conversationId,
+      payload: { conversation: updated }
+    });
+  } catch (error) {
+    console.warn("[conversation-service] failed to publish handoff event", error);
+  }
 
   return updated;
 }

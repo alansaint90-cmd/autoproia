@@ -67,6 +67,7 @@ type Conversation = (typeof conversations)[number] & {
   pinned?: boolean;
   blocked?: boolean;
   cleared?: boolean;
+  status: "ai" | "human" | "paused" | "closed";
 };
 type KanbanStoredLead = {
   id: string;
@@ -450,7 +451,7 @@ export default function ConversasPage() {
       if (inboxView === "muted") return isMuted && !isArchived;
       if (isArchived) return false;
       if (inboxView === "favorites") return favoriteConversationIds.includes(conversation.lead.id) || conversation.lead.temperature === "quente" || index === 0;
-      if (inboxView === "locked") return isBlocked || manualConversationIds.includes(conversation.lead.id) || conversation.status === "human";
+      if (inboxView === "locked") return isBlocked || manualConversationIds.includes(conversation.lead.id) || conversation.status === "human" || conversation.status === "paused";
       return true;
     }).sort((a, b) => Number(pinnedConversationIds.includes(b.lead.id)) - Number(pinnedConversationIds.includes(a.lead.id)));
 
@@ -473,7 +474,7 @@ export default function ConversasPage() {
   const active = availableConversations.find((conversation) => conversation.lead.id === activeId) ?? availableConversations[0] ?? null;
   const editingReply = quickReplies.find((reply) => reply.id === editingReplyId);
   const canSendDraft = draftMessage.trim().length > 0 || Boolean(draftAttachment);
-  const isManualAttendance = active ? manualConversationIds.includes(active.lead.id) || active.status === "human" : false;
+  const isManualAttendance = active ? manualConversationIds.includes(active.lead.id) || active.status === "human" || active.status === "paused" : false;
   const isActiveFavorite = active ? favoriteConversationIds.includes(active.lead.id) : false;
   const isActiveMuted = active ? mutedConversationIds.includes(active.lead.id) : false;
   const hasTemporaryMessages = active ? temporaryMessageIds.includes(active.lead.id) : false;
