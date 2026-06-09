@@ -1,6 +1,13 @@
 import { randomBytes, randomUUID, scrypt } from "node:crypto";
+import { loadEnvFile } from "node:process";
 import { promisify } from "node:util";
 import postgres from "postgres";
+
+try {
+  loadEnvFile(".env");
+} catch {
+  // Production usually provides DATABASE_URL via environment variables.
+}
 
 const scryptAsync = promisify(scrypt);
 const keyLength = 64;
@@ -17,34 +24,22 @@ const seedUsers = [
     password: "AutoPro@2026Admin"
   },
   {
-    name: "Carla Vendas",
-    email: "carla@autopro.ia",
+    name: "Camila",
+    email: "camila@autopro.ia",
     role: "gerente",
-    password: "AutoPro@2026Carla"
+    password: "AutoPro@2026Camila"
   },
   {
-    name: "Marcos Closer",
-    email: "marcos@autopro.ia",
-    role: "gerente",
-    password: "AutoPro@2026Marcos"
-  },
-  {
-    name: "Julio Operador",
-    email: "julio@autopro.ia",
-    role: "atendente",
-    password: "AutoPro@2026Julio"
-  },
-  {
-    name: "Ana Consultora",
+    name: "Ana Carolina",
     email: "ana@autopro.ia",
     role: "atendente",
     password: "AutoPro@2026Ana"
   },
   {
-    name: "Beatriz SDR",
-    email: "beatriz@autopro.ia",
+    name: "Aline",
+    email: "aline@autopro.ia",
     role: "atendente",
-    password: "AutoPro@2026Beatriz"
+    password: "AutoPro@2026Aline"
   },
   {
     name: "Ricardo IA",
