@@ -4,6 +4,15 @@ import { defaultAiBusinessSettings, type AiBusinessSettings } from "@/lib/ai-bus
 import { getAiBusinessSettings, saveAiBusinessSettings } from "@/lib/services/ai-business-settings-service";
 import { assertPermission } from "@/lib/services/permission-service";
 
+function errorStatus(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+
+  if (message.includes("Sessao invalida") || message.includes("expirada")) return 401;
+  if (message.includes("Sem permissao")) return 403;
+
+  return 500;
+}
+
 export async function GET() {
   try {
     const session = await getSession();
@@ -12,9 +21,11 @@ export async function GET() {
     const settings = await getAiBusinessSettings();
     return NextResponse.json({ settings });
   } catch (error) {
+    console.error("[ai-business-settings] failed to load", error);
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Acesso nao autorizado." },
-      { status: 401 }
+      { status: errorStatus(error) }
     );
   }
 }
@@ -39,9 +50,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ settings });
   } catch (error) {
+    console.error("[ai-business-settings] failed to save", error);
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Nao foi possivel salvar as configuracoes da IA." },
-      { status: 401 }
+      { status: errorStatus(error) }
     );
   }
 }

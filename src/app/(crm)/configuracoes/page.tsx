@@ -1144,7 +1144,8 @@ function IaComercialPanel() {
       });
 
       if (!response.ok) {
-        throw new Error("Falha ao salvar");
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? "Falha ao salvar no banco.");
       }
 
       const data = (await response.json()) as { settings: AiBusinessSettings };
@@ -1152,11 +1153,9 @@ function IaComercialPanel() {
       window.localStorage.setItem(aiBusinessSettingsKey, JSON.stringify(data.settings));
       window.dispatchEvent(new Event("auto-pro-ia:preferences-updated"));
       setSaved(true);
-    } catch {
-      window.localStorage.setItem(aiBusinessSettingsKey, JSON.stringify(settings));
-      window.dispatchEvent(new Event("auto-pro-ia:preferences-updated"));
-      setSaved(true);
-      setError("Salvo localmente. O banco nao confirmou a gravacao.");
+    } catch (saveError) {
+      setSaved(false);
+      setError(saveError instanceof Error ? `Nao foi possivel salvar no banco: ${saveError.message}` : "Nao foi possivel salvar no banco.");
     }
   }
 

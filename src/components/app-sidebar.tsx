@@ -91,10 +91,10 @@ export function AppSidebar() {
                   type="button"
                   aria-label={item.label}
                   className={cn(
-                    "relative grid size-12 place-items-center overflow-visible rounded-[18px] border text-primary transition duration-200",
+                    "relative grid size-12 place-items-center overflow-visible rounded-[15px] border transition duration-200",
                     active
-                      ? "border-primary/48 bg-[#101827] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),inset_0_0_28px_rgba(250,204,21,0.16),0_14px_32px_rgba(0,0,0,0.28)] before:absolute before:inset-0 before:rounded-[inherit] before:bg-[radial-gradient(circle_at_50%_48%,rgba(250,204,21,0.24),rgba(250,204,21,0.10)_36%,transparent_72%)] before:content-['']"
-                      : "border-white/[0.08] bg-[linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] text-muted-foreground hover:border-primary/26 hover:bg-primary/[0.07] hover:text-primary"
+                      ? "border-primary/42 bg-[linear-gradient(145deg,rgba(250,204,21,0.16),rgba(250,204,21,0.055))] text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_0_0_1px_rgba(250,204,21,0.06),0_10px_26px_rgba(250,204,21,0.08)]"
+                      : "border-white/[0.08] bg-[#0d1522] text-slate-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-primary/28 hover:bg-[#111b2b] hover:text-primary"
                   )}
                 >
                   <Icon className="relative z-10 size-6 transition-transform duration-200 group-hover/navitem:scale-105" strokeWidth={1.9} />
@@ -129,19 +129,19 @@ export function AppSidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "group relative flex items-center gap-3 overflow-hidden rounded-2xl px-3 py-2.5 text-sm transition duration-200",
+                "group relative flex items-center gap-3 overflow-hidden rounded-2xl border px-3 py-2.5 text-sm transition duration-200",
                 active
-                  ? "border border-primary/42 bg-[#101827] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_0_34px_rgba(250,204,21,0.12),0_14px_34px_rgba(0,0,0,0.18)] before:absolute before:inset-0 before:rounded-[inherit] before:bg-[radial-gradient(circle_at_16%_50%,rgba(250,204,21,0.26),rgba(250,204,21,0.10)_32%,transparent_78%)] before:content-['']"
-                  : "border border-transparent text-muted-foreground hover:border-white/[0.10] hover:bg-white/[0.045] hover:text-foreground"
+                  ? "border-primary/38 bg-[linear-gradient(145deg,rgba(250,204,21,0.14),rgba(250,204,21,0.045))] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.10),0_14px_34px_rgba(0,0,0,0.18)]"
+                  : "border-transparent text-muted-foreground hover:border-white/[0.10] hover:bg-white/[0.045] hover:text-foreground"
               )}
             >
               <span
                 className={cn(
-                  "relative z-10 grid shrink-0 place-items-center rounded-[13px] border transition duration-200",
+                  "relative z-10 grid shrink-0 place-items-center rounded-[12px] border transition duration-200",
                   "size-8",
                   active
-                    ? "border-primary/45 bg-primary/[0.14] text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_0_14px_rgba(250,204,21,0.14)]"
-                    : "border-white/[0.08] bg-white/[0.035] text-muted-foreground group-hover:border-primary/28 group-hover:bg-primary/10 group-hover:text-primary"
+                    ? "border-primary/42 bg-primary/[0.12] text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.10)]"
+                    : "border-white/[0.08] bg-[#0d1522] text-slate-400 group-hover:border-primary/28 group-hover:bg-primary/10 group-hover:text-primary"
                 )}
               >
                 <Icon className="size-[17px] transition-transform duration-200 group-hover:scale-105" strokeWidth={1.9} />

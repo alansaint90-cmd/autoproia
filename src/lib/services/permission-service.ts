@@ -46,6 +46,10 @@ export async function saveRolePermissions(input: unknown) {
 }
 
 export async function canRole(role: Role, permissionKey: PermissionKey) {
+  if (role === "super_admin") {
+    return true;
+  }
+
   const permissionRole = permissionRoleFromAuthRole(role);
   const permissions = await getRolePermissions();
   const permission = permissions.find((item) => item.key === permissionKey);
