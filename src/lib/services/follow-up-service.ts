@@ -3,6 +3,7 @@ import { SYSTEM_USER_ID } from "@/lib/constants";
 import { db } from "@/lib/db/client";
 import { conversations, leads, messages } from "@/lib/db/schema";
 import { generateAiFollowUp } from "@/lib/services/ai-agent";
+import { logAiDecision } from "@/lib/services/ai-decision-log-service";
 import { sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
 import { appendRecentConversationContext, getRecentConversationContext } from "@/lib/services/message-buffer";
 import { publishRealtimeEvent } from "@/lib/services/realtime";
@@ -186,6 +187,20 @@ async function sendFollowUpForConversation(target: DueFollowUpRow) {
   const nextFollowUpAt = followUpNumber >= 5 ? null : getNextFollowUpAt(followUpNumber);
   const nextTemperature = followUpNumber >= 4 ? "frio" : followUpNumber >= 2 ? "morno" : "quente";
   const nextStage = followUpNumber >= 5 ? "perdido" : "followup";
+
+  await logAiDecision({
+    conversationId: target.conversation_id,
+    leadId: target.lead_id,
+    messageId: message.id,
+    action: "follow_up_sent",
+    reason: `Follow-up automatico ${followUpNumber} enviado apos ${hoursWithoutResponse} horas sem resposta.`,
+    mode: "follow_up",
+    metadata: {
+      followUpNumber,
+      hoursWithoutResponse,
+      nextFollowUpAt
+    }
+  });
 
   await db.execute(sql`
     update leads

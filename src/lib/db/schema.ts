@@ -117,6 +117,30 @@ export const handoffEvents = pgTable("handoff_events", {
   modified_by: uuid("modified_by").notNull().references(() => users.id, { onDelete: "restrict" })
 });
 
+export const aiDecisionLogs = pgTable(
+  "ai_decision_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    conversation_id: uuid("conversation_id").references(() => conversations.id, { onDelete: "set null" }),
+    lead_id: uuid("lead_id").references(() => leads.id, { onDelete: "set null" }),
+    message_id: uuid("message_id").references(() => messages.id, { onDelete: "set null" }),
+    action: text("action").notNull(),
+    reason: text("reason").notNull(),
+    model: text("model"),
+    mode: text("mode"),
+    safety_status: text("safety_status").notNull().default("ok"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    ...baseAuditColumns,
+    modified_by: uuid("modified_by").notNull().references(() => users.id, { onDelete: "restrict" })
+  },
+  (table) => ({
+    conversationIdx: index("ai_decision_logs_conversation_idx").on(table.conversation_id),
+    leadIdx: index("ai_decision_logs_lead_idx").on(table.lead_id),
+    actionIdx: index("ai_decision_logs_action_idx").on(table.action),
+    createdAtIdx: index("ai_decision_logs_created_at_idx").on(table.created_at)
+  })
+);
+
 export const appSettings = pgTable("app_settings", {
   key: text("key").primaryKey(),
   value: jsonb("value").$type<Record<string, unknown>>().notNull().default({}),

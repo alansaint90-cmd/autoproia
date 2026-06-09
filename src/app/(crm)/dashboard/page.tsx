@@ -50,12 +50,22 @@ type DashboardRuntimeMetrics = {
 };
 
 function buildDashboardCards(stats: typeof dashboardStats) {
+  const hasLeads = Number(stats.leadsHoje) > 0;
+  const hasConversations = Number(stats.conversasAtivas) > 0;
+  const hasEnrollments = Number(stats.matriculasFechadas) > 0;
+  const hasAiConversations = Number(stats.iaAtendendo) > 0;
+  const hasHotLeads = Number(stats.leadsQuentes) > 0;
+  const hasSales = String(stats.vendasMes).replace(/\D/g, "") !== "0";
+  const conversionDetail = hasLeads && hasEnrollments
+    ? `${stats.taxaConversao}% de conversao`
+    : "Aguardando dados";
+
   return [
   {
     label: "Leads Hoje",
     value: stats.leadsHoje,
     badge: "+12%",
-    detail: "+12% vs ontem",
+    detail: hasLeads ? "Dados reais do periodo" : "Aguardando dados",
     icon: UserPlus,
     tone: "trust"
   },
@@ -63,7 +73,7 @@ function buildDashboardCards(stats: typeof dashboardStats) {
     label: "Conversas Ativas",
     value: stats.conversasAtivas,
     badge: "+5",
-    detail: "+5 novas atribuicoes",
+    detail: hasConversations ? "Conversas reais no periodo" : "Aguardando dados",
     icon: MessageCircle,
     tone: "tech"
   },
@@ -71,7 +81,7 @@ function buildDashboardCards(stats: typeof dashboardStats) {
     label: "Matriculas",
     value: stats.matriculasFechadas,
     badge: "+3",
-    detail: "28.8% de conversao",
+    detail: conversionDetail,
     icon: Trophy,
     tone: "success"
   },
@@ -79,7 +89,7 @@ function buildDashboardCards(stats: typeof dashboardStats) {
     label: "Taxa Conversao",
     value: `${stats.taxaConversao}%`,
     badge: "+2.1%",
-    detail: "+2.1% este mes",
+    detail: hasLeads && hasEnrollments ? "Calculada com leads reais" : "Aguardando dados",
     icon: TrendingUp,
     tone: "olive"
   },
@@ -87,7 +97,7 @@ function buildDashboardCards(stats: typeof dashboardStats) {
     label: "IA Atendendo",
     value: stats.iaAtendendo,
     badge: "ao vivo",
-    detail: "Tempo medio 38s",
+    detail: hasAiConversations ? "IA ativa em conversas reais" : "Aguardando dados",
     icon: Bot,
     tone: "gold"
   },
@@ -95,7 +105,7 @@ function buildDashboardCards(stats: typeof dashboardStats) {
     label: "Leads Quentes",
     value: stats.leadsQuentes,
     badge: "+4",
-    detail: "+4 prontos para fechar",
+    detail: hasHotLeads ? "Prontos para prioridade comercial" : "Aguardando dados",
     icon: Flame,
     tone: "alert"
   },
@@ -103,7 +113,7 @@ function buildDashboardCards(stats: typeof dashboardStats) {
     label: "Tempo Resposta",
     value: stats.tempoMedioResposta,
     badge: "SLA",
-    detail: "SLA comercial ativo",
+    detail: hasConversations ? "SLA calculado pelo atendimento" : "Aguardando dados",
     icon: Clock3,
     tone: "slate"
   },
@@ -111,7 +121,7 @@ function buildDashboardCards(stats: typeof dashboardStats) {
     label: "Vendas do Mes",
     value: stats.vendasMes,
     badge: "+18%",
-    detail: "+18% este mes",
+    detail: hasSales ? "Estimativa por matriculas reais" : "Aguardando dados",
     icon: CircleDollarSign,
     iconSize: 20,
     tone: "gold"

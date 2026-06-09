@@ -2,7 +2,9 @@ import { and, desc, eq, notInArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { conversations, handoffEvents, leads, messages, users } from "@/lib/db/schema";
 import { SYSTEM_USER_ID } from "@/lib/constants";
+import { env } from "@/lib/env";
 import { generateAiReply, triageInitialConversation, type AiTriageResult } from "@/lib/services/ai-agent";
+import { logAiDecision } from "@/lib/services/ai-decision-log-service";
 import { fetchWhatsAppProfilePicture, sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
 import {
   pauseLeadFollowUp,
@@ -53,6 +55,21 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
     };
     const triageResult = await applyInitialTriage(conversation.id, lead.id, triage);
     conversation = triageResult.conversation;
+    await logAiDecision({
+      conversationId: conversation.id,
+      leadId: lead.id,
+      action: "ai_triage_applied",
+      reason: triage.reason,
+      model: env.OPENAI_MODEL,
+      mode: "triage",
+      metadata: {
+        type: triage.type,
+        action: triage.action,
+        temperature: triage.temperature,
+        sentiment: triage.sentiment,
+        pipelineStage: triage.pipelineStage
+      }
+    });
   }
 
   if (!input.fromMe) {
@@ -111,6 +128,24 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
     createdAt: new Date().toISOString()
   });
 
+  if (!input.fromMe) {
+    await logAiDecision({
+      conversationId: conversation.id,
+      leadId: lead.id,
+      messageId: message.id,
+      action: "ai_qualified_lead",
+      reason: "Mensagem do lead classificada para atualizar temperatura, sentimento e etapa do funil.",
+      mode: conversation.status,
+      metadata: {
+        temperature: leadSignal.temperature,
+        sentiment: leadSignal.sentiment,
+        pipelineStage: leadSignal.pipelineStage,
+        interest: leadSignal.interest,
+        triageType: triage?.type
+      }
+    });
+  }
+
   await publishRealtimeEvent({
     type: "message.created",
     conversationId: conversation.id,
@@ -160,6 +195,15 @@ export async function processBufferedConversation(conversationId: string) {
   if (!conversation || conversation.status !== "ai") {
     if (conversation && conversation.status !== "ai") {
       await clearConversationBuffer(conversationId);
+      await logAiDecision({
+        conversationId,
+        leadId: conversation.lead_id,
+        action: "ai_reply_skipped_manual_mode",
+        reason: "A IA nao respondeu porque a conversa nao estava em modo automatico.",
+        mode: conversation.status,
+        safetyStatus: "skipped",
+        metadata: { status: conversation.status }
+      });
     }
     console.info("[conversation-service] processing skipped by conversation status", {
       conversationId,
@@ -210,7 +254,23 @@ export async function processBufferedConversation(conversationId: string) {
     contextSummary: conversation.context_summary,
     messages: messagesForContext
   });
-  const cleanReply = sanitizeWhatsAppText(reply);
+  const cleanReply = sanitizeWhatsAppText(reply.text);
+
+  if (reply.safety.status === "blocked") {
+    await logAiDecision({
+      conversationId,
+      leadId: lead.id,
+      action: "ai_reply_blocked_by_safety",
+      reason: reply.safety.reason,
+      model: env.OPENAI_MODEL,
+      mode: "ai",
+      safetyStatus: "blocked",
+      metadata: {
+        blockedValues: reply.safety.blockedValues,
+        bufferedMessageIds: buffered.map((item) => item.messageId)
+      }
+    });
+  }
 
   const [currentBeforeSend] = await db
     .select({ status: conversations.status })
@@ -222,6 +282,16 @@ export async function processBufferedConversation(conversationId: string) {
     console.info("[conversation-service] ai reply discarded because conversation left automatic mode", {
       conversationId,
       status: currentBeforeSend?.status
+    });
+    await logAiDecision({
+      conversationId,
+      leadId: lead.id,
+      action: "ai_reply_skipped_manual_mode",
+      reason: "Resposta gerada foi descartada porque a conversa saiu do modo automatico antes do envio.",
+      model: env.OPENAI_MODEL,
+      mode: currentBeforeSend?.status ?? null,
+      safetyStatus: "skipped",
+      metadata: { status: currentBeforeSend?.status }
     });
     return { skipped: true };
   }
@@ -240,6 +310,23 @@ export async function processBufferedConversation(conversationId: string) {
       modified_by: SYSTEM_USER_ID
     })
     .returning();
+
+  await logAiDecision({
+    conversationId,
+    leadId: lead.id,
+    messageId: aiMessage.id,
+    action: "ai_reply_generated",
+    reason: reply.safety.status === "blocked"
+      ? "Resposta segura enviada apos bloqueio de informacao comercial nao cadastrada."
+      : "Conversa estava em modo automatico e a resposta foi validada contra as regras comerciais.",
+    model: env.OPENAI_MODEL,
+    mode: "ai",
+    safetyStatus: reply.safety.status === "blocked" ? "fallback" : "ok",
+    metadata: {
+      bufferedMessageIds: buffered.map((item) => item.messageId),
+      safety: reply.safety
+    }
+  });
 
   await db
     .update(conversations)
@@ -336,6 +423,20 @@ async function changeConversationStatus(
     to_status: toStatus,
     reason,
     modified_by: userId
+  });
+
+  await logAiDecision({
+    conversationId,
+    leadId: current.lead_id,
+    action: toStatus === "human" ? "human_handoff_triggered" : "ai_mode_restored",
+    reason: reason ?? (toStatus === "human" ? "Atendente assumiu a conversa manualmente." : "Atendente devolveu a conversa para a IA."),
+    mode: toStatus,
+    safetyStatus: "ok",
+    metadata: {
+      fromStatus: current.status,
+      toStatus
+    },
+    modifiedBy: userId
   });
 
   await publishRealtimeEvent({

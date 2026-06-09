@@ -917,7 +917,7 @@ export default function KanbanPage() {
                   key={stage.id}
                   data-kanban-column
                   className={cn(
-                    "flex h-full min-h-0 shrink-0 flex-col transition-[width] duration-300 ease-out",
+                    "relative z-0 flex h-full min-h-0 shrink-0 flex-col transition-[width] duration-300 ease-out hover:z-40",
                     isCollapsed ? "w-[78px]" : "w-[282px] sm:w-[296px] 2xl:w-[312px]"
                   )}
                 >
@@ -1009,7 +1009,7 @@ export default function KanbanPage() {
                           onDragStart={() => setDraggedId(lead.id)}
                           onDragEnd={() => setDraggedId(null)}
                           className={cn(
-                            "group relative cursor-grab overflow-visible rounded-2xl border border-white/[0.075] bg-[linear-gradient(135deg,rgba(17,24,39,0.82),rgba(11,17,32,0.7))] px-3 py-2.5 backdrop-blur-md transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-white/[0.15] hover:bg-[#111827]/90 active:cursor-grabbing active:scale-[0.99]",
+                            "group relative z-0 cursor-grab overflow-visible rounded-2xl border border-white/[0.075] bg-[linear-gradient(135deg,rgba(17,24,39,0.82),rgba(11,17,32,0.7))] px-3 py-2.5 backdrop-blur-md transition-all duration-300 ease-out hover:z-50 hover:-translate-y-0.5 hover:border-white/[0.15] hover:bg-[#111827]/90 active:cursor-grabbing active:scale-[0.99]",
                             movedLeadId === lead.id && "animate-[pulse_420ms_ease-out]"
                           )}
                         >
@@ -1052,7 +1052,7 @@ export default function KanbanPage() {
                                 >
                                   <MoreHorizontal className="size-3.5" />
                                 </button>
-                                <span className="pointer-events-none absolute right-9 top-3 z-10 translate-y-1 rounded-lg border border-white/10 bg-[#0b1422]/95 px-2.5 py-1 text-[11px] font-semibold text-foreground opacity-0 shadow-[0_12px_28px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-200 peer-hover:translate-y-0 peer-hover:opacity-100">
+                                <span className="pointer-events-none absolute right-9 top-3 z-[90] translate-y-1 rounded-lg border border-white/10 bg-[#0b1422]/95 px-2.5 py-1 text-[11px] font-semibold text-foreground opacity-0 shadow-[0_12px_28px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all duration-200 peer-hover:translate-y-0 peer-hover:opacity-100">
                                   Detalhes do lead
                                 </span>
                               </div>
@@ -1065,7 +1065,7 @@ export default function KanbanPage() {
                                   <p className="line-clamp-1 text-[11px] font-semibold leading-4 text-muted-foreground">
                                     {lead.lastMessage}
                                   </p>
-                                  <div className="pointer-events-none absolute left-0 top-5 z-30 w-[min(280px,calc(100vw-2rem))] translate-y-1 rounded-xl border border-white/10 bg-[#0b1120]/96 p-3 text-xs leading-5 text-slate-200 opacity-0 shadow-[0_18px_48px_rgba(0,0,0,0.44)] backdrop-blur-xl transition-all duration-200 group-hover/message:translate-y-0 group-hover/message:opacity-100">
+                                  <div className="pointer-events-none absolute left-0 top-5 z-[100] w-[min(280px,calc(100vw-2rem))] translate-y-1 rounded-xl border border-white/10 bg-[#0b1120]/98 p-3 text-xs leading-5 text-slate-200 opacity-0 shadow-[0_22px_58px_rgba(0,0,0,0.58)] backdrop-blur-xl transition-all duration-200 group-hover/message:translate-y-0 group-hover/message:opacity-100">
                                     {lead.lastMessage}
                                   </div>
                                 </div>
