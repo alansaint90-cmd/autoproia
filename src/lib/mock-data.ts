@@ -2,8 +2,9 @@ export type Temperature = "quente" | "morno" | "frio" | "urgente";
 export type Stage =
   | "novo"
   | "ia"
-  | "qualificado"
+  | "atendimento"
   | "followup"
+  | "matricula_pendente"
   | "fechado"
   | "perdido";
 
@@ -24,8 +25,9 @@ export type Lead = {
 export const stages: Array<{ id: Stage; title: string; tone: string }> = [
   { id: "novo", title: "Novo Lead", tone: "blue" },
   { id: "ia", title: "IA Atendendo", tone: "violet" },
-  { id: "qualificado", title: "Qualificado", tone: "cyan" },
+  { id: "atendimento", title: "Em Atendimento", tone: "cyan" },
   { id: "followup", title: "Follow-up", tone: "orange" },
+  { id: "matricula_pendente", title: "Matricula Pendente", tone: "yellow" },
   { id: "fechado", title: "Fechado", tone: "green" },
   { id: "perdido", title: "Perdido", tone: "red" }
 ];

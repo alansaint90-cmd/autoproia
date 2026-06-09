@@ -6,7 +6,6 @@ import {
   Activity,
   AlertCircle,
   Bot,
-  Brain,
   CalendarClock,
   CalendarPlus,
   ChevronDown,
@@ -35,11 +34,7 @@ import { cn } from "@/lib/utils";
 type LeadStage =
   | "novo"
   | "ia"
-  | "qualificado"
   | "atendimento"
-  | "orcamento"
-  | "negociacao"
-  | "interessado"
   | "followup"
   | "perdido"
   | "matricula_pendente"
@@ -85,11 +80,7 @@ const origins = ["WhatsApp", "Meta Ads", "Google Ads", "Instagram", "Indicacao",
 const stages: Array<{ id: LeadStage; label: string; tone: string }> = [
   { id: "novo", label: "Novo Lead", tone: "border-primary/35 bg-primary/10 text-primary" },
   { id: "ia", label: "IA Atendendo", tone: "border-[#0f4c8a]/45 bg-[#0f4c8a]/16 text-blue-100" },
-  { id: "qualificado", label: "Qualificado", tone: "border-success/35 bg-success/10 text-success" },
   { id: "atendimento", label: "Em Atendimento", tone: "border-white/15 bg-white/[0.06] text-slate-100" },
-  { id: "orcamento", label: "Orcamento Enviado", tone: "border-amber-400/30 bg-amber-400/10 text-amber-200" },
-  { id: "negociacao", label: "Negociando", tone: "border-orange-400/30 bg-orange-400/10 text-orange-200" },
-  { id: "interessado", label: "Interessado", tone: "border-primary/30 bg-primary/10 text-primary" },
   { id: "followup", label: "Follow-up", tone: "border-primary/30 bg-primary/10 text-primary" },
   { id: "perdido", label: "Perdido", tone: "border-danger/30 bg-danger/10 text-red-200" },
   { id: "matricula_pendente", label: "Matricula Pendente", tone: "border-primary/30 bg-primary/10 text-primary" },
@@ -110,11 +101,12 @@ const quickFilters: Array<{ id: QuickFilter; label: string }> = [
 const legacyStageMap: Record<string, LeadStage> = {
   novo: "novo",
   ia: "ia",
-  qualificado: "qualificado",
+  qualificado: "atendimento",
   atendimento: "atendimento",
-  orcamento: "orcamento",
-  negociacao: "negociacao",
-  interessado: "interessado",
+  orcamento: "atendimento",
+  negociacao: "followup",
+  interessado: "followup",
+  interessado_followup: "followup",
   followup: "followup",
   agendado: "matricula_pendente",
   fechado: "matricula_realizada",
@@ -126,9 +118,9 @@ const legacyStageMap: Record<string, LeadStage> = {
 const stageFromMock: Record<string, LeadStage> = {
   novo: "novo",
   ia: "ia",
-  qualificado: "qualificado",
-  interessado: "interessado",
-  negociacao: "negociacao",
+  qualificado: "atendimento",
+  interessado: "followup",
+  negociacao: "followup",
   followup: "followup",
   fechado: "matricula_realizada",
   perdido: "perdido"
@@ -268,11 +260,7 @@ function aiScore(lead: LeadRecord) {
   const stageScore: Record<LeadStage, number> = {
     novo: 4,
     ia: 8,
-    qualificado: 12,
     atendimento: 16,
-    orcamento: 22,
-    negociacao: 24,
-    interessado: 18,
     followup: 10,
     perdido: -28,
     matricula_pendente: 26,
@@ -283,7 +271,7 @@ function aiScore(lead: LeadRecord) {
 
 function aiState(lead: LeadRecord): keyof typeof aiStatusConfig {
   if (lead.status === "ia") return "active";
-  if (["atendimento", "negociacao", "orcamento", "followup"].includes(lead.status)) return "handoff";
+  if (["atendimento", "followup"].includes(lead.status)) return "handoff";
   return "paused";
 }
 
@@ -314,7 +302,7 @@ function pulseStatus(lead: LeadRecord) {
   if (score >= 92) {
     return { icon: "⭐", label: "VIP", tooltip: "Lead de alto valor ou prioridade.", tone: "border-[#FACC15]/35 bg-[#FACC15]/10 text-[#FACC15]" };
   }
-  if (lead.temperature === "quente" || ["negociacao", "matricula_pendente"].includes(lead.status)) {
+  if (lead.temperature === "quente" || lead.status === "matricula_pendente") {
     return { icon: "●", label: "Pronto", tooltip: "Lead pronto para fechamento.", tone: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" };
   }
   if (time.includes("h") || lead.status === "followup") {
@@ -328,7 +316,7 @@ function pulseStatus(lead: LeadRecord) {
 }
 
 function nextActionTone(lead: LeadRecord) {
-  if (["orcamento", "negociacao", "matricula_pendente"].includes(lead.status)) return "border-primary/35 bg-primary/10 text-primary";
+  if (lead.status === "matricula_pendente") return "border-primary/35 bg-primary/10 text-primary";
   if (lead.temperature === "urgente" || lead.temperature === "quente") return "border-[#FACC15]/35 bg-[#FACC15]/10 text-[#FACC15]";
   if (lead.status === "followup") return "border-yellow-400/30 bg-yellow-400/10 text-yellow-200";
   return "border-white/10 bg-white/[0.045] text-slate-200";
@@ -343,11 +331,7 @@ function nextAction(lead: LeadRecord) {
   const actions: Record<LeadStage, string> = {
     novo: "Confirmar interesse e categoria",
     ia: "Monitorar IA e qualificacao",
-    qualificado: "Assumir e enviar proposta",
     atendimento: "Responder duvida comercial",
-    orcamento: "Fazer follow-up do valor",
-    negociacao: "Negociar condicao de matricula",
-    interessado: "Agendar visita na unidade",
     followup: "Retomar contato hoje",
     perdido: "Registrar motivo da perda",
     matricula_pendente: "Conferir documentos",
@@ -360,7 +344,7 @@ function intentText(lead: LeadRecord) {
   if (lead.status === "matricula_realizada") return "Matricula concluida";
   if (lead.temperature === "urgente") return "Alta urgencia detectada";
   if (lead.temperature === "quente") return "Intencao forte de compra";
-  if (lead.status === "orcamento") return "Comparando proposta";
+  if (lead.status === "followup") return "Aguardando retorno";
   return "Lead em nutricao";
 }
 
@@ -460,29 +444,34 @@ export default function LeadsPage() {
     setShowCreateModal(true);
   }
 
-  function saveLead() {
+  async function saveLead() {
     if (!draft.name.trim()) return;
 
-    const newLead: LeadRecord = {
-      id: `lead-${Date.now()}`,
-      name: draft.name.trim(),
-      phone: draft.phone.trim() || "+55 00 90000-0000",
-      origin: draft.origin,
-      status: draft.status,
-      temperature: draft.temperature,
-      sentiment: draft.sentiment,
-      responsible: draft.responsible.trim() || "Carla Vendas",
-      lastMessage: draft.lastMessage.trim() || "Novo lead cadastrado manualmente.",
-      notes: draft.notes.trim() || "Lead criado pela pagina Leads.",
-      lastInteraction: "agora",
-      initials: initialsFromName(draft.name),
-      interest: draft.interest
-    };
+    try {
+      const response = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...draft,
+          phone: draft.phone.trim() || "+55 00 90000-0000",
+          lastMessage: draft.lastMessage.trim() || "Novo lead cadastrado manualmente.",
+          notes: draft.notes.trim() || "Lead criado pela pagina Leads."
+        })
+      });
+      const payload = (await response.json().catch(() => ({}))) as { lead?: LeadRecord; error?: string };
 
-    setLeads((current) => [newLead, ...current]);
-    setSelectedLeadId(newLead.id);
-    setShowCreateModal(false);
-    setDraft(emptyDraft);
+      if (!response.ok || !payload.lead) {
+        throw new Error(payload.error ?? "Nao foi possivel salvar o lead.");
+      }
+
+      const [createdLead] = migrateStoredLeads([payload.lead]);
+      setLeads((current) => [createdLead, ...current.filter((lead) => lead.id !== createdLead.id)]);
+      setSelectedLeadId(createdLead.id);
+      setShowCreateModal(false);
+      setDraft(emptyDraft);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel salvar o lead.");
+    }
   }
 
   async function confirmDeleteLead() {
@@ -912,7 +901,7 @@ function LeadSidePanel({ lead, onClose }: { lead: LeadRecord; onClose: () => voi
           </section>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <Insight label="Score IA" value={`${score}%`} icon={Brain} />
+            <Insight label="Score IA" value={`${score}%`} icon={Bot} />
             <Insight label="Chance de matricula" value={`${Math.min(score + 6, 98)}%`} icon={Target} />
             <Insight label="Receita estimada" value={formatCurrency(Math.round(2100 * (score / 100)))} icon={TrendingUp} />
           </div>

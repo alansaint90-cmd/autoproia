@@ -20,16 +20,8 @@ import {
 } from "lucide-react";
 import { Topbar } from "@/components/topbar";
 import { cn } from "@/lib/utils";
-import { useEffect, useRef, useState, type ComponentType } from "react";
-import {
-  aiPerformance,
-  dashboardStats,
-  funnelData,
-  leadsByOrigin,
-  sellerClosing
-} from "@/lib/mock-data";
-
-const sellerClosingExtended = sellerClosing;
+import { useEffect, useMemo, useRef, useState } from "react";
+import { dashboardStats } from "@/lib/mock-data";
 
 const aiMetricIcons = [Bot, Target, Clock3, UserPlus];
 
@@ -47,6 +39,11 @@ type DashboardRuntimeMetrics = {
     items: Array<{ label: string; value: number }>;
   };
   leadsByOrigin: Array<{ label: string; value: number; percent?: number }>;
+  sellerClosing: Array<{ seller: string; closed: number; revenue: string; conversion: number; position?: number; progress?: number }>;
+  funnelData: Array<{ etapa: string; value: number }>;
+  aiPerformance: Array<{ metric: string; value: number; detail: string }>;
+  monthlyConversion: Array<{ month: string; leads: number; enrollments: number }>;
+  commercialPulse: Array<{ label: string; time: string; kind: "enrollment" | "ai" | "hot" | "conversation" | "growth" }>;
 };
 
 function buildDashboardCards(stats: typeof dashboardStats) {
@@ -169,12 +166,6 @@ const chartSurfaceClass =
 const neutralChartSurfaceClass =
   "relative overflow-hidden rounded-[22px] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(17,24,39,0.78),rgba(11,17,32,0.92))] p-4";
 
-const commercialPulse: Array<{
-  label: string;
-  time: string;
-  icon: ComponentType<{ size?: number; className?: string }>;
-}> = [];
-
 const monthlyConversion = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"].map(
   (month) => ({ month, leads: 0, enrollments: 0 })
 );
@@ -229,10 +220,15 @@ export default function DashboardPage() {
   const [periodFilterOpen, setPeriodFilterOpen] = useState(false);
   const [runtimeMetrics, setRuntimeMetrics] = useState<DashboardRuntimeMetrics | null>(null);
   const periodFilterCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const rankedSellers = sellerClosingExtended.slice().sort((a, b) => b.closed - a.closed);
+  const displaySellers = useMemo(() => runtimeMetrics?.sellerClosing ?? [], [runtimeMetrics?.sellerClosing]);
+  const rankedSellers = displaySellers.slice().sort((a, b) => b.closed - a.closed);
   const bestSeller = rankedSellers[0] ?? null;
   const displayStats = runtimeMetrics?.stats ?? dashboardStats;
-  const displayOriginData = runtimeMetrics?.leadsByOrigin ?? leadsByOrigin;
+  const displayOriginData = runtimeMetrics?.leadsByOrigin ?? [];
+  const displayFunnelData = runtimeMetrics?.funnelData ?? [];
+  const displayAiPerformance = runtimeMetrics?.aiPerformance ?? [];
+  const displayMonthlyConversion = runtimeMetrics?.monthlyConversion ?? monthlyConversion;
+  const displayCommercialPulse = runtimeMetrics?.commercialPulse ?? [];
   const cards = buildDashboardCards(displayStats);
 
   const cancelPeriodFilterClose = () => {
@@ -263,7 +259,12 @@ export default function DashboardPage() {
             stats: data.stats,
             period: data.period,
             thermometer: data.thermometer,
-            leadsByOrigin: data.leadsByOrigin
+            leadsByOrigin: data.leadsByOrigin ?? [],
+            sellerClosing: data.sellerClosing ?? [],
+            funnelData: data.funnelData ?? [],
+            aiPerformance: data.aiPerformance ?? [],
+            monthlyConversion: data.monthlyConversion ?? monthlyConversion,
+            commercialPulse: data.commercialPulse ?? []
           });
         }
       } catch (error) {
@@ -367,17 +368,17 @@ export default function DashboardPage() {
               <h2 className="text-lg font-extrabold tracking-normal">Conversao Mensal</h2>
               <p className="mt-1 text-sm text-muted-foreground">Leads vs Matriculas</p>
             </div>
-            <MonthlyConversionChart />
+            <MonthlyConversionChart data={displayMonthlyConversion} />
           </article>
 
           <div className="grid h-full gap-6 xl:grid-rows-2">
-            <BusinessPulsePanel compact />
+            <BusinessPulsePanel compact events={displayCommercialPulse} />
             <article className={cn(interactivePanelClass, "flex h-full flex-col self-stretch p-4")}>
               <div className="mb-3">
                 <h2 className="text-base font-extrabold tracking-normal">Leads por Origem</h2>
                 <p className="mt-1 text-xs text-muted-foreground">Ultimos 30 dias</p>
               </div>
-              <OriginDonut compact data={displayOriginData} />
+              <OriginDonut compact data={displayOriginData} funnelData={displayFunnelData} />
             </article>
           </div>
         </section>
@@ -462,7 +463,7 @@ export default function DashboardPage() {
 
             <div className="grid max-h-[204px] gap-2 overflow-y-auto pr-1 md:grid-cols-2 [scrollbar-color:rgba(11,95,165,0.45)_transparent] [scrollbar-width:thin]">
               {rankedSellers.length ? rankedSellers.map((seller, index) => (
-                <SellerRow key={seller.seller} seller={seller} position={index + 1} />
+                <SellerRow key={seller.seller} seller={seller} position={index + 1} maxClosed={Math.max(1, ...rankedSellers.map((item) => item.closed))} />
               )) : (
                 <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 text-sm font-bold text-muted-foreground md:col-span-2">
                   Nenhum vendedor com fechamento real neste periodo.
@@ -477,7 +478,7 @@ export default function DashboardPage() {
             icon={Bot}
           >
             <div className="grid gap-3">
-              {aiPerformance.length ? aiPerformance.map((item, index) => {
+              {displayAiPerformance.length ? displayAiPerformance.map((item, index) => {
                 const MetricIcon = aiMetricIcons[index] ?? Bot;
 
                 return (
@@ -523,9 +524,22 @@ export default function DashboardPage() {
   );
 }
 
-function BusinessPulsePanel({ compact = false }: { compact?: boolean }) {
-  const visibleEvents = compact ? commercialPulse.slice(0, 3) : commercialPulse;
+function BusinessPulsePanel({
+  compact = false,
+  events
+}: {
+  compact?: boolean;
+  events: DashboardRuntimeMetrics["commercialPulse"];
+}) {
+  const visibleEvents = compact ? events.slice(0, 3) : events;
   const [showHealthTooltip, setShowHealthTooltip] = useState(false);
+  const eventIcons = {
+    enrollment: Trophy,
+    ai: Bot,
+    hot: Flame,
+    conversation: MessageCircleMore,
+    growth: TrendingUp
+  };
 
   return (
     <article className="relative isolate flex h-full min-h-0 flex-col self-stretch overflow-hidden rounded-[22px] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(17,24,39,0.86),rgba(11,17,32,0.96))] p-5 shadow-panel transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-[0_22px_58px_rgba(0,0,0,0.30)]">
@@ -578,7 +592,7 @@ function BusinessPulsePanel({ compact = false }: { compact?: boolean }) {
             )}
           >
             <DashboardIcon
-              icon={event.icon}
+              icon={eventIcons[event.kind] ?? MessageCircleMore}
               tone="border-sky-300/18 bg-sky-300/8 text-sky-100 group-hover:border-sky-300/32 group-hover:bg-sky-300/12"
               size={15}
               className="relative z-10 size-8 rounded-[10px]"
@@ -605,11 +619,7 @@ function BusinessPulsePanel({ compact = false }: { compact?: boolean }) {
 }
 
 function FunnelHealthDonut() {
-  const data = leadsByOrigin.map((origin, index) => ({
-    label: origin.label,
-    value: origin.value,
-    color: originDonutColors[index] ?? "#334155"
-  }));
+  const data: Array<{ label: string; value: number; color: string }> = [];
   const rawTotal = data.reduce((sum, item) => sum + item.value, 0);
   const total = Math.max(1, rawTotal);
   const radius = 43;
@@ -734,12 +744,13 @@ function PulseHealthIcon() {
 
 function SellerRow({
   seller,
-  position
+  position,
+  maxClosed
 }: {
   seller: { seller: string; closed: number; revenue: string; conversion: number };
   position: number;
+  maxClosed: number;
 }) {
-  const maxClosed = Math.max(1, ...sellerClosingExtended.map((item) => item.closed));
   const progress = Math.round((seller.closed / maxClosed) * 100);
   const RankIcon = position === 1 ? Trophy : Medal;
   const rankTone =
@@ -789,18 +800,24 @@ function SellerRow({
   );
 }
 
-function MonthlyConversionChart() {
-  const [activeIndex, setActiveIndex] = useState(monthlyConversion.length - 1);
+function MonthlyConversionChart({ data }: { data: Array<{ month: string; leads: number; enrollments: number }> }) {
+  const chartData = data.length ? data : monthlyConversion;
+  const [activeIndex, setActiveIndex] = useState(Math.max(0, chartData.length - 1));
   const [isHovering, setIsHovering] = useState(false);
   const [visibleSeries, setVisibleSeries] = useState({ leads: true, enrollments: true });
-  const maxLeads = Math.max(1, ...monthlyConversion.map((item) => item.leads));
-  const maxEnrollments = Math.max(1, ...monthlyConversion.map((item) => item.enrollments));
+  const safeActiveIndex = Math.min(activeIndex, chartData.length - 1);
+
+  useEffect(() => {
+    setActiveIndex(Math.max(0, chartData.length - 1));
+  }, [chartData.length]);
+  const maxLeads = Math.max(1, ...chartData.map((item) => item.leads));
+  const maxEnrollments = Math.max(1, ...chartData.map((item) => item.enrollments));
   const plotStart = 54;
   const plotEnd = 566;
   const plotBottom = 218;
   const plotHeight = 178;
-  const xStep = (plotEnd - plotStart) / (monthlyConversion.length - 1);
-  const points = monthlyConversion.map((item, index) => {
+  const xStep = (plotEnd - plotStart) / Math.max(chartData.length - 1, 1);
+  const points = chartData.map((item, index) => {
     const x = plotStart + index * xStep;
     const yLeads = plotBottom - (item.leads / maxLeads) * plotHeight;
     const yEnrollments = plotBottom - (item.enrollments / maxEnrollments) * 142;
@@ -809,14 +826,14 @@ function MonthlyConversionChart() {
 
     return { ...item, x, yLeads, yEnrollments, yRate, rate };
   });
-  const active = points[activeIndex];
-  const previous = points[activeIndex - 1];
+  const active = points[safeActiveIndex];
+  const previous = points[safeActiveIndex - 1];
   const conversionRate = active.rate;
   const variation = previous ? active.enrollments - previous.enrollments : 0;
   const rateVariation = previous ? Math.round((active.rate - previous.rate) * 10) / 10 : 0;
   const bestMonth = points.reduce((best, point) => (point.rate > best.rate ? point : best), points[0]);
-  const totalLeads = monthlyConversion.reduce((sum, item) => sum + item.leads, 0);
-  const totalEnrollments = monthlyConversion.reduce((sum, item) => sum + item.enrollments, 0);
+  const totalLeads = chartData.reduce((sum, item) => sum + item.leads, 0);
+  const totalEnrollments = chartData.reduce((sum, item) => sum + item.enrollments, 0);
   const totalRate = totalLeads > 0 ? Math.round((totalEnrollments / totalLeads) * 1000) / 10 : 0;
 
   const leadLine = points.map((point) => `${point.x},${point.yLeads}`).join(" ");
@@ -1088,10 +1105,12 @@ function TooltipMetric({ color, label, value }: { color: string; label: string; 
 
 function OriginDonut({
   compact = false,
-  data = leadsByOrigin
+  data,
+  funnelData
 }: {
   compact?: boolean;
-  data?: Array<{ label: string; value: number; percent?: number }>;
+  data: Array<{ label: string; value: number; percent?: number }>;
+  funnelData: Array<{ etapa: string; value: number }>;
 }) {
   const [activeOrigin, setActiveOrigin] = useState<number | null>(null);
   const [activeFunnel, setActiveFunnel] = useState<number | null>(null);

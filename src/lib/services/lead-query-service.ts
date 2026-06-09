@@ -58,6 +58,16 @@ const stageMap: Record<string, string> = {
   perdido: "perdido"
 };
 
+const queryStageMap: Record<string, string[]> = {
+  novo: ["novo"],
+  ia: ["ia"],
+  atendimento: ["atendimento", "qualificado", "orcamento"],
+  followup: ["followup", "negociacao", "interessado", "interessado_followup"],
+  matricula_pendente: ["matricula_pendente", "agendado"],
+  matricula_realizada: ["fechado", "matricula_realizada"],
+  perdido: ["perdido"]
+};
+
 function toNumber(value: string | number | bigint | null | undefined) {
   return Number(value ?? 0);
 }
@@ -75,6 +85,10 @@ function dateLabel(value: Date | string | null) {
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays === 1) return "ontem";
   return `${diffDays} dias atras`;
+}
+
+function normalizeStageLabel(stage: string | null | undefined) {
+  return stageMap[stage ?? ""] ?? "novo";
 }
 
 function buildWhere(params: LeadQueryParams) {
@@ -98,8 +112,8 @@ function buildWhere(params: LeadQueryParams) {
   }
 
   if (params.stage && params.stage !== "todos") {
-    const dbStage = params.stage === "matricula_realizada" ? "fechado" : params.stage;
-    clauses.push(sql`l.pipeline_stage = ${dbStage}`);
+    const dbStages = queryStageMap[params.stage] ?? [params.stage];
+    clauses.push(sql`l.pipeline_stage in (${sql.join(dbStages.map((stage) => sql`${stage}`), sql`, `)})`);
   }
 
   if (params.temperature && params.temperature !== "todos") {
@@ -270,9 +284,15 @@ export async function queryLeadAnalytics(params: LeadQueryParams = {}) {
     `) as Promise<SellerRow[]>
   ]);
 
+  const normalizedStageTotals = new Map<string, number>();
+  for (const item of stages) {
+    const label = normalizeStageLabel(item.label);
+    normalizedStageTotals.set(label, (normalizedStageTotals.get(label) ?? 0) + toNumber(item.value));
+  }
+
   return {
     origins: origins.map((item) => ({ label: item.label ?? "Nao informado", value: toNumber(item.value) })),
-    stages: stages.map((item) => ({ label: item.label ?? "novo", value: toNumber(item.value) })),
+    stages: Array.from(normalizedStageTotals.entries()).map(([label, value]) => ({ label, value })),
     sellers: sellers.map((item) => ({
       seller: item.seller ?? "Sem responsavel",
       closed: toNumber(item.closed),

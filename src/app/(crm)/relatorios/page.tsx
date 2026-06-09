@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   BarChart3,
@@ -19,32 +19,13 @@ import {
   X
 } from "lucide-react";
 import { Topbar } from "@/components/topbar";
-import {
-  aiPerformance,
-  campaignConversion,
-  funnelData,
-  leads,
-  leadsByOrigin,
-  sellerClosing
-} from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
-
-const sellers = ["Todos", ...sellerClosing.map((seller) => seller.seller)];
-const origins = ["Todas", ...leadsByOrigin.map((origin) => origin.label)];
 
 const monthlyReport = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"].map(
   (month) => ({ month, leads: 0, enrollments: 0, revenue: 0 })
 );
 
 const lossReasons: Array<{ label: string; value: number; color: string }> = [];
-
-const periodMultiplier: Record<string, number> = {
-  "7d": 0.28,
-  "30d": 1,
-  "90d": 2.65,
-  year: 8.4,
-  custom: 1.4
-};
 
 type ReportFilters = {
   period: string;
@@ -62,16 +43,32 @@ type RealReportData = {
   averageTicket: number;
   aiHandled: number;
   responseTime: string;
-  origins: typeof leadsByOrigin;
+  origins: Array<{ label: string; value: number; percent: number }>;
   sellers: Array<{ seller: string; closed: number; revenue: string; conversion: number; position: number; progress: number }>;
+  funnelData: Array<{ etapa: string; value: number }>;
+  aiPerformance: Array<{ metric: string; value: number; detail: string }>;
+  monthlyReport: Array<{ month: string; leads: number; enrollments: number; revenue: number }>;
+  campaignConversion: Array<{ campaign: string; leads: number; enrollments: number; conversion: number }>;
+  lossReasons: Array<{ label: string; value: number; color: string }>;
 } | null;
 
+type LoadedReportData = NonNullable<RealReportData>;
+
+function getInitialFilters(): ReportFilters {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - 29);
+  return {
+    period: "30d",
+    seller: "Todos",
+    origin: "Todas",
+    dateStart: start.toISOString().slice(0, 10),
+    dateEnd: end.toISOString().slice(0, 10)
+  };
+}
+
 const initialFilters: ReportFilters = {
-  period: "30d",
-  seller: "Todos",
-  origin: "Todas",
-  dateStart: "2026-05-01",
-  dateEnd: "2026-05-25"
+  ...getInitialFilters()
 };
 
 export default function RelatoriosPage() {
@@ -81,6 +78,8 @@ export default function RelatoriosPage() {
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isExpandedSectionOpen, setIsExpandedSectionOpen] = useState(false);
   const [realReportData, setRealReportData] = useState<RealReportData>(null);
+  const sellers = useMemo(() => ["Todos", ...(realReportData?.sellers.map((seller) => seller.seller) ?? [])], [realReportData?.sellers]);
+  const origins = useMemo(() => ["Todas", ...(realReportData?.origins.map((origin) => origin.label) ?? [])], [realReportData?.origins]);
 
   const report = useMemo(() => {
     const fallbackReport = {
@@ -109,28 +108,29 @@ export default function RelatoriosPage() {
       return realReportData.sellers;
     }
 
-    const seller = appliedFilters.seller;
-    const max = Math.max(1, ...sellerClosing.map((item) => item.closed));
-    return sellerClosing
-      .filter((item) => seller === "Todos" || item.seller === seller)
-      .sort((a, b) => b.closed - a.closed)
-      .map((item, index) => ({
-        ...item,
-        position: index + 1,
-        progress: Math.round((item.closed / max) * 100)
-      }));
-  }, [appliedFilters.seller, realReportData]);
+    return [];
+  }, [realReportData]);
 
   const filteredOrigins = useMemo(
     () => realReportData?.origins.length
       ? realReportData.origins
-      : leadsByOrigin.filter((item) => appliedFilters.origin === "Todas" || item.label === appliedFilters.origin),
-    [appliedFilters.origin, realReportData]
+      : [],
+    [realReportData]
   );
+  const displayCampaigns = realReportData?.campaignConversion ?? [];
+  const displayFunnelData = realReportData?.funnelData ?? [];
+  const displayAiPerformance = realReportData?.aiPerformance ?? [];
+  const displayMonthlyReport = realReportData?.monthlyReport ?? monthlyReport;
+  const displayLossReasons = realReportData?.lossReasons ?? lossReasons;
 
   function updateFilter<K extends keyof ReportFilters>(key: K, value: ReportFilters[K]) {
     setFilters((current) => ({ ...current, [key]: value }));
   }
+
+  useEffect(() => {
+    void generateReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function generateReport() {
     try {
@@ -148,47 +148,48 @@ export default function RelatoriosPage() {
       if (!response.ok) throw new Error("Falha ao gerar relatorio com dados reais.");
 
       const data = await response.json() as {
-        leads?: Array<{ status: string; conversationStatus?: string }>;
-        analytics?: {
-          origins?: Array<{ label: string; value: number }>;
-          sellers?: Array<{ seller: string; closed: number; revenue: number }>;
+        summary?: {
+          totalLeads: number;
+          enrollments: number;
+          revenue: number;
+          conversion: number;
+          averageTicket: number;
+          aiHandled: number;
+          responseTime: string;
         };
+        origins?: LoadedReportData["origins"];
+        sellers?: LoadedReportData["sellers"];
+        funnelData?: LoadedReportData["funnelData"];
+        aiPerformance?: LoadedReportData["aiPerformance"];
+        monthlyReport?: LoadedReportData["monthlyReport"];
+        campaignConversion?: LoadedReportData["campaignConversion"];
+        lossReasons?: LoadedReportData["lossReasons"];
       };
-      const realLeads = data.leads ?? [];
-      const enrollments = realLeads.filter((lead) => lead.status === "matricula_realizada").length;
-      const totalLeads = realLeads.length;
-      const revenue = enrollments * 2400;
-      const conversion = totalLeads > 0 ? Number(((enrollments / totalLeads) * 100).toFixed(1)) : 0;
-      const originTotal = Math.max(1, (data.analytics?.origins ?? []).reduce((sum, item) => sum + item.value, 0));
-      const realOrigins = (data.analytics?.origins ?? []).map((item) => ({
-        label: item.label,
-        value: item.value,
-        percent: Math.round((item.value / originTotal) * 100)
-      }));
-      const realSellers = (data.analytics?.sellers ?? [])
-        .map((item, index, all) => {
-          const max = Math.max(...all.map((seller) => seller.closed), 1);
-          return {
-            seller: item.seller,
-            closed: item.closed,
-            revenue: formatCurrency(item.revenue),
-            conversion: totalLeads > 0 ? Math.round((item.closed / totalLeads) * 100) : 0,
-            position: index + 1,
-            progress: Math.max(8, Math.round((item.closed / max) * 100))
-          };
-        })
-        .filter((item) => filters.seller === "Todos" || item.seller === filters.seller);
+      const summary = data.summary ?? {
+        totalLeads: 0,
+        enrollments: 0,
+        revenue: 0,
+        conversion: 0,
+        averageTicket: 0,
+        aiHandled: 0,
+        responseTime: "Aguardando dados"
+      };
 
       setRealReportData({
-        totalLeads,
-        enrollments,
-        revenue,
-        conversion,
-        averageTicket: enrollments > 0 ? Math.round(revenue / enrollments) : 0,
-        aiHandled: realLeads.filter((lead) => lead.conversationStatus === "ai").length,
-        responseTime: "38s",
-        origins: realOrigins as typeof leadsByOrigin,
-        sellers: realSellers
+        totalLeads: summary.totalLeads,
+        enrollments: summary.enrollments,
+        revenue: summary.revenue,
+        conversion: summary.conversion,
+        averageTicket: summary.averageTicket,
+        aiHandled: summary.aiHandled,
+        responseTime: summary.responseTime,
+        origins: data.origins ?? [],
+        sellers: data.sellers ?? [],
+        funnelData: data.funnelData ?? [],
+        aiPerformance: data.aiPerformance ?? [],
+        monthlyReport: data.monthlyReport ?? monthlyReport,
+        campaignConversion: data.campaignConversion ?? [],
+        lossReasons: data.lossReasons ?? []
       });
     } catch (error) {
       console.warn("[relatorios] falha ao carregar dados reais", error);
@@ -208,44 +209,24 @@ export default function RelatoriosPage() {
   }
 
   async function generatePdf() {
-    const permissionResponse = await fetch("/api/reports/export", { method: "POST" });
-    const permissionPayload = await permissionResponse.json().catch(() => ({})) as { allowed?: boolean; error?: string };
+    const permissionResponse = await fetch("/api/reports/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        start: new Date(`${appliedFilters.dateStart}T00:00:00`).toISOString(),
+        end: new Date(`${appliedFilters.dateEnd}T23:59:59`).toISOString(),
+        origin: appliedFilters.origin,
+        seller: appliedFilters.seller
+      })
+    });
 
     if (!permissionResponse.ok) {
+      const permissionPayload = await permissionResponse.json().catch(() => ({})) as { error?: string };
       window.alert(permissionPayload.error || "Seu usuario nao tem permissao para gerar PDF.");
       return;
     }
 
-    const lines = [
-      "AUTO PRO IA 1.1",
-      "Relatorio comercial",
-      `Gerado em: ${generatedAt}`,
-      `Periodo: ${appliedFilters.dateStart} ate ${appliedFilters.dateEnd}`,
-      `Vendedor: ${appliedFilters.seller}`,
-      `Origem: ${appliedFilters.origin}`,
-      "",
-      "Resumo",
-      `Leads captados: ${report.totalLeads}`,
-      `Matriculas: ${report.enrollments}`,
-      `Conversao: ${report.conversion}%`,
-      `Receita estimada: ${formatCurrency(report.revenue)}`,
-      `Ticket medio: ${formatCurrency(report.averageTicket)}`,
-      `IA atendendo: ${report.aiHandled}`,
-      `Tempo medio de resposta: ${report.responseTime}`,
-      "",
-      "Ranking por vendedor",
-      ...sellerRows.map((row) => `${row.position}. ${row.seller} - ${row.closed} fechamentos - ${row.conversion}% - ${row.revenue}`),
-      "",
-      "Leads por origem",
-      ...filteredOrigins.map((item) => `${item.label}: ${item.value} leads (${item.percent}%)`),
-      "",
-      "Funil operacional",
-      ...funnelData.map((item) => `${item.etapa}: ${item.value} leads`),
-      "",
-      "Motivos de perda",
-      ...lossReasons.map((item) => `${item.label}: ${item.value}%`)
-    ];
-    const blob = createPdfBlob(lines);
+    const blob = await permissionResponse.blob();
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -342,7 +323,7 @@ export default function RelatoriosPage() {
         <section className="mb-6 grid items-stretch gap-6 xl:grid-cols-3">
           <ReportPanel title="Campanhas que convertem" subtitle="Anuncios com melhor retorno" icon={TrendingUp}>
             <div className="grid h-full content-between gap-3">
-              {campaignConversion.map((campaign) => (
+              {displayCampaigns.length ? displayCampaigns.map((campaign) => (
                 <div key={campaign.campaign} className="rounded-2xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(255,255,255,0.055),rgba(255,255,255,0.022))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
                   <div className="mb-2 flex items-start justify-between gap-3">
                     <div>
@@ -355,16 +336,18 @@ export default function RelatoriosPage() {
                   </div>
                   <Progress value={campaign.conversion} max={35} className="from-yellow-300 to-sky-300" />
                 </div>
-              ))}
+              )) : (
+                <EmptyReportState label="Aguardando canais reais no periodo." />
+              )}
             </div>
           </ReportPanel>
 
           <ReportPanel title="Funil operacional" subtitle="Avanco entre etapas" icon={Activity}>
-            <FunnelReport />
+            <FunnelReport data={displayFunnelData} />
           </ReportPanel>
 
           <ReportPanel title="Motivos de perda" subtitle="Onde recuperar matriculas" icon={Target}>
-            <LossReport />
+            <LossReport data={displayLossReasons} />
           </ReportPanel>
         </section>
 
@@ -398,7 +381,7 @@ export default function RelatoriosPage() {
 
               <ReportPanel title="Desempenho da IA" subtitle="Qualidade do atendimento automatico" icon={Bot}>
                 <div className="grid gap-3 md:grid-cols-2">
-                  {aiPerformance.map((item) => (
+                  {displayAiPerformance.length ? displayAiPerformance.map((item) => (
                     <div key={item.metric} className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
                       <div className="mb-3 flex items-start justify-between gap-3">
                         <div>
@@ -409,14 +392,16 @@ export default function RelatoriosPage() {
                       </div>
                       <Progress value={item.value} className="from-sky-400 to-violet-400" />
                     </div>
-                  ))}
+                  )) : (
+                    <EmptyReportState label="Aguardando metricas reais da IA." />
+                  )}
                 </div>
               </ReportPanel>
             </section>
 
             <section className="mt-6 grid gap-6 xl:grid-cols-[1.45fr_0.9fr]">
               <ReportPanel title="Conversao mensal" subtitle="Leads, matriculas e receita por mes" icon={LineChart}>
-                <MonthlyReportChart />
+                <MonthlyReportChart data={displayMonthlyReport} />
               </ReportPanel>
 
               <ReportPanel title="Relatorio por vendedor" subtitle="Ranking de fechamentos e receita" icon={Trophy}>
@@ -465,6 +450,9 @@ export default function RelatoriosPage() {
                 report={report}
                 sellerRows={sellerRows}
                 origins={filteredOrigins}
+                funnelData={displayFunnelData}
+                lossReasons={displayLossReasons}
+                monthlyReport={displayMonthlyReport}
               />
             </div>
           </div>
@@ -559,12 +547,23 @@ function ReportPanel({
   );
 }
 
+function EmptyReportState({ label }: { label: string }) {
+  return (
+    <div className="grid min-h-[120px] place-items-center rounded-2xl border border-white/[0.08] bg-white/[0.028] p-4 text-center text-sm font-bold text-muted-foreground">
+      {label}
+    </div>
+  );
+}
+
 function GeneratedReport({
   filters,
   generatedAt,
   report,
   sellerRows,
-  origins
+  origins,
+  funnelData,
+  lossReasons,
+  monthlyReport
 }: {
   filters: ReportFilters;
   generatedAt: string;
@@ -578,7 +577,10 @@ function GeneratedReport({
     responseTime: string;
   };
   sellerRows: Array<{ seller: string; closed: number; revenue: string; conversion: number; position: number; progress: number }>;
-  origins: typeof leadsByOrigin;
+  origins: Array<{ label: string; value: number; percent: number }>;
+  funnelData: Array<{ etapa: string; value: number }>;
+  lossReasons: Array<{ label: string; value: number; color: string }>;
+  monthlyReport: Array<{ month: string; leads: number; enrollments: number; revenue: number }>;
 }) {
   const bestSeller = sellerRows[0];
   const bestOrigin = origins.slice().sort((a, b) => b.value - a.value)[0];
@@ -708,9 +710,9 @@ function PdfList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function MonthlyReportChart() {
-  const maxLeads = Math.max(1, ...monthlyReport.map((item) => item.leads));
-  const maxEnrollments = Math.max(1, ...monthlyReport.map((item) => item.enrollments));
+function MonthlyReportChart({ data }: { data: Array<{ month: string; leads: number; enrollments: number; revenue: number }> }) {
+  const maxLeads = Math.max(1, ...data.map((item) => item.leads));
+  const maxEnrollments = Math.max(1, ...data.map((item) => item.enrollments));
 
   return (
     <div className="rounded-2xl border border-white/[0.07] bg-background/35 p-4">
@@ -725,7 +727,7 @@ function MonthlyReportChart() {
         </button>
       </div>
       <div className="grid h-72 grid-cols-12 items-end gap-2">
-        {monthlyReport.map((item) => {
+        {data.map((item) => {
           const leadsHeight = Math.max(16, (item.leads / maxLeads) * 100);
           const enrollmentsHeight = Math.max(10, (item.enrollments / maxEnrollments) * 82);
           const conversion = Math.round((item.enrollments / item.leads) * 1000) / 10;
@@ -777,7 +779,7 @@ function SellerReportRow({
   );
 }
 
-function OriginReport({ data }: { data: typeof leadsByOrigin }) {
+function OriginReport({ data }: { data: Array<{ label: string; value: number; percent: number }> }) {
   const max = Math.max(...data.map((item) => item.value), 1);
   const points = data
     .map((item, index) => {
@@ -824,8 +826,8 @@ function OriginReport({ data }: { data: typeof leadsByOrigin }) {
   );
 }
 
-function FunnelReport() {
-  const max = Math.max(1, ...funnelData.map((item) => item.value));
+function FunnelReport({ data }: { data: Array<{ etapa: string; value: number }> }) {
+  const max = Math.max(1, ...data.map((item) => item.value));
   const colors = [
     "from-cyan-300 to-sky-500",
     "from-primary to-yellow-500",
@@ -836,7 +838,7 @@ function FunnelReport() {
 
   return (
     <div className="grid h-full content-between gap-3">
-      {funnelData.map((item, index) => (
+      {data.length ? data.map((item, index) => (
         <div key={item.etapa} className="rounded-2xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(255,255,255,0.052),rgba(255,255,255,0.018))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
           <div className="mb-2 flex items-center justify-between gap-3">
             <span className="font-black">{item.etapa}</span>
@@ -855,17 +857,19 @@ function FunnelReport() {
             </span>
           </div>
         </div>
-      ))}
+      )) : (
+        <EmptyReportState label="Aguardando dados reais do funil." />
+      )}
     </div>
   );
 }
 
-function LossReport() {
-  const total = Math.max(1, lossReasons.reduce((sum, item) => sum + item.value, 0));
+function LossReport({ data }: { data: Array<{ label: string; value: number; color: string }> }) {
+  const total = Math.max(1, data.reduce((sum, item) => sum + item.value, 0));
 
   return (
     <div className="grid h-full content-between gap-3">
-      {lossReasons.map((item, index) => (
+      {data.length ? data.map((item, index) => (
         <div key={item.label} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-2xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(255,255,255,0.052),rgba(255,255,255,0.018))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
           <div className="relative grid size-11 place-items-center rounded-2xl border border-white/[0.08] bg-[#0B1120] shadow-[0_0_22px_rgba(11,95,165,0.12)]">
             <svg viewBox="0 0 42 42" className="absolute inset-1">
@@ -900,7 +904,9 @@ function LossReport() {
           </div>
           <span className="font-mono text-sm font-black">{item.value}%</span>
         </div>
-      ))}
+      )) : (
+        <EmptyReportState label="Aguardando motivos reais de perda." />
+      )}
     </div>
   );
 }
@@ -922,82 +928,4 @@ function formatCurrency(value: number) {
     currency: "BRL",
     maximumFractionDigits: 0
   }).format(value);
-}
-
-function createPdfBlob(lines: string[]) {
-  const pageWidth = 595;
-  const pageHeight = 842;
-  const marginX = 48;
-  const startY = 800;
-  const lineHeight = 16;
-  const maxLinesPerPage = Math.floor((startY - 54) / lineHeight);
-  const pages: string[][] = [];
-
-  for (let index = 0; index < lines.length; index += maxLinesPerPage) {
-    pages.push(lines.slice(index, index + maxLinesPerPage));
-  }
-
-  const objects: string[] = [];
-  objects.push("<< /Type /Catalog /Pages 2 0 R >>");
-
-  const pageObjectIds = pages.map((_, index) => 3 + index * 2);
-  const fontObjectId = 3 + pages.length * 2;
-  objects.push(`<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pages.length} >>`);
-
-  pages.forEach((pageLines, pageIndex) => {
-    const pageObjectId = 3 + pageIndex * 2;
-    const contentObjectId = pageObjectId + 1;
-    const content = [
-      "BT",
-      "/F1 11 Tf",
-      `1 0 0 1 ${marginX} ${startY} Tm`,
-      ...pageLines.flatMap((line, lineIndex) => {
-        const font = lineIndex === 0 && pageIndex === 0 ? "/F1 18 Tf" : line === "" ? "/F1 11 Tf" : "/F1 11 Tf";
-        const text = line === "" ? " " : line;
-        return [font, `(${escapePdfText(text)}) Tj`, `0 -${lineHeight} Td`];
-      }),
-      "ET"
-    ].join("\n");
-
-    objects.push(
-      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontObjectId} 0 R >> >> /Contents ${contentObjectId} 0 R >>`
-    );
-    objects.push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
-  });
-
-  objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
-
-  const header = "%PDF-1.4\n";
-  let body = "";
-  const offsets = [0];
-
-  objects.forEach((object, index) => {
-    offsets.push(header.length + body.length);
-    body += `${index + 1} 0 obj\n${object}\nendobj\n`;
-  });
-
-  const xrefOffset = header.length + body.length;
-  const xref = [
-    `xref`,
-    `0 ${objects.length + 1}`,
-    "0000000000 65535 f ",
-    ...offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n `),
-    "trailer",
-    `<< /Size ${objects.length + 1} /Root 1 0 R >>`,
-    "startxref",
-    String(xrefOffset),
-    "%%EOF"
-  ].join("\n");
-
-  return new Blob([header, body, xref], { type: "application/pdf" });
-}
-
-function escapePdfText(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\x20-\x7E]/g, "")
-    .replace(/\\/g, "\\\\")
-    .replace(/\(/g, "\\(")
-    .replace(/\)/g, "\\)");
 }

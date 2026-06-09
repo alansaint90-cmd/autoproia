@@ -435,7 +435,6 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
                   <optgroup label="Entrada">
                     <option value="novo">Novo Lead</option>
                     <option value="ia">IA Atendendo</option>
-                    <option value="qualificado">Qualificado</option>
                   </optgroup>
                   <optgroup label="Conversao">
                     <option value="atendimento">Em Atendimento</option>

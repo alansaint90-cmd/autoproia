@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { assertPermission } from "@/lib/services/permission-service";
-import { queryLeadAnalytics, queryLeads } from "@/lib/services/lead-query-service";
+import { queryCommercialMetrics } from "@/lib/services/report-query-service";
 
 function parseDate(value: unknown) {
   if (typeof value !== "string" || !value) return null;
@@ -22,29 +22,27 @@ export async function POST(request: Request) {
       limit?: number;
     };
 
-    const queryParams = {
-      search: null,
-      origin: body.origin && body.origin !== "Todas" ? body.origin : null,
-      stage: null,
-      temperature: null,
-      sentiment: null,
-      seller: body.seller && body.seller !== "Todos" ? body.seller : null,
-      quick: null,
+    const metrics = await queryCommercialMetrics({
       start: parseDate(body.start),
       end: parseDate(body.end),
+      origin: body.origin && body.origin !== "Todas" ? body.origin : null,
+      seller: body.seller && body.seller !== "Todos" ? body.seller : null,
       limit: body.limit ?? 500
-    };
-
-    const [leads, analytics] = await Promise.all([
-      queryLeads(queryParams),
-      queryLeadAnalytics(queryParams)
-    ]);
+    });
 
     return NextResponse.json({
       ok: true,
-      leads,
-      analytics,
-      count: leads.length,
+      leads: metrics.leads,
+      analytics: metrics.analytics,
+      count: metrics.leads.length,
+      summary: metrics.summary,
+      origins: metrics.leadsByOrigin,
+      sellers: metrics.sellerClosing,
+      funnelData: metrics.funnelData,
+      aiPerformance: metrics.aiPerformance,
+      monthlyReport: metrics.monthlyReport,
+      campaignConversion: metrics.campaignConversion,
+      lossReasons: metrics.lossReasons,
       updatedAt: new Date().toISOString()
     });
   } catch (error) {

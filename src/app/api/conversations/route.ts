@@ -67,6 +67,15 @@ function initialsFromName(name: string) {
     .toUpperCase();
 }
 
+function normalizePipelineStage(stage: string | null | undefined) {
+  const value = stage ?? "novo";
+  if (value === "qualificado" || value === "orcamento") return "atendimento";
+  if (value === "negociacao" || value === "interessado" || value === "interessado_followup") return "followup";
+  if (value === "matricula_realizada") return "fechado";
+  if (["novo", "ia", "atendimento", "followup", "matricula_pendente", "fechado", "perdido"].includes(value)) return value;
+  return "novo";
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession();
@@ -169,7 +178,7 @@ export async function GET(request: NextRequest) {
           lastInteraction: formatTime(row.last_interaction_at ?? row.last_message_at),
           responsible: row.responsible_name ?? "Equipe comercial",
           avatar: row.avatar_url ?? "",
-          stage: row.pipeline_stage,
+          stage: normalizePipelineStage(row.pipeline_stage),
           interest: row.interest ?? "carro",
           notes: row.last_message_preview ?? "",
           sentiment: row.sentiment,

@@ -142,7 +142,8 @@ const originEmoji: Record<string, string> = {
 const stageLabels: Partial<Record<Conversation["lead"]["stage"], string>> = {
   novo: "Novo lead",
   ia: "IA atendendo",
-  qualificado: "Qualificado",
+  atendimento: "Em atendimento",
+  matricula_pendente: "Matricula pendente",
   followup: "Follow up",
   fechado: "Fechado",
   perdido: "Perdido"
@@ -151,7 +152,8 @@ const stageLabels: Partial<Record<Conversation["lead"]["stage"], string>> = {
 const stageEmoji: Partial<Record<Conversation["lead"]["stage"], string>> = {
   novo: "✨",
   ia: "🤖",
-  qualificado: "✅",
+  atendimento: "💬",
+  matricula_pendente: "📋",
   followup: "⏱️",
   fechado: "🏁",
   perdido: "📌"
@@ -338,11 +340,15 @@ function LeadInitialAvatar({
 }
 
 function normalizeStage(value?: string): Conversation["lead"]["stage"] {
-  if (value === "interessado" || value === "negociacao") {
+  if (value === "interessado" || value === "negociacao" || value === "interessado_followup") {
     return "followup";
   }
 
-  if (value === "ia" || value === "qualificado" || value === "followup" || value === "perdido") {
+  if (value === "qualificado" || value === "orcamento" || value === "atendimento") {
+    return "atendimento";
+  }
+
+  if (value === "ia" || value === "followup" || value === "perdido" || value === "matricula_pendente" || value === "fechado") {
     return value;
   }
 

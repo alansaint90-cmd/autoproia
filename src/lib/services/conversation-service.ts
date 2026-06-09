@@ -42,6 +42,18 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
   let conversation = conversationState.conversation;
   let triage: AiTriageResult | null = null;
 
+  if (!input.fromMe && !conversationState.created && conversation.status !== "ai") {
+    leadSignal = { ...leadSignal, pipelineStage: "atendimento" };
+    await db
+      .update(leads)
+      .set({
+        pipeline_stage: "atendimento",
+        updated_at: new Date(),
+        modified_by: SYSTEM_USER_ID
+      })
+      .where(and(eq(leads.id, lead.id), eq(leads.is_deleted, false), notInArray(leads.pipeline_stage, ["fechado", "perdido", "matricula_pendente"])));
+  }
+
   if (!input.fromMe && conversationState.created) {
     triage = await triageInitialConversation({
       leadName: input.leadName,
