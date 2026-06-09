@@ -139,7 +139,11 @@ async function ensureDashboardColumns(sql) {
       add column if not exists pipeline_stage text not null default 'novo',
       add column if not exists last_message_preview text,
       add column if not exists last_interaction_at timestamptz,
-      add column if not exists enrollment_closed_at timestamptz
+      add column if not exists enrollment_closed_at timestamptz,
+      add column if not exists follow_up_count integer not null default 0,
+      add column if not exists last_follow_up_at timestamptz,
+      add column if not exists next_follow_up_at timestamptz,
+      add column if not exists follow_up_paused_at timestamptz
   `;
 }
 

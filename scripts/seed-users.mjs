@@ -131,21 +131,21 @@ async function main() {
           name = excluded.name,
           role = excluded.role,
           password_hash = case
-            when users.password_set_at is null then excluded.password_hash
+            when users.password_hash is null and users.password_set_at is null then excluded.password_hash
             else users.password_hash
           end,
           password_set_at = users.password_set_at,
           email_verified_at = users.email_verified_at,
           invite_token_hash = case
-            when users.password_set_at is null then null
+            when users.password_hash is null and users.password_set_at is null then null
             else users.invite_token_hash
           end,
           invite_expires_at = case
-            when users.password_set_at is null then null
+            when users.password_hash is null and users.password_set_at is null then null
             else users.invite_expires_at
           end,
           invited_at = case
-            when users.password_set_at is null then null
+            when users.password_hash is null and users.password_set_at is null then null
             else users.invited_at
           end,
           updated_at = excluded.updated_at,
@@ -180,6 +180,7 @@ async function main() {
 
     console.log(JSON.stringify({
       seeded: rows,
+      safety: "Senhas reais preservadas: o seed so cria senha temporaria quando password_hash e password_set_at estao vazios.",
       credentials: seedUsers.map((user) => ({
         ...user,
         firstAccess: "Entre com esta senha temporaria; o sistema pedira para criar uma nova senha."
