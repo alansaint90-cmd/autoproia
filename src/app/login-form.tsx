@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LockKeyhole, Mail } from "lucide-react";
+import { LockKeyhole, Mail, X } from "lucide-react";
 
 async function readJsonResponse<T>(response: Response): Promise<T> {
   const contentType = response.headers.get("content-type") ?? "";
@@ -26,6 +26,7 @@ export function LoginForm() {
   const [firstAccessUrl, setFirstAccessUrl] = useState("");
   const [recoverySecret, setRecoverySecret] = useState("");
   const [showRecoverySecret, setShowRecoverySecret] = useState(false);
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -238,39 +239,9 @@ export function LoginForm() {
           />
           <span>Manter conectado</span>
         </label>
-        <div className="flex flex-wrap justify-end gap-3">
-          <button type="button" className="font-semibold text-primary" onClick={requestPasswordReset}>
-            Esqueci minha senha
-          </button>
-          <button type="button" className="font-semibold text-primary" onClick={prepareSuperAdmin}>
-            Criar acesso inicial
-          </button>
-          <button type="button" className="font-semibold text-primary" onClick={recoverSuperAdmin}>
-            Recuperar acesso
-          </button>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <button
-          type="button"
-          className="text-xs font-bold text-muted-foreground transition hover:text-primary"
-          onClick={() => setShowRecoverySecret((current) => !current)}
-        >
-          {showRecoverySecret ? "Ocultar codigo de recuperacao" : "Tenho codigo de recuperacao"}
+        <button type="button" className="font-semibold text-primary transition hover:text-primary/80" onClick={() => setShowRecoveryModal(true)}>
+          Recuperar acesso
         </button>
-        {showRecoverySecret ? (
-          <span className="flex h-11 items-center rounded-[16px] border border-border bg-input/45 px-4 transition focus-within:border-primary/60 focus-within:ring-4 focus-within:ring-primary/10">
-            <input
-              type="password"
-              value={recoverySecret}
-              onChange={(event) => setRecoverySecret(event.target.value)}
-              placeholder="Codigo configurado em AUTH_RECOVERY_SECRET"
-              className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-foreground outline-none"
-              aria-label="Codigo de recuperacao"
-            />
-          </span>
-        ) : null}
       </div>
 
       {error ? (
@@ -294,6 +265,82 @@ export function LoginForm() {
       >
         {loading ? "Validando..." : "Entrar no painel"}
       </button>
+
+      {showRecoveryModal ? (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-[#05080d]/78 p-5 backdrop-blur-xl">
+          <div className="w-full max-w-md rounded-[28px] border border-border bg-[#111827] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.55)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Acesso ao painel</p>
+                <h2 className="mt-1 text-xl font-black tracking-tight text-foreground">Recuperar acesso</h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Escolha a melhor opcao para recuperar senha, criar primeiro acesso ou restaurar o Superadmin.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRecoveryModal(false)}
+                className="grid size-10 shrink-0 place-items-center rounded-[14px] border border-border bg-white/[0.04] text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+                aria-label="Fechar recuperacao de acesso"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-3">
+              <button
+                type="button"
+                disabled={loading}
+                className="flex min-h-12 items-center justify-between rounded-[16px] border border-border bg-white/[0.035] px-4 text-left text-sm font-extrabold text-foreground transition hover:border-primary/35 hover:bg-primary/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={requestPasswordReset}
+              >
+                <span>Esqueci minha senha</span>
+                <span className="text-xs font-semibold text-muted-foreground">Enviar link</span>
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                className="flex min-h-12 items-center justify-between rounded-[16px] border border-border bg-white/[0.035] px-4 text-left text-sm font-extrabold text-foreground transition hover:border-primary/35 hover:bg-primary/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={prepareSuperAdmin}
+              >
+                <span>Criar acesso inicial</span>
+                <span className="text-xs font-semibold text-muted-foreground">Primeiro uso</span>
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                className="flex min-h-12 items-center justify-between rounded-[16px] border border-primary/28 bg-primary/[0.10] px-4 text-left text-sm font-extrabold text-primary transition hover:border-primary/50 hover:bg-primary/[0.14] disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={recoverSuperAdmin}
+              >
+                <span>Recuperar Superadmin</span>
+                <span className="text-xs font-semibold text-primary/80">Emergencia</span>
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-2">
+              <button
+                type="button"
+                className="text-xs font-bold text-muted-foreground transition hover:text-primary"
+                onClick={() => setShowRecoverySecret((current) => !current)}
+              >
+                {showRecoverySecret ? "Ocultar codigo de recuperacao" : "Tenho codigo de recuperacao"}
+              </button>
+              {showRecoverySecret ? (
+                <span className="flex h-11 items-center rounded-[16px] border border-border bg-input/45 px-4 transition focus-within:border-primary/60 focus-within:ring-4 focus-within:ring-primary/10">
+                  <input
+                    type="password"
+                    value={recoverySecret}
+                    onChange={(event) => setRecoverySecret(event.target.value)}
+                    placeholder="Codigo configurado em AUTH_RECOVERY_SECRET"
+                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-foreground outline-none"
+                    aria-label="Codigo de recuperacao"
+                  />
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </form>
   );
 }
