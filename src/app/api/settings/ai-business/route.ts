@@ -31,6 +31,7 @@ export async function POST(request: Request) {
       address: body.address ?? defaultAiBusinessSettings.address,
       hours: body.hours ?? defaultAiBusinessSettings.hours,
       customPrompt: body.customPrompt ?? defaultAiBusinessSettings.customPrompt,
+      triagePrompt: body.triagePrompt ?? defaultAiBusinessSettings.triagePrompt,
       sdrPrompt: body.sdrPrompt ?? defaultAiBusinessSettings.sdrPrompt,
       orchestratorPrompt: body.orchestratorPrompt ?? defaultAiBusinessSettings.orchestratorPrompt,
       supervisorPrompt: body.supervisorPrompt ?? defaultAiBusinessSettings.supervisorPrompt

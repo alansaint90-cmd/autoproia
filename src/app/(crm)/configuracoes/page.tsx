@@ -1038,7 +1038,7 @@ function IntegrationInput({
 
 type PromptFieldKey = keyof Pick<
   AiBusinessSettings,
-  "prices" | "customPrompt" | "sdrPrompt" | "orchestratorPrompt" | "supervisorPrompt"
+  "prices" | "customPrompt" | "triagePrompt" | "sdrPrompt" | "orchestratorPrompt" | "supervisorPrompt"
 >;
 
 type PromptEditorProps = {
@@ -1262,13 +1262,41 @@ function IaComercialPanel() {
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Arquitetura de prompts</p>
             <h2 className="mt-1 text-lg font-extrabold tracking-normal">Agentes operacionais</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              Configure separadamente o agente SDR, o agente orquestrador e o supervisor. Todos os blocos sao salvos juntos nas regras da IA.
+              Configure separadamente triagem, SDR, orquestrador e supervisor. Todos os blocos sao salvos juntos nas regras da IA.
             </p>
           </div>
           <span className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-black text-primary">
             <Bot size={14} />
-            3 agentes
+            4 agentes
           </span>
+        </div>
+      </div>
+
+      <div className="rounded-[22px] border border-[#0B5FA5]/20 bg-[linear-gradient(145deg,rgba(11,95,165,0.14),rgba(255,255,255,0.035))] p-6 shadow-panel">
+        <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-200">Prompt agente de triagem</p>
+            <h3 className="mt-1 text-lg font-extrabold tracking-normal">Entrada e classificacao inicial</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+              Decide se a conversa nova continua com IA ativa ou entra pausada para atendimento humano.
+            </p>
+          </div>
+          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-300/25 bg-sky-300/10 px-3 py-1.5 text-xs font-black text-sky-100">
+            <Bot size={14} />
+            Triagem
+          </span>
+        </div>
+
+        <div className="mt-5">
+          <PromptEditor
+            label="Prompt agente de triagem"
+            value={settings.triagePrompt}
+            onChange={(value) => updateField("triagePrompt", value)}
+            rowsClassName="min-h-64"
+            mono
+            placeholder="Defina quando uma conversa nova deve seguir automatica ou ser pausada para humano."
+            onExpand={() => setExpandedPrompt({ key: "triagePrompt", title: "Prompt agente de triagem", mono: true })}
+          />
         </div>
       </div>
 

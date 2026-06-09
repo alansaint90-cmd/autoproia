@@ -2,7 +2,7 @@ import { and, desc, eq, notInArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { conversations, handoffEvents, leads, messages, users } from "@/lib/db/schema";
 import { SYSTEM_USER_ID } from "@/lib/constants";
-import { generateAiReply } from "@/lib/services/ai-agent";
+import { generateAiReply, triageInitialConversation, type AiTriageResult } from "@/lib/services/ai-agent";
 import { fetchWhatsAppProfilePicture, sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
 import {
   pauseLeadFollowUp,
@@ -34,9 +34,27 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
     return { ...duplicated, duplicated: true };
   }
 
-  const leadSignal = classifyLeadSignal(input.text);
+  let leadSignal = classifyLeadSignal(input.text);
   const lead = await upsertLead(input, leadSignal);
-  const conversation = await upsertConversation(lead.id, input.externalChatId);
+  const conversationState = await upsertConversation(lead.id, input.externalChatId);
+  let conversation = conversationState.conversation;
+  let triage: AiTriageResult | null = null;
+
+  if (!input.fromMe && conversationState.created) {
+    triage = await triageInitialConversation({
+      leadName: input.leadName,
+      messages: [{ role: "lead", content: input.text }]
+    });
+    leadSignal = {
+      ...leadSignal,
+      temperature: triage.temperature,
+      sentiment: triage.sentiment,
+      pipelineStage: triage.pipelineStage
+    };
+    const triageResult = await applyInitialTriage(conversation.id, lead.id, triage);
+    conversation = triageResult.conversation;
+  }
+
   if (!input.fromMe) {
     await resetLeadFollowUpOnCustomerReply(lead.id);
   }
@@ -51,6 +69,7 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
       metadata: {
         source: "evolution",
         leadSignal,
+        triage,
         messageType: input.messageType,
         media: input.media
       },
@@ -78,7 +97,7 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
     .update(conversations)
     .set({
       last_message_at: new Date(),
-      context_summary: buildContextSummary(input.text, leadSignal),
+      context_summary: buildContextSummary(input.text, leadSignal, triage),
       updated_at: new Date(),
       modified_by: SYSTEM_USER_ID
     })
@@ -446,14 +465,71 @@ function classifyLeadSignal(text: string): LeadSignal {
   };
 }
 
-function buildContextSummary(text: string, signal: LeadSignal) {
+function buildContextSummary(text: string, signal: LeadSignal, triage?: AiTriageResult | null) {
   return [
+    triage ? `Triagem inicial: ${triage.type}; acao: ${triage.action}; motivo: ${triage.reason}.` : "",
     `Temperatura: ${signal.temperature}.`,
     `Sentimento: ${signal.sentiment}.`,
     `Etapa: ${signal.pipelineStage}.`,
     signal.interest ? `Interesse: ${signal.interest}.` : "",
     `Ultima mensagem: ${text.slice(0, 180)}`
   ].filter(Boolean).join(" ");
+}
+
+async function applyInitialTriage(conversationId: string, leadId: string, triage: AiTriageResult) {
+  const toStatus = triage.action === "pause_ai" ? "human" : "ai";
+
+  const [conversation] = await db
+    .update(conversations)
+    .set({
+      status: toStatus,
+      assigned_to: null,
+      ai_paused_reason: triage.action === "pause_ai" ? `Triagem: ${triage.reason}` : null,
+      context_summary: `Triagem: ${triage.type}. Acao: ${triage.action}. Motivo: ${triage.reason}`,
+      updated_at: new Date(),
+      modified_by: SYSTEM_USER_ID
+    })
+    .where(and(eq(conversations.id, conversationId), eq(conversations.is_deleted, false)))
+    .returning();
+
+  await db
+    .update(leads)
+    .set({
+      temperature: triage.temperature,
+      sentiment: triage.sentiment,
+      pipeline_stage: triage.pipelineStage,
+      updated_at: new Date(),
+      modified_by: SYSTEM_USER_ID
+    })
+    .where(and(eq(leads.id, leadId), eq(leads.is_deleted, false)));
+
+  if (triage.action === "pause_ai") {
+    await pauseLeadFollowUp(leadId);
+    await clearConversationBuffer(conversationId);
+  }
+
+  if (!conversation) {
+    const [current] = await db
+      .select()
+      .from(conversations)
+      .where(and(eq(conversations.id, conversationId), eq(conversations.is_deleted, false)))
+      .limit(1);
+
+    if (!current) {
+      throw new Error("Conversa nao encontrada apos triagem.");
+    }
+
+    return { conversation: current };
+  }
+
+  console.info("[conversation-service] initial triage applied", {
+    conversationId,
+    leadId,
+    action: triage.action,
+    type: triage.type
+  });
+
+  return { conversation };
 }
 
 async function upsertConversation(leadId: string, externalChatId: string) {
@@ -464,7 +540,7 @@ async function upsertConversation(leadId: string, externalChatId: string) {
     .limit(1);
 
   if (existing) {
-    return existing;
+    return { conversation: existing, created: false };
   }
 
   const [created] = await db
@@ -477,5 +553,5 @@ async function upsertConversation(leadId: string, externalChatId: string) {
     })
     .returning();
 
-  return created;
+  return { conversation: created, created: true };
 }

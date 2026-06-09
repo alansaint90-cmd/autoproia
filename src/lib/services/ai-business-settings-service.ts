@@ -16,6 +16,7 @@ function normalizeSettings(value: unknown): AiBusinessSettings {
     address: partial.address?.trim() || defaultAiBusinessSettings.address,
     hours: partial.hours?.trim() || defaultAiBusinessSettings.hours,
     customPrompt: partial.customPrompt?.trim() || defaultAiBusinessSettings.customPrompt,
+    triagePrompt: partial.triagePrompt?.trim() || defaultAiBusinessSettings.triagePrompt,
     sdrPrompt: partial.sdrPrompt?.trim() || defaultAiBusinessSettings.sdrPrompt,
     orchestratorPrompt: partial.orchestratorPrompt?.trim() || defaultAiBusinessSettings.orchestratorPrompt,
     supervisorPrompt: partial.supervisorPrompt?.trim() || defaultAiBusinessSettings.supervisorPrompt

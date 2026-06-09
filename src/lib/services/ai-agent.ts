@@ -17,6 +17,49 @@ type GenerateFollowUpInput = GenerateAiReplyInput & {
   hoursWithoutResponse: number;
 };
 
+export type AiTriageResult = {
+  type: "lead_comercial_novo" | "aluno_ja_matriculado" | "suporte_administrativo" | "fora_do_escopo" | "indefinido";
+  action: "activate_ai" | "pause_ai";
+  reason: string;
+  temperature: "urgente" | "quente" | "morno" | "frio";
+  sentiment: "positivo" | "neutro" | "duvida" | "negativo";
+  pipelineStage: "ia" | "atendimento";
+};
+
+export async function triageInitialConversation(input: GenerateAiReplyInput): Promise<AiTriageResult> {
+  const businessSettings = await getAiBusinessSettings();
+  const conversationText = input.messages
+    .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
+    .join("\n");
+
+  try {
+    const { text } = await generateText({
+      model: openai(env.OPENAI_MODEL),
+      system: [
+        businessSettings.triagePrompt,
+        "",
+        "CONTEXTO DINAMICO:",
+        `Empresa: CFC Catuense`,
+        `Agente IA: ${businessSettings.agentName}`,
+        `Endereco: ${businessSettings.address}`,
+        `Horario: ${businessSettings.hours}`,
+        `Regras comerciais: ${businessSettings.customPrompt}`
+      ].join("\n"),
+      prompt: [
+        input.leadName ? `Nome do contato: ${input.leadName}` : "",
+        "Primeira conversa recebida:",
+        conversationText,
+        "Classifique agora. Retorne somente JSON valido."
+      ].filter(Boolean).join("\n")
+    });
+
+    return normalizeTriageResult(JSON.parse(stripJsonFences(text)));
+  } catch (error) {
+    console.warn("[ai-agent] triage fallback used", error);
+    return fallbackTriage(input.messages.map((message) => message.content).join(" "));
+  }
+}
+
 export async function generateAiReply(input: GenerateAiReplyInput) {
   console.info("[ai-agent] request started", { model: env.OPENAI_MODEL, messages: input.messages.length });
   const businessSettings = await getAiBusinessSettings();
@@ -94,6 +137,8 @@ function buildSystemPrompt(settings: BusinessSettings) {
     settings.prices,
     "Regras dinamicas complementares cadastradas no painel:",
     settings.customPrompt,
+    "Prompt do agente de triagem:",
+    settings.triagePrompt,
     "Prompt do agente orquestrador:",
     settings.orchestratorPrompt,
     "Prompt do supervisor:",
@@ -127,4 +172,86 @@ function buildSystemPrompt(settings: BusinessSettings) {
     "- Se estiver retomando um lead sem resposta, envie follow-up contextual curto, usando o assunto real da conversa e uma pergunta objetiva.",
     "- Ao receber qualquer nova resposta do cliente, considere o follow-up reiniciado e siga a conversa normalmente."
   ].join("\n");
+}
+
+function normalizeTriageResult(value: unknown): AiTriageResult {
+  const record = typeof value === "object" && value !== null ? value as Partial<AiTriageResult> : {};
+  const action = record.action === "pause_ai" ? "pause_ai" : "activate_ai";
+
+  return {
+    type: isTriageType(record.type) ? record.type : action === "pause_ai" ? "suporte_administrativo" : "lead_comercial_novo",
+    action,
+    reason: typeof record.reason === "string" && record.reason.trim() ? record.reason.trim().slice(0, 240) : "Triagem automatica.",
+    temperature: isTemperature(record.temperature) ? record.temperature : action === "pause_ai" ? "morno" : "quente",
+    sentiment: isSentiment(record.sentiment) ? record.sentiment : "neutro",
+    pipelineStage: action === "pause_ai" ? "atendimento" : "ia"
+  };
+}
+
+function fallbackTriage(text: string): AiTriageResult {
+  const normalized = text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  const hasAny = (terms: string[]) => terms.some((term) => normalized.includes(term));
+  const isPaidTrafficLead = normalized.includes("tenho interesse") && normalized.includes("mais informacoes");
+  const isCommercialLead = isPaidTrafficLead || hasAny([
+    "valor",
+    "preco",
+    "orcamento",
+    "matricula",
+    "habilitacao",
+    "cnh",
+    "carro",
+    "moto",
+    "categoria",
+    "laudo",
+    "exame",
+    "quanto custa"
+  ]);
+  const isExistingStudent = hasAny([
+    "minha aula",
+    "marcar aula",
+    "remarcar",
+    "minha prova",
+    "resultado",
+    "ja sou aluno",
+    "ja estou matriculado",
+    "meu processo",
+    "segunda chamada",
+    "comprovante"
+  ]);
+
+  if (isExistingStudent && !isCommercialLead) {
+    return {
+      type: "aluno_ja_matriculado",
+      action: "pause_ai",
+      reason: "Mensagem parece ser de aluno ja matriculado ou suporte administrativo.",
+      temperature: "morno",
+      sentiment: "duvida",
+      pipelineStage: "atendimento"
+    };
+  }
+
+  return {
+    type: isCommercialLead ? "lead_comercial_novo" : "indefinido",
+    action: isCommercialLead ? "activate_ai" : "pause_ai",
+    reason: isCommercialLead ? "Mensagem indica interesse comercial em habilitacao." : "Mensagem indefinida para o fluxo comercial inicial.",
+    temperature: isPaidTrafficLead ? "quente" : "morno",
+    sentiment: "neutro",
+    pipelineStage: isCommercialLead ? "ia" : "atendimento"
+  };
+}
+
+function stripJsonFences(text: string) {
+  return text.trim().replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
+}
+
+function isTriageType(value: unknown): value is AiTriageResult["type"] {
+  return value === "lead_comercial_novo" || value === "aluno_ja_matriculado" || value === "suporte_administrativo" || value === "fora_do_escopo" || value === "indefinido";
+}
+
+function isTemperature(value: unknown): value is AiTriageResult["temperature"] {
+  return value === "urgente" || value === "quente" || value === "morno" || value === "frio";
+}
+
+function isSentiment(value: unknown): value is AiTriageResult["sentiment"] {
+  return value === "positivo" || value === "neutro" || value === "duvida" || value === "negativo";
 }
