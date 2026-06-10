@@ -4,7 +4,33 @@ import {
   getIntegrationSettings,
   saveIntegrationSettings
 } from "@/lib/services/integration-settings-service";
+import { env } from "@/lib/env";
 import { assertPermission } from "@/lib/services/permission-service";
+
+function configured(value?: string, missingValue?: string) {
+  return Boolean(value && value.trim() && value !== missingValue);
+}
+
+function getEnvironmentIntegrationStatus() {
+  return {
+    openai: {
+      apiKey: configured(env.OPENAI_API_KEY, "missing-openai-key"),
+      model: configured(env.OPENAI_MODEL)
+    },
+    evolution: {
+      baseUrl: configured(env.EVOLUTION_API_URL),
+      apiKey: configured(env.EVOLUTION_API_KEY, "missing-evolution-key"),
+      instanceName: configured(env.EVOLUTION_INSTANCE_NAME),
+      webhookSecret: configured(env.EVOLUTION_WEBHOOK_SECRET)
+    },
+    minio: {
+      endpoint: configured(process.env.MINIO_ENDPOINT),
+      accessKey: configured(process.env.MINIO_ACCESS_KEY),
+      secretKey: configured(process.env.MINIO_SECRET_KEY),
+      bucket: configured(process.env.MINIO_BUCKET)
+    }
+  };
+}
 
 export async function GET() {
   try {
@@ -12,7 +38,7 @@ export async function GET() {
     await assertPermission(session.role, "manageIntegrations");
 
     const settings = await getIntegrationSettings();
-    return NextResponse.json({ settings });
+    return NextResponse.json({ settings, environment: getEnvironmentIntegrationStatus() });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Acesso nao autorizado." },

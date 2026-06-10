@@ -156,6 +156,25 @@ const aiMessages = [
   { label: "Encerramento", value: "Obrigada pelo contato! Ate logo. 🚗" }
 ];
 
+type IntegrationEnvironmentStatus = {
+  openai: {
+    apiKey: boolean;
+    model: boolean;
+  };
+  evolution: {
+    baseUrl: boolean;
+    apiKey: boolean;
+    instanceName: boolean;
+    webhookSecret: boolean;
+  };
+  minio: {
+    endpoint: boolean;
+    accessKey: boolean;
+    secretKey: boolean;
+    bucket: boolean;
+  };
+};
+
 export default function ConfiguracoesPage() {
   const [activeTab, setActiveTab] = useState<TabId>("empresa");
 
@@ -703,6 +722,7 @@ function PermissoesPanel() {
 
 function IntegracoesPanel() {
   const [settings, setSettings] = useState<IntegrationSettings>(defaultIntegrationSettings);
+  const [environmentStatus, setEnvironmentStatus] = useState<IntegrationEnvironmentStatus | null>(null);
   const [saved, setSaved] = useState(false);
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "error">("loading");
@@ -715,7 +735,11 @@ function IntegracoesPanel() {
       setStatus("loading");
       try {
         const response = await fetch("/api/settings/integrations", { cache: "no-store" });
-        const data = await response.json().catch(() => ({})) as { settings?: IntegrationSettings; error?: string };
+        const data = await response.json().catch(() => ({})) as {
+          settings?: IntegrationSettings;
+          environment?: IntegrationEnvironmentStatus;
+          error?: string;
+        };
 
         if (!response.ok) {
           throw new Error(data.error || "Nao foi possivel carregar integracoes.");
@@ -723,6 +747,7 @@ function IntegracoesPanel() {
 
         if (active && data.settings) {
           setSettings(data.settings);
+          setEnvironmentStatus(data.environment ?? null);
           setStatus("idle");
         }
       } catch (error) {
@@ -759,9 +784,10 @@ function IntegracoesPanel() {
 
   function testIntegration(service: keyof IntegrationSettings) {
     const current = settings[service];
+    const envConfigured = environmentStatus?.[service];
     const required = Object.entries(current)
       .filter(([key]) => !["status", "organization", "webhookSecret", "region", "useSSL"].includes(key))
-      .every(([, value]) => Boolean(String(value).trim()));
+      .every(([key, value]) => Boolean(String(value).trim()) || Boolean(envConfigured?.[key as keyof typeof envConfigured]));
 
     setSettings((items) => ({
       ...items,
@@ -849,12 +875,14 @@ function IntegracoesPanel() {
           value={settings.openai.apiKey}
           secret={!showSecrets}
           placeholder="sk-..."
+          envConfigured={environmentStatus?.openai.apiKey}
           onChange={(value) => updateIntegration("openai", "apiKey", value)}
         />
         <IntegrationInput
           label="Modelo"
           value={settings.openai.model}
           placeholder="gpt-4.1-mini"
+          envConfigured={environmentStatus?.openai.model}
           onChange={(value) => updateIntegration("openai", "model", value)}
         />
         <IntegrationInput
@@ -876,6 +904,7 @@ function IntegracoesPanel() {
           label="URL base"
           value={settings.evolution.baseUrl}
           placeholder="https://evolution.seudominio.com"
+          envConfigured={environmentStatus?.evolution.baseUrl}
           onChange={(value) => updateIntegration("evolution", "baseUrl", value)}
         />
         <IntegrationInput
@@ -883,12 +912,14 @@ function IntegracoesPanel() {
           value={settings.evolution.apiKey}
           secret={!showSecrets}
           placeholder="Chave da Evolution API"
+          envConfigured={environmentStatus?.evolution.apiKey}
           onChange={(value) => updateIntegration("evolution", "apiKey", value)}
         />
         <IntegrationInput
           label="Nome da instancia"
           value={settings.evolution.instanceName}
           placeholder="auto-pro-ia"
+          envConfigured={environmentStatus?.evolution.instanceName}
           onChange={(value) => updateIntegration("evolution", "instanceName", value)}
         />
         <IntegrationInput
@@ -896,6 +927,7 @@ function IntegracoesPanel() {
           value={settings.evolution.webhookSecret}
           secret={!showSecrets}
           placeholder="Opcional"
+          envConfigured={environmentStatus?.evolution.webhookSecret}
           onChange={(value) => updateIntegration("evolution", "webhookSecret", value)}
         />
       </IntegrationCard>
@@ -911,6 +943,7 @@ function IntegracoesPanel() {
           label="Endpoint"
           value={settings.minio.endpoint}
           placeholder="https://minio.seudominio.com"
+          envConfigured={environmentStatus?.minio.endpoint}
           onChange={(value) => updateIntegration("minio", "endpoint", value)}
         />
         <IntegrationInput
@@ -918,6 +951,7 @@ function IntegracoesPanel() {
           value={settings.minio.accessKey}
           secret={!showSecrets}
           placeholder="MINIO_ACCESS_KEY"
+          envConfigured={environmentStatus?.minio.accessKey}
           onChange={(value) => updateIntegration("minio", "accessKey", value)}
         />
         <IntegrationInput
@@ -925,12 +959,14 @@ function IntegracoesPanel() {
           value={settings.minio.secretKey}
           secret={!showSecrets}
           placeholder="MINIO_SECRET_KEY"
+          envConfigured={environmentStatus?.minio.secretKey}
           onChange={(value) => updateIntegration("minio", "secretKey", value)}
         />
         <IntegrationInput
           label="Bucket"
           value={settings.minio.bucket}
           placeholder="autoproia-media"
+          envConfigured={environmentStatus?.minio.bucket}
           onChange={(value) => updateIntegration("minio", "bucket", value)}
         />
         <IntegrationInput
@@ -1012,24 +1048,32 @@ function IntegrationInput({
   value,
   onChange,
   placeholder,
-  secret = false
+  secret = false,
+  envConfigured = false
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   secret?: boolean;
+  envConfigured?: boolean;
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-        {label}
+      <span className="mb-2 flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        <span>{label}</span>
+        {envConfigured ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-[10px] font-black tracking-normal text-success">
+            <CheckCircle2 size={11} />
+            Env ativo
+          </span>
+        ) : null}
       </span>
       <input
         type={secret ? "password" : "text"}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
+        placeholder={envConfigured && !value ? "Configurada por variavel de ambiente" : placeholder}
         className="h-10 w-full rounded-[14px] border border-border bg-input/65 px-4 text-sm font-semibold text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:border-primary/60 focus:ring-4 focus:ring-primary/10"
       />
     </label>
