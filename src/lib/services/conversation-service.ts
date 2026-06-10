@@ -103,7 +103,7 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
       content: inbound.text,
       metadata: {
         source: "evolution",
-        leadSignal,
+        leadSignal: serializeLeadSignalForMetadata(leadSignal),
         triage,
         messageType: inbound.messageType,
         media: inbound.media
@@ -200,7 +200,11 @@ async function processInboundMedia(input: NormalizedInboundMessage): Promise<{
     return { originalText: input.text };
   }
 
-  const audioTranscription = await transcribeInboundAudio(input.media);
+  const audioTranscription = await transcribeInboundAudio(input.media, {
+    remoteJid: input.externalChatId,
+    messageId: input.externalMessageId,
+    fromMe: input.fromMe
+  });
   if (audioTranscription.status === "transcribed") {
     return {
       originalText: input.text,
@@ -664,6 +668,13 @@ function buildContextSummary(text: string, signal: LeadSignal, triage?: AiTriage
     signal.interest ? `Interesse: ${signal.interest}.` : "",
     `Ultima mensagem: ${text.slice(0, 180)}`
   ].filter(Boolean).join(" ");
+}
+
+function serializeLeadSignalForMetadata(signal: LeadSignal) {
+  return {
+    ...signal,
+    enrollmentClosedAt: signal.enrollmentClosedAt?.toISOString()
+  };
 }
 
 async function applyInitialTriage(conversationId: string, leadId: string, triage: AiTriageResult) {

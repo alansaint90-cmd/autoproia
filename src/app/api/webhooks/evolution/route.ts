@@ -35,6 +35,14 @@ export async function POST(request: NextRequest) {
     fromMe: body?.data?.key?.fromMe
   });
 
+  if (body?.event !== "messages.upsert") {
+    console.info("[evolution-webhook] ignored non inbound-message event", {
+      event: body?.event,
+      instance: body?.instance
+    });
+    return NextResponse.json({ ignored: true, event: body?.event ?? null });
+  }
+
   const parsed = evolutionWebhookSchema.safeParse(body);
 
   if (!parsed.success) {

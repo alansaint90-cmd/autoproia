@@ -3,6 +3,12 @@ import type { NormalizedInboundMessage } from "@/lib/whatsapp/normalizer";
 
 type AudioMedia = NonNullable<NormalizedInboundMessage["media"]>;
 
+type TranscribeAudioOptions = {
+  remoteJid?: string;
+  messageId?: string;
+  fromMe?: boolean;
+};
+
 export type AudioTranscriptionResult = {
   status: "transcribed" | "unavailable" | "error";
   text: string;
@@ -12,18 +18,21 @@ export type AudioTranscriptionResult = {
 const openAiTranscriptionUrl = "https://api.openai.com/v1/audio/transcriptions";
 const transcriptionModel = "whisper-1";
 
-export async function transcribeInboundAudio(media: AudioMedia): Promise<AudioTranscriptionResult> {
+export async function transcribeInboundAudio(
+  media: AudioMedia,
+  options: TranscribeAudioOptions = {}
+): Promise<AudioTranscriptionResult> {
   if (media.type !== "audio") {
     return { status: "unavailable", text: "", reason: "Midia recebida nao e audio." };
   }
 
   try {
-    const audio = await getAudioBlob(media);
+    const audio = await getAudioBlob(media, options);
     if (!audio) {
       return {
         status: "unavailable",
         text: "",
-        reason: "Audio recebido sem URL ou base64 disponivel para transcricao."
+        reason: "Audio recebido sem URL/base64 e a Evolution nao retornou o arquivo para transcricao."
       };
     }
 
@@ -66,7 +75,7 @@ export async function transcribeInboundAudio(media: AudioMedia): Promise<AudioTr
   }
 }
 
-async function getAudioBlob(media: AudioMedia) {
+async function getAudioBlob(media: AudioMedia, options: TranscribeAudioOptions) {
   if (media.base64) {
     const buffer = Buffer.from(stripDataUrlPrefix(media.base64), "base64");
     return {
@@ -75,7 +84,9 @@ async function getAudioBlob(media: AudioMedia) {
     };
   }
 
-  if (!media.url) return null;
+  if (!media.url) {
+    return getAudioBlobFromEvolution(media, options);
+  }
 
   const response = await fetch(media.url, {
     headers: {
@@ -96,9 +107,131 @@ async function getAudioBlob(media: AudioMedia) {
   };
 }
 
+async function getAudioBlobFromEvolution(media: AudioMedia, options: TranscribeAudioOptions) {
+  if (!options.messageId || !options.remoteJid) return null;
+
+  const url = new URL(`/chat/getBase64FromMediaMessage/${env.EVOLUTION_INSTANCE_NAME}`, env.EVOLUTION_API_URL);
+  const payloads = [
+    {
+      message: {
+        key: {
+          id: options.messageId,
+          remoteJid: options.remoteJid,
+          fromMe: Boolean(options.fromMe)
+        }
+      },
+      convertToMp4: false
+    },
+    {
+      key: {
+        id: options.messageId,
+        remoteJid: options.remoteJid,
+        fromMe: Boolean(options.fromMe)
+      },
+      convertToMp4: false
+    }
+  ];
+
+  let lastError = "";
+  for (const payload of payloads) {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: env.EVOLUTION_API_KEY
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const body = await response.text().catch(() => "");
+    if (!response.ok) {
+      lastError = `${response.status} ${body.slice(0, 200)}`;
+      continue;
+    }
+
+    const data = parseJson(body);
+    const base64 = findBase64(data);
+    if (!base64) {
+      lastError = "Resposta da Evolution sem base64 de midia.";
+      continue;
+    }
+
+    const mimeType = findMimeType(data) ?? media.mimeType ?? "audio/ogg";
+    const buffer = Buffer.from(stripDataUrlPrefix(base64), "base64");
+
+    return {
+      blob: new Blob([buffer], { type: mimeType }),
+      fileName: fileNameForMime(mimeType)
+    };
+  }
+
+  if (lastError) {
+    throw new Error(`Falha ao obter audio pela Evolution: ${lastError}`);
+  }
+
+  return null;
+}
+
 function stripDataUrlPrefix(value: string) {
   const [, payload] = value.match(/^data:[^;]+;base64,(.+)$/i) ?? [];
   return payload ?? value;
+}
+
+function parseJson(value: string) {
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function findBase64(value: unknown): string | null {
+  if (typeof value === "string") {
+    return looksLikeBase64(value) ? value : null;
+  }
+
+  if (!value || typeof value !== "object") return null;
+
+  const record = value as Record<string, unknown>;
+  const direct = [
+    record.base64,
+    record.media,
+    record.file,
+    record.data,
+    record.result,
+    record.message
+  ];
+
+  for (const item of direct) {
+    const found = findBase64(item);
+    if (found) return found;
+  }
+
+  for (const item of Object.values(record)) {
+    const found = findBase64(item);
+    if (found) return found;
+  }
+
+  return null;
+}
+
+function findMimeType(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const candidate = record.mimetype ?? record.mimeType ?? record.contentType;
+  if (typeof candidate === "string" && candidate.includes("/")) return candidate;
+
+  for (const item of Object.values(record)) {
+    const found = findMimeType(item);
+    if (found) return found;
+  }
+
+  return null;
+}
+
+function looksLikeBase64(value: string) {
+  const clean = stripDataUrlPrefix(value).trim();
+  return clean.length > 80 && /^[A-Za-z0-9+/]+={0,2}$/.test(clean);
 }
 
 function fileNameForMime(mimeType?: string | null) {
