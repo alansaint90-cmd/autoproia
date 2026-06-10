@@ -5,6 +5,7 @@ import { SYSTEM_USER_ID } from "@/lib/constants";
 import { env } from "@/lib/env";
 import { generateAiReply, triageInitialConversation, type AiTriageResult } from "@/lib/services/ai-agent";
 import { logAiDecision } from "@/lib/services/ai-decision-log-service";
+import { transcribeInboundAudio, type AudioTranscriptionResult } from "@/lib/services/audio-transcription-service";
 import { fetchWhatsAppProfilePicture, sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
 import {
   pauseLeadFollowUp,
@@ -36,13 +37,18 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
     return { ...duplicated, duplicated: true };
   }
 
-  let leadSignal = classifyLeadSignal(input.text);
-  const lead = await upsertLead(input, leadSignal);
-  const conversationState = await upsertConversation(lead.id, input.externalChatId);
+  const mediaProcessing = await processInboundMedia(input);
+  const inbound = mediaProcessing.textForAi
+    ? { ...input, text: mediaProcessing.textForAi }
+    : input;
+
+  let leadSignal = classifyLeadSignal(inbound.text);
+  const lead = await upsertLead(inbound, leadSignal);
+  const conversationState = await upsertConversation(lead.id, inbound.externalChatId);
   let conversation = conversationState.conversation;
   let triage: AiTriageResult | null = null;
 
-  if (!input.fromMe && !conversationState.created && conversation.status !== "ai") {
+  if (!inbound.fromMe && !conversationState.created && conversation.status !== "ai") {
     leadSignal = { ...leadSignal, pipelineStage: "atendimento" };
     await db
       .update(leads)
@@ -54,10 +60,10 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
       .where(and(eq(leads.id, lead.id), eq(leads.is_deleted, false), notInArray(leads.pipeline_stage, ["fechado", "perdido", "matricula_pendente"])));
   }
 
-  if (!input.fromMe && conversationState.created) {
+  if (!inbound.fromMe && conversationState.created) {
     triage = await triageInitialConversation({
-      leadName: input.leadName,
-      messages: [{ role: "lead", content: input.text }]
+      leadName: inbound.leadName,
+      messages: [{ role: "lead", content: inbound.text }]
     });
     leadSignal = {
       ...leadSignal,
@@ -84,7 +90,7 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
     });
   }
 
-  if (!input.fromMe) {
+  if (!inbound.fromMe) {
     await resetLeadFollowUpOnCustomerReply(lead.id);
   }
 
@@ -92,27 +98,35 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
     .insert(messages)
     .values({
       conversation_id: conversation.id,
-      external_message_id: input.externalMessageId,
-      role: input.fromMe ? "human" : "lead",
-      content: input.text,
+      external_message_id: inbound.externalMessageId,
+      role: inbound.fromMe ? "human" : "lead",
+      content: inbound.text,
       metadata: {
         source: "evolution",
         leadSignal,
         triage,
-        messageType: input.messageType,
-        media: input.media
+        messageType: inbound.messageType,
+        media: inbound.media
+          ? {
+            ...inbound.media,
+            transcription: mediaProcessing.audioTranscription?.text || undefined,
+            transcriptionStatus: mediaProcessing.audioTranscription?.status,
+            transcriptionReason: mediaProcessing.audioTranscription?.reason
+          }
+          : undefined,
+        originalContent: mediaProcessing.originalText !== inbound.text ? mediaProcessing.originalText : undefined
       },
       modified_by: SYSTEM_USER_ID
     })
     .onConflictDoNothing({ target: messages.external_message_id })
     .returning();
 
-  if (!message && input.externalMessageId) {
-    const duplicatedAfterRace = await findDuplicatedEvolutionMessage(input.externalMessageId);
+  if (!message && inbound.externalMessageId) {
+    const duplicatedAfterRace = await findDuplicatedEvolutionMessage(inbound.externalMessageId);
     if (duplicatedAfterRace) {
       console.info("[conversation-service] duplicated evolution message ignored after insert race", {
         conversationId: duplicatedAfterRace.conversation.id,
-        externalMessageId: input.externalMessageId
+        externalMessageId: inbound.externalMessageId
       });
       return { ...duplicatedAfterRace, duplicated: true };
     }
@@ -126,7 +140,7 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
     .update(conversations)
     .set({
       last_message_at: new Date(),
-      context_summary: buildContextSummary(input.text, leadSignal, triage),
+      context_summary: buildContextSummary(inbound.text, leadSignal, triage),
       updated_at: new Date(),
       modified_by: SYSTEM_USER_ID
     })
@@ -140,7 +154,7 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
     createdAt: new Date().toISOString()
   });
 
-  if (!input.fromMe) {
+  if (!inbound.fromMe) {
     await logAiDecision({
       conversationId: conversation.id,
       leadId: lead.id,
@@ -164,17 +178,46 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
     payload: { message }
   });
 
-  if (!input.fromMe && conversation.status === "ai") {
+  if (!inbound.fromMe && conversation.status === "ai") {
     await pushToConversationBuffer({
       conversationId: conversation.id,
       messageId: message.id,
-      content: input.text,
+      content: inbound.text,
       receivedAt: new Date().toISOString()
     });
     await scheduleBufferProcessing(conversation.id);
   }
 
   return { lead, conversation, message, duplicated: false };
+}
+
+async function processInboundMedia(input: NormalizedInboundMessage): Promise<{
+  originalText: string;
+  textForAi?: string;
+  audioTranscription?: AudioTranscriptionResult;
+}> {
+  if (input.fromMe || input.media?.type !== "audio") {
+    return { originalText: input.text };
+  }
+
+  const audioTranscription = await transcribeInboundAudio(input.media);
+  if (audioTranscription.status === "transcribed") {
+    return {
+      originalText: input.text,
+      textForAi: `Audio transcrito do cliente: ${audioTranscription.text}`,
+      audioTranscription
+    };
+  }
+
+  return {
+    originalText: input.text,
+    textForAi: [
+      "Cliente enviou um audio, mas nao foi possivel transcrever automaticamente.",
+      "Nao invente o conteudo do audio.",
+      "Peca para o cliente enviar a informacao por texto ou acione atendimento humano se for necessario."
+    ].join(" "),
+    audioTranscription
+  };
 }
 
 async function ensureSystemUser() {

@@ -14,6 +14,7 @@ export type NormalizedInboundMessage = {
     caption?: string;
     mimeType?: string;
     url?: string;
+    base64?: string;
   };
   fromMe: boolean;
 };
@@ -59,7 +60,8 @@ function extractMessage(message: Record<string, unknown> | undefined): Pick<Norm
         type: "image",
         caption,
         mimeType: getString(image.mimetype) ?? getString(image.mimeType),
-        url: getString(image.url)
+        url: getMediaUrl(image),
+        base64: getMediaBase64(image)
       }
     };
   }
@@ -71,7 +73,8 @@ function extractMessage(message: Record<string, unknown> | undefined): Pick<Norm
       media: {
         type: "audio",
         mimeType: getString(audio.mimetype) ?? getString(audio.mimeType),
-        url: getString(audio.url)
+        url: getMediaUrl(audio),
+        base64: getMediaBase64(audio)
       }
     };
   }
@@ -85,7 +88,8 @@ function extractMessage(message: Record<string, unknown> | undefined): Pick<Norm
         type: "video",
         caption,
         mimeType: getString(video.mimetype) ?? getString(video.mimeType),
-        url: getString(video.url)
+        url: getMediaUrl(video),
+        base64: getMediaBase64(video)
       }
     };
   }
@@ -101,7 +105,8 @@ function extractMessage(message: Record<string, unknown> | undefined): Pick<Norm
         fileName,
         caption,
         mimeType: getString(document.mimetype) ?? getString(document.mimeType),
-        url: getString(document.url)
+        url: getMediaUrl(document),
+        base64: getMediaBase64(document)
       }
     };
   }
@@ -130,6 +135,19 @@ function unwrapMessage(message: Record<string, unknown>) {
 
 function getString(value: unknown) {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function getMediaUrl(message: Record<string, unknown>) {
+  return getString(message.url)
+    ?? getString(message.mediaUrl)
+    ?? getString(message.fileUrl)
+    ?? getString(message.downloadUrl);
+}
+
+function getMediaBase64(message: Record<string, unknown>) {
+  return getString(message.base64)
+    ?? getString(message.mediaBase64)
+    ?? getString(message.fileBase64);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
