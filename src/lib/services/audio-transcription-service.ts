@@ -27,8 +27,19 @@ export async function transcribeInboundAudio(
   }
 
   try {
+    console.info("[audio-transcription] started", {
+      messageId: options.messageId,
+      hasBase64: Boolean(media.base64),
+      hasUrl: Boolean(media.url),
+      mimeType: media.mimeType
+    });
+
     const audio = await getAudioBlob(media, options);
     if (!audio) {
+      console.warn("[audio-transcription] audio unavailable", {
+        messageId: options.messageId,
+        reason: "missing_media_payload"
+      });
       return {
         status: "unavailable",
         text: "",
@@ -52,6 +63,11 @@ export async function transcribeInboundAudio(
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
+      console.warn("[audio-transcription] openai failed", {
+        messageId: options.messageId,
+        status: response.status,
+        body: body.slice(0, 240)
+      });
       return {
         status: "error",
         text: "",
@@ -62,11 +78,23 @@ export async function transcribeInboundAudio(
     const data = await response.json().catch(() => null) as { text?: string } | null;
     const text = data?.text?.trim();
     if (!text) {
+      console.warn("[audio-transcription] empty transcription", {
+        messageId: options.messageId
+      });
       return { status: "unavailable", text: "", reason: "OpenAI nao retornou texto para o audio." };
     }
 
+    console.info("[audio-transcription] completed", {
+      messageId: options.messageId,
+      characters: text.length
+    });
+
     return { status: "transcribed", text };
   } catch (error) {
+    console.warn("[audio-transcription] failed", {
+      messageId: options.messageId,
+      error: error instanceof Error ? error.message : "Falha desconhecida ao transcrever audio."
+    });
     return {
       status: "error",
       text: "",
@@ -111,6 +139,11 @@ async function getAudioBlobFromEvolution(media: AudioMedia, options: TranscribeA
   if (!options.messageId || !options.remoteJid) return null;
 
   const url = new URL(`/chat/getBase64FromMediaMessage/${env.EVOLUTION_INSTANCE_NAME}`, env.EVOLUTION_API_URL);
+  console.info("[audio-transcription] fetching media from evolution", {
+    messageId: options.messageId,
+    remoteJid: options.remoteJid,
+    url: url.toString()
+  });
   const payloads = [
     {
       message: {
