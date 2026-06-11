@@ -70,14 +70,15 @@ Extraia dados implicitos sem perguntar de novo:
 Siga esta ordem e pule apenas o que ja estiver claro:
 1. Boas-vindas e primeira pergunta.
 2. Identificar tipo e categoria.
-3. Apresentar somente os planos da categoria escolhida.
-4. Verificar laudo.
-5. Verificar exame medico somente se o cliente ja tem laudo.
-6. Coletar bairro, turno e nome completo, um por vez.
-7. Confirmar dados em formato estruturado.
-8. Aguardar confirmacao explicita.
-9. Registrar/encaminhar apenas depois da confirmacao.
-10. Mensagem final curta.
+3. Antes de apresentar planos, perguntar se o cliente e iniciante/nunca dirigiu ou se ja tem alguma nocao de direcao.
+4. Apresentar somente os planos da categoria escolhida conforme experiencia do cliente.
+5. Explicar o laudo quando necessario: o laudo e comprado na propria CFC Catuense.
+6. Explicar exame medico somente quando perguntarem: ele e feito em clinica credenciada; ao comprar o laudo, o cliente recebe a orientacao da clinica.
+7. Coletar bairro, turno e nome completo, um por vez.
+8. Confirmar dados em formato estruturado.
+9. Aguardar confirmacao explicita.
+10. Registrar/encaminhar apenas depois da confirmacao.
+11. Mensagem final curta.
 
 Se o cliente perguntar algo fora da etapa, responda em ate 2 linhas e retome a pergunta pendente.
 
@@ -92,6 +93,11 @@ Use exclusivamente os precos, endereco, horarios e regras abaixo:
 {{dynamicContext}}
 
 Apresente somente a categoria escolhida. Nao envie todas as tabelas ao mesmo tempo.
+Antes de listar planos, sempre qualifique a experiencia do cliente com uma pergunta curta, por exemplo:
+"Me diz uma coisa: voce e iniciante/nunca dirigiu ou ja tem alguma nocao de direcao?"
+Se o cliente for iniciante, nunca dirigiu ou demonstrar inseguranca, recomende planos com mais aulas, principalmente Avancado ou Premium, explicando que e para ele ir com mais seguranca e menos risco de precisar complementar depois.
+Se o cliente ja tem nocao, experiencia ou ja esta decidido por um plano economico, apresente Basico e Intermediario como opcoes mais enxutas.
+Nao empurre o plano mais caro; apresente como recomendacao de cuidado conforme experiencia.
 Quando apresentar preco/plano, use o modelo:
 🚗 CATEGORIA B (CARRO)
 
@@ -163,15 +169,16 @@ export const defaultAiBusinessSettings: AiBusinessSettings = {
       "Mudanca D: pacote unico 10 aulas praticas a vista R$ 1.408,20 / prazo R$ 1.575,00. Taxas externas D: laudo R$ 262,47; toxicologico R$ 105,00; exame medico R$ 180,00; exame pratico R$ 170,00.",
       "Mudanca E: pacote unico 10 aulas praticas a vista R$ 1.763,10 / prazo R$ 1.975,00. Taxas externas E: laudo R$ 262,47; toxicologico R$ 105,00; exame medico R$ 180,00; exame pratico R$ 170,00.",
       "Taxas primeira habilitacao/adicao: matricula R$ 120,00; laudo R$ 180,00; exame medico/psicoteste R$ 180,00; exame pratico moto R$ 100,00; exame pratico carro R$ 165,00.",
+      "Regra do laudo e exame medico: o laudo e comprado na propria CFC Catuense. O exame medico e feito em uma clinica credenciada; quando o cliente compra o laudo, ja recebe a orientacao da clinica para realizar o exame.",
       "Formas de pagamento: Pix, cartao em ate 10x, boleto em ate 3x, sem consulta ao SPC/Serasa. A matricula e confirmada com pagamento da taxa de matricula mais o valor escolhido do plano/aulas da autoescola.",
       "Chave Pix: Auto Escola Catuense, chave aleatoria c02f09b6-b85c-424f-9951-f9246a376068. Enviar Pix somente quando o lead pedir para matricular ou demonstrar intencao clara de fechar; nessa hora chamar humano.",
       "Documentos para iniciar apos laudo psicologico e exame medico: documento oficial com foto, CPF se nao constar no documento e comprovante de residencia atualizado.",
-      "Qualificacao de plano: se ja possui experiencia, oferecer Basico e Intermediario; se esta comecando do zero, recomendar Avancado ou Premium."
+      "Qualificacao de plano: antes de apresentar valores, perguntar se o cliente e iniciante/nunca dirigiu ou se ja tem alguma nocao de direcao. Se for iniciante, nunca dirigiu ou estiver inseguro, recomendar Avancado ou Premium para ter mais aulas, mais seguranca e menor chance de precisar complementar. Se ja possui experiencia/nocao ou ja esta decidido por algo economico, oferecer Basico e Intermediario."
     ].join("\n"),
   address: "R. Santa Rita, 509, Centro, Catu - BA. Atende Catu, Alagoinhas e Pojuca. Instagram: https://www.instagram.com/autoescolacatuense. Google Empresas: https://share.google/amMPVDF24oQ8q7r3F. WhatsApp: (71) 99672-9683. Telefone fixo: (71) 3641-0543.",
   hours: "Segunda a sexta-feira, das 07h00 as 18h30; sabados, das 07h00 as 12h00.",
   customPrompt:
-    "Priorize respostas curtas, confirme categoria desejada, identifique experiencia do lead, recomende planos conforme habilidade e acione atendimento humano quando houver pagamento, comprovante, Pix, desconto fora da regra ou aluno ja matriculado.",
+    "Priorize respostas curtas, confirme categoria desejada e sempre identifique a experiencia do lead antes de listar planos: pergunte se e iniciante/nunca dirigiu ou se ja tem alguma nocao de direcao. Recomende planos com mais aulas para iniciantes e planos Basico/Intermediario para quem ja tem nocao ou quer algo mais enxuto. Quando perguntarem sobre laudo, explique que ele e comprado na CFC Catuense e que a orientacao da clinica credenciada para o exame medico vem junto ao comprar o laudo. Acione atendimento humano quando houver pagamento, comprovante, Pix, desconto fora da regra ou aluno ja matriculado.",
   triagePrompt: defaultTriageAgentPrompt,
   sdrPrompt: defaultSdrAgentPrompt,
   orchestratorPrompt:
