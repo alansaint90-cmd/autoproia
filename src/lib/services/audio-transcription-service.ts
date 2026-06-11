@@ -112,9 +112,20 @@ async function getAudioBlob(media: AudioMedia, options: TranscribeAudioOptions) 
     };
   }
 
-  if (!media.url) {
-    return getAudioBlobFromEvolution(media, options);
+  if (options.messageId && options.remoteJid) {
+    try {
+      const evolutionAudio = await getAudioBlobFromEvolution(media, options);
+      if (evolutionAudio) return evolutionAudio;
+    } catch (error) {
+      console.warn("[audio-transcription] evolution media fetch fallback to webhook url", {
+        messageId: options.messageId,
+        error: error instanceof Error ? error.message : "Falha desconhecida ao buscar audio na Evolution."
+      });
+      if (!media.url) throw error;
+    }
   }
+
+  if (!media.url) return null;
 
   const response = await fetch(media.url, {
     headers: {
@@ -128,6 +139,11 @@ async function getAudioBlob(media: AudioMedia, options: TranscribeAudioOptions) 
 
   const contentType = response.headers.get("content-type") ?? media.mimeType ?? "audio/ogg";
   const buffer = await response.arrayBuffer();
+  console.info("[audio-transcription] webhook url media downloaded", {
+    messageId: options.messageId,
+    contentType,
+    bytes: buffer.byteLength
+  });
 
   return {
     blob: new Blob([buffer], { type: contentType }),

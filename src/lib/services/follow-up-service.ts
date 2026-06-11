@@ -42,7 +42,7 @@ export async function scheduleLeadFollowUp(leadId: string, from = new Date()) {
     set
       follow_up_count = 0,
       last_follow_up_at = null,
-      next_follow_up_at = ${nextFollowUpAt},
+      next_follow_up_at = ${toDbTimestamp(nextFollowUpAt)},
       follow_up_paused_at = null,
       updated_at = now(),
       modified_by = ${SYSTEM_USER_ID}
@@ -66,10 +66,12 @@ export async function pauseLeadFollowUp(leadId: string, userId = SYSTEM_USER_ID)
 }
 
 export async function resumeLeadFollowUp(leadId: string, userId = SYSTEM_USER_ID) {
+  const nextFollowUpAt = getNextFollowUpAt(0);
+
   await db.execute(sql`
     update leads
     set
-      next_follow_up_at = ${getNextFollowUpAt(0)},
+      next_follow_up_at = ${toDbTimestamp(nextFollowUpAt)},
       follow_up_paused_at = null,
       updated_at = now(),
       modified_by = ${userId}
@@ -198,7 +200,7 @@ async function sendFollowUpForConversation(target: DueFollowUpRow) {
     metadata: {
       followUpNumber,
       hoursWithoutResponse,
-      nextFollowUpAt
+      nextFollowUpAt: nextFollowUpAt?.toISOString() ?? null
     }
   });
 
@@ -207,8 +209,8 @@ async function sendFollowUpForConversation(target: DueFollowUpRow) {
     set
       follow_up_count = ${followUpNumber},
       last_follow_up_at = now(),
-      next_follow_up_at = ${nextFollowUpAt},
-      follow_up_paused_at = ${followUpNumber >= 5 ? new Date() : null},
+      next_follow_up_at = ${toDbTimestamp(nextFollowUpAt)},
+      follow_up_paused_at = ${toDbTimestamp(followUpNumber >= 5 ? new Date() : null)},
       temperature = ${nextTemperature},
       pipeline_stage = ${nextStage},
       last_message_preview = ${cleanReply.slice(0, 280)},
@@ -249,6 +251,10 @@ async function sendFollowUpForConversation(target: DueFollowUpRow) {
     nextFollowUpAt,
     message: cleanReply
   };
+}
+
+function toDbTimestamp(value: Date | null | undefined) {
+  return value ? value.toISOString() : null;
 }
 
 async function getContext(conversationId: string) {
