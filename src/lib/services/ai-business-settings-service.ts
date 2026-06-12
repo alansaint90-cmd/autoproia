@@ -12,15 +12,25 @@ function normalizeSettings(value: unknown): AiBusinessSettings {
 
   return {
     agentName: partial.agentName?.trim() || defaultAiBusinessSettings.agentName,
-    prices: partial.prices?.trim() || defaultAiBusinessSettings.prices,
+    prices: sanitizeAiBusinessText(partial.prices?.trim() || defaultAiBusinessSettings.prices),
     address: partial.address?.trim() || defaultAiBusinessSettings.address,
     hours: partial.hours?.trim() || defaultAiBusinessSettings.hours,
-    customPrompt: partial.customPrompt?.trim() || defaultAiBusinessSettings.customPrompt,
-    triagePrompt: partial.triagePrompt?.trim() || defaultAiBusinessSettings.triagePrompt,
-    sdrPrompt: partial.sdrPrompt?.trim() || defaultAiBusinessSettings.sdrPrompt,
-    orchestratorPrompt: partial.orchestratorPrompt?.trim() || defaultAiBusinessSettings.orchestratorPrompt,
-    supervisorPrompt: partial.supervisorPrompt?.trim() || defaultAiBusinessSettings.supervisorPrompt
+    customPrompt: sanitizeAiBusinessText(partial.customPrompt?.trim() || defaultAiBusinessSettings.customPrompt),
+    triagePrompt: sanitizeAiBusinessText(partial.triagePrompt?.trim() || defaultAiBusinessSettings.triagePrompt),
+    sdrPrompt: sanitizeAiBusinessText(partial.sdrPrompt?.trim() || defaultAiBusinessSettings.sdrPrompt),
+    orchestratorPrompt: sanitizeAiBusinessText(partial.orchestratorPrompt?.trim() || defaultAiBusinessSettings.orchestratorPrompt),
+    supervisorPrompt: sanitizeAiBusinessText(partial.supervisorPrompt?.trim() || defaultAiBusinessSettings.supervisorPrompt)
   };
+}
+
+function sanitizeAiBusinessText(text: string) {
+  return text
+    .replace(/laudo\s+psicot[eé]cnico/gi, "laudo")
+    .replace(/laudo\s+psicol[oó]gico/gi, "laudo")
+    .replace(/psicot[eé]cnico/gi, "avaliacao psicologica")
+    .replace(/psicoteste/gi, "avaliacao psicologica")
+    .replace(/n[aã]o\s+e\s+vendido\s+(?:pela|na)\s+CFC/gi, "e vendido na CFC")
+    .replace(/precisa\s+(?:ser\s+)?feito\s+em\s+cl[ií]nicas\s+autorizadas/gi, "e comprado na CFC Catuense");
 }
 
 export async function getAiBusinessSettings(): Promise<AiBusinessSettings> {

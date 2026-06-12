@@ -54,6 +54,8 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
       .update(leads)
       .set({
         pipeline_stage: "atendimento",
+        last_message_preview: inbound.text.slice(0, 280),
+        last_interaction_at: new Date(),
         updated_at: new Date(),
         modified_by: SYSTEM_USER_ID
       })
@@ -679,6 +681,7 @@ function serializeLeadSignalForMetadata(signal: LeadSignal) {
 
 async function applyInitialTriage(conversationId: string, leadId: string, triage: AiTriageResult) {
   const toStatus = triage.action === "pause_ai" ? "human" : "ai";
+  const now = new Date();
 
   const [conversation] = await db
     .update(conversations)
@@ -687,7 +690,8 @@ async function applyInitialTriage(conversationId: string, leadId: string, triage
       assigned_to: null,
       ai_paused_reason: triage.action === "pause_ai" ? `Triagem: ${triage.reason}` : null,
       context_summary: `Triagem: ${triage.type}. Acao: ${triage.action}. Motivo: ${triage.reason}`,
-      updated_at: new Date(),
+      last_message_at: now,
+      updated_at: now,
       modified_by: SYSTEM_USER_ID
     })
     .where(and(eq(conversations.id, conversationId), eq(conversations.is_deleted, false)))
@@ -699,7 +703,8 @@ async function applyInitialTriage(conversationId: string, leadId: string, triage
       temperature: triage.temperature,
       sentiment: triage.sentiment,
       pipeline_stage: triage.pipelineStage,
-      updated_at: new Date(),
+      last_interaction_at: now,
+      updated_at: now,
       modified_by: SYSTEM_USER_ID
     })
     .where(and(eq(leads.id, leadId), eq(leads.is_deleted, false)));

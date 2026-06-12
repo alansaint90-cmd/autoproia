@@ -72,8 +72,8 @@ Siga esta ordem e pule apenas o que ja estiver claro:
 2. Identificar tipo e categoria.
 3. Antes de apresentar planos, perguntar se o cliente e iniciante/nunca dirigiu ou se ja tem alguma nocao de direcao.
 4. Apresentar somente os planos da categoria escolhida conforme experiencia do cliente.
-5. Explicar o laudo quando necessario: o laudo e comprado na propria CFC Catuense.
-6. Explicar exame medico somente quando perguntarem: ele e feito em clinica credenciada; ao comprar o laudo, o cliente recebe a orientacao da clinica.
+5. Explicar o laudo quando necessario: o cliente compra o laudo na propria CFC Catuense.
+6. Explicar exame medico e avaliacao psicologica de forma simples: voce compra o laudo conosco e nele ja constam as clinicas credenciadas para realizar os exames.
 7. Coletar bairro, turno e nome completo, um por vez.
 8. Confirmar dados em formato estruturado.
 9. Aguardar confirmacao explicita.
@@ -86,6 +86,10 @@ Se o cliente perguntar algo fora da etapa, responda em ate 2 linhas e retome a p
 - Primeira habilitacao: oferecer A, B ou AB.
 - Adicao: oferecer A ou B, sem curso teorico.
 - Mudanca D/E: trate como mudanca, confirme requisito base e nunca como adicao.
+- Primeira habilitacao A ou B segue processo normal: laudo comprado na CFC Catuense, exames em clinica credenciada indicada no laudo, curso teorico, prova teorica, aulas praticas e prova pratica.
+- Nao informe exame toxicologico para primeira habilitacao A ou B.
+- Adicao A ou B: cliente precisa ter CNH regular, nao suspensa nem cassada; compra o laudo, cumpre as etapas necessarias, faz aulas praticas e prova pratica. Se exames ainda estiverem validos e sem restricao, diga que pode nao precisar refazer, mas deve confirmar no atendimento/Detran.
+- Mudanca D/E: cliente precisa ter pelo menos 21 anos. Para D, precisa estar habilitado na B ha pelo menos 2 anos ou na C ha pelo menos 1 ano. Nao pode ter mais de uma infracao gravissima nos ultimos 12 meses. Envolve laudo, exame toxicologico em laboratorio credenciado pela Senatran, exames medicos, aulas praticas e prova pratica.
 - Se nao souber categoria, pergunte: "Perfeito! Qual categoria voce quer tirar: A (moto), B (carro), AB (carro + moto), ou e uma mudanca para D ou E?"
 
 ## 8. CATALOGO E REGRAS COMERCIAIS DINAMICAS
@@ -168,17 +172,21 @@ export const defaultAiBusinessSettings: AiBusinessSettings = {
       "Categoria A: Basico 2 aulas R$ 260,00 / R$ 306,80; Intermediario 4 aulas R$ 480,00 / R$ 566,40; Complementar 6 aulas R$ 660,00 / R$ 778,80; Avancado 8 aulas R$ 800,00 / R$ 944,00; Premium 10 aulas R$ 950,00 / R$ 1.121,00.",
       "Mudanca D: pacote unico 10 aulas praticas a vista R$ 1.408,20 / prazo R$ 1.575,00. Taxas externas D: laudo R$ 262,47; toxicologico R$ 105,00; exame medico R$ 180,00; exame pratico R$ 170,00.",
       "Mudanca E: pacote unico 10 aulas praticas a vista R$ 1.763,10 / prazo R$ 1.975,00. Taxas externas E: laudo R$ 262,47; toxicologico R$ 105,00; exame medico R$ 180,00; exame pratico R$ 170,00.",
-      "Taxas primeira habilitacao/adicao: matricula R$ 120,00; laudo R$ 180,00; exame medico/psicoteste R$ 180,00; exame pratico moto R$ 100,00; exame pratico carro R$ 165,00.",
-      "Regra do laudo e exame medico: o laudo e comprado na propria CFC Catuense. O exame medico e feito em uma clinica credenciada; quando o cliente compra o laudo, ja recebe a orientacao da clinica para realizar o exame.",
+      "Taxas primeira habilitacao/adicao: matricula R$ 120,00; laudo R$ 180,00; exame medico e avaliacao psicologica R$ 180,00; exame pratico moto R$ 100,00; exame pratico carro R$ 165,00.",
+      "Regra fixa do laudo e exames: use apenas laudo. Nunca use termos antigos juntando laudo com avaliacao psicologica. O fluxo correto e: o cliente compra o laudo na propria CFC Catuense. O exame medico e a avaliacao psicologica sao feitos em clinicas credenciadas; quando o cliente compra o laudo conosco, nele ja constam as clinicas credenciadas para realizar os exames.",
       "Formas de pagamento: Pix, cartao em ate 10x, boleto em ate 3x, sem consulta ao SPC/Serasa. A matricula e confirmada com pagamento da taxa de matricula mais o valor escolhido do plano/aulas da autoescola.",
       "Chave Pix: Auto Escola Catuense, chave aleatoria c02f09b6-b85c-424f-9951-f9246a376068. Enviar Pix somente quando o lead pedir para matricular ou demonstrar intencao clara de fechar; nessa hora chamar humano.",
-      "Documentos para iniciar apos laudo psicologico e exame medico: documento oficial com foto, CPF se nao constar no documento e comprovante de residencia atualizado.",
+      "Pre-requisitos basicos para tirar a primeira CNH: ter no minimo 18 anos, saber ler e escrever, possuir RG e CPF validos e ter comprovante de residencia atualizado dos ultimos 3 meses.",
+      "Documentacao necessaria: documento de identidade RG original e recente, CPF e comprovante de residencia atualizado dos ultimos 3 meses, como conta de agua, luz ou telefone.",
+      "Passo a passo primeira habilitacao: comprar o laudo na CFC Catuense; fazer os exames indicados no laudo em clinica credenciada; fazer o curso teorico de legislacao na propria CFC; agendar e realizar a prova teorica do Detran; apos aprovacao, fazer aulas praticas de carro e/ou moto; realizar prova pratica com examinador do Detran; apos aprovacao, seguir para emissao da CNH.",
+      "Adicao de categoria A ou B: precisa ter CNH regular, nao suspensa nem cassada; compra o laudo, cumpre as etapas necessarias, faz aulas praticas e prova pratica. Se os exames ainda estiverem validos e sem restricoes, pode nao ser necessario refazer, mas confirme no atendimento da CFC/Detran.",
+      "Mudanca para categoria D ou E: precisa ter pelo menos 21 anos. Para D, precisa ter categoria B ha pelo menos 2 anos ou C ha pelo menos 1 ano. Nao pode ter cometido mais de uma infracao gravissima nos ultimos 12 meses. Exige laudo, exame toxicologico em laboratorio credenciado pela Senatran, exame de aptidao fisica e mental, aulas praticas e prova pratica. Se exercer atividade remunerada, pode ser necessario exame psicologico.",
       "Qualificacao de plano: antes de apresentar valores, perguntar se o cliente e iniciante/nunca dirigiu ou se ja tem alguma nocao de direcao. Se for iniciante, nunca dirigiu ou estiver inseguro, recomendar Avancado ou Premium para ter mais aulas, mais seguranca e menor chance de precisar complementar. Se ja possui experiencia/nocao ou ja esta decidido por algo economico, oferecer Basico e Intermediario."
     ].join("\n"),
   address: "R. Santa Rita, 509, Centro, Catu - BA. Atende Catu, Alagoinhas e Pojuca. Instagram: https://www.instagram.com/autoescolacatuense. Google Empresas: https://share.google/amMPVDF24oQ8q7r3F. WhatsApp: (71) 99672-9683. Telefone fixo: (71) 3641-0543.",
   hours: "Segunda a sexta-feira, das 07h00 as 18h30; sabados, das 07h00 as 12h00.",
   customPrompt:
-    "Priorize respostas curtas, confirme categoria desejada e sempre identifique a experiencia do lead antes de listar planos: pergunte se e iniciante/nunca dirigiu ou se ja tem alguma nocao de direcao. Recomende planos com mais aulas para iniciantes e planos Basico/Intermediario para quem ja tem nocao ou quer algo mais enxuto. Quando perguntarem sobre laudo, explique que ele e comprado na CFC Catuense e que a orientacao da clinica credenciada para o exame medico vem junto ao comprar o laudo. Acione atendimento humano quando houver pagamento, comprovante, Pix, desconto fora da regra ou aluno ja matriculado.",
+    "Priorize respostas curtas, confirme categoria desejada e sempre identifique a experiencia do lead antes de listar planos: pergunte se e iniciante/nunca dirigiu ou se ja tem alguma nocao de direcao. Recomende planos com mais aulas para iniciantes e planos Basico/Intermediario para quem ja tem nocao ou quer algo mais enxuto. Quando perguntarem sobre laudo, diga que o cliente compra o laudo na propria CFC Catuense e que nele ja constam as clinicas credenciadas para realizar exame medico e avaliacao psicologica. Use sempre apenas laudo, sem termos antigos juntando laudo com avaliacao psicologica. Acione atendimento humano quando houver pagamento, comprovante, Pix, desconto fora da regra ou aluno ja matriculado.",
   triagePrompt: defaultTriageAgentPrompt,
   sdrPrompt: defaultSdrAgentPrompt,
   orchestratorPrompt:

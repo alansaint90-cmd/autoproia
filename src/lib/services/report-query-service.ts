@@ -398,6 +398,49 @@ async function queryLossReasons(filters: ReportFilters): Promise<LossReasonMetri
   }));
 }
 
+async function querySummaryMetrics(filters: ReportFilters) {
+  const rows = await db.execute(sql`
+    select
+      count(*) as total_leads,
+      count(*) filter (where l.pipeline_stage in ('fechado', 'matricula_realizada')) as enrollments,
+      count(*) filter (where l.temperature in ('quente', 'urgente')) as hot_leads,
+      count(*) filter (where c.status = 'ai') as ai_handled,
+      count(*) filter (where c.status in ('ai', 'human')) as active_conversations
+    from leads l
+    left join users u on u.id = l.responsible_id
+    left join lateral (
+      select status
+      from conversations
+      where lead_id = l.id and is_deleted = false
+      order by last_message_at desc
+      limit 1
+    ) c on true
+    where ${baseLeadFilters(filters)}
+  `) as Array<{
+    total_leads: string | number | bigint;
+    enrollments: string | number | bigint;
+    hot_leads: string | number | bigint;
+    ai_handled: string | number | bigint;
+    active_conversations: string | number | bigint;
+  }>;
+
+  const row = rows[0];
+  const totalLeads = toNumber(row?.total_leads);
+  const enrollments = toNumber(row?.enrollments);
+  const revenue = enrollments * DEFAULT_TICKET;
+
+  return {
+    totalLeads,
+    enrollments,
+    revenue,
+    conversion: totalLeads > 0 ? Number(((enrollments / totalLeads) * 100).toFixed(1)) : 0,
+    averageTicket: enrollments > 0 ? Math.round(revenue / enrollments) : 0,
+    aiHandled: toNumber(row?.ai_handled),
+    activeConversations: toNumber(row?.active_conversations),
+    hotLeads: toNumber(row?.hot_leads)
+  };
+}
+
 export async function queryCommercialMetrics(filters: ReportFilters) {
   const queryParams: LeadQueryParams = {
     search: null,
@@ -408,7 +451,7 @@ export async function queryCommercialMetrics(filters: ReportFilters) {
     limit: filters.limit ?? 500
   };
 
-  const [leads, analytics, origins, funnelData, monthlyReport, aiPerformance, responseSeconds, commercialPulse, lossReasons] = await Promise.all([
+  const [leads, analytics, origins, funnelData, monthlyReport, aiPerformance, responseSeconds, commercialPulse, lossReasons, summaryMetrics] = await Promise.all([
     queryLeads(queryParams),
     queryLeadAnalytics(queryParams),
     queryOrigins(filters),
@@ -417,17 +460,20 @@ export async function queryCommercialMetrics(filters: ReportFilters) {
     queryAiPerformance(filters),
     getAverageResponseTime(filters),
     queryCommercialPulse(filters),
-    queryLossReasons(filters)
+    queryLossReasons(filters),
+    querySummaryMetrics(filters)
   ]);
 
-  const totalLeads = leads.length;
-  const enrollments = leads.filter((lead) => lead.status === "matricula_realizada").length;
-  const hotLeads = leads.filter((lead) => lead.temperature === "quente" || lead.temperature === "urgente").length;
-  const aiHandled = leads.filter((lead) => lead.conversationStatus === "ai").length;
-  const activeConversations = leads.filter((lead) => lead.conversationStatus === "ai" || lead.conversationStatus === "human").length;
-  const revenue = enrollments * DEFAULT_TICKET;
-  const conversion = totalLeads > 0 ? Number(((enrollments / totalLeads) * 100).toFixed(1)) : 0;
-  const averageTicket = enrollments > 0 ? Math.round(revenue / enrollments) : 0;
+  const {
+    totalLeads,
+    enrollments,
+    revenue,
+    conversion,
+    averageTicket,
+    aiHandled,
+    activeConversations,
+    hotLeads
+  } = summaryMetrics;
   const sellers = await querySellers(filters, totalLeads);
   const campaigns: CampaignMetric[] = origins.map((origin) => {
     const enrollmentsByOrigin = leads.filter((lead) => lead.origin === origin.label && lead.status === "matricula_realizada").length;

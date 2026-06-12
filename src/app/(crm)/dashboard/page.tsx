@@ -273,10 +273,12 @@ export default function DashboardPage() {
     }
 
     loadMetrics();
-    const interval = window.setInterval(loadMetrics, 10_000);
+    window.addEventListener("focus", loadMetrics);
+    const interval = window.setInterval(loadMetrics, 5_000);
 
     return () => {
       active = false;
+      window.removeEventListener("focus", loadMetrics);
       window.clearInterval(interval);
     };
   }, [selectedPeriod]);
