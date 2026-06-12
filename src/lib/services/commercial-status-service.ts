@@ -33,6 +33,19 @@ export function classifyCommercialSignal(input: NormalizedInboundMessage, hasPay
   ]);
   const noInterest = hasAny(["nao tenho interesse", "sem interesse", "nao quero", "desisti", "deixa pra la", "muito caro"]);
   const sentPayment = hasPaymentReceipt || hasAny(["comprovante", "paguei", "pagamento feito", "pix feito", "enviei o pix"]);
+  const discountRequest = hasAny([
+    "desconto",
+    "tem desconto",
+    "da desconto",
+    "consegue desconto",
+    "consegue melhorar",
+    "melhor valor",
+    "valor melhor",
+    "condicao especial",
+    "abatimento",
+    "negociar",
+    "negociacao"
+  ]);
   const purchaseIntent = hasAny([
     "quero matricular",
     "quero fechar",
@@ -58,14 +71,18 @@ export function classifyCommercialSignal(input: NormalizedInboundMessage, hasPay
     };
   }
 
-  if (askedHuman || sensitive) {
+  if (askedHuman || sensitive || discountRequest) {
     return {
       status: "atendimento_humano_necessario",
       pipelineStage: "atendimento",
       temperature: "quente",
       shouldNotify: true,
       notificationType: askedHuman ? "human_requested" : "human_required",
-      reason: askedHuman ? "Cliente pediu atendimento humano." : "IA detectou tema sensivel para atendimento humano."
+      reason: askedHuman
+        ? "Cliente pediu atendimento humano."
+        : discountRequest
+          ? "Cliente pediu desconto ou negociacao especial. Atendimento humano deve assumir."
+          : "IA detectou tema sensivel para atendimento humano."
     };
   }
 

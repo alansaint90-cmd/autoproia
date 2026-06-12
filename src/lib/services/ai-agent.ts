@@ -90,8 +90,9 @@ export async function generateAiReply(input: GenerateAiReplyInput): Promise<AiRe
     ].filter(Boolean).join("\n")
   });
 
-  console.info("[ai-agent] response generated", { length: text.length });
-  const safety = validateCommercialFacts(text, businessSettings);
+  const sanitizedText = sanitizeAiOutput(text);
+  console.info("[ai-agent] response generated", { length: sanitizedText.length });
+  const safety = validateCommercialFacts(sanitizedText, businessSettings);
   if (safety.status === "blocked") {
     const safeText = [
       "Para nao te passar uma informacao comercial incorreta, vou confirmar esse detalhe com um atendente.",
@@ -110,7 +111,7 @@ export async function generateAiReply(input: GenerateAiReplyInput): Promise<AiRe
   }
 
   return {
-    text: text.trim(),
+    text: sanitizedText.trim(),
     safety
   };
 }
@@ -151,8 +152,9 @@ export async function generateAiFollowUp(input: GenerateFollowUpInput) {
     ].filter(Boolean).join("\n")
   });
 
-  console.info("[ai-agent] follow-up generated", { length: text.length });
-  return text.trim();
+  const sanitizedText = sanitizeAiOutput(text);
+  console.info("[ai-agent] follow-up generated", { length: sanitizedText.length });
+  return sanitizedText.trim();
 }
 
 type BusinessSettings = Awaited<ReturnType<typeof getAiBusinessSettings>>;
@@ -190,7 +192,7 @@ function buildSystemPrompt(settings: BusinessSettings) {
     "- Nunca invente preco, taxa, desconto, prazo, data, documento obrigatorio ou condicao de pagamento.",
     "- Se o preco, prazo ou regra nao estiver exatamente no contexto dinamico, diga que vai confirmar com um atendente humano.",
     "- Use somente valores em reais, parcelamentos, taxas, endereco, horarios e regras cadastrados no contexto dinamico.",
-    "- REGRA FIXA CFC CATUENSE SOBRE LAUDO: use somente 'laudo'. Nao use termos antigos juntando laudo com avaliacao psicologica.",
+    "- REGRA FIXA CFC CATUENSE SOBRE LAUDO: use somente 'laudo'. E proibido escrever 'laudo psicotecnico', 'laudo psicologico' ou 'psicoteste' como nome do laudo.",
     "- O fluxo correto e: o laudo e comprado na propria CFC Catuense. Nao oriente o cliente a comprar/procurar laudo sozinho em clinicas.",
     "- Exame medico e avaliacao psicologica sao feitos em clinicas credenciadas. Explique assim: 'Voce compra o laudo conosco e nele ja constam as clinicas credenciadas para realizar os exames.'",
     "- Primeira CNH A, B ou AB: requisitos basicos sao ter 18 anos ou mais, saber ler e escrever, RG e CPF validos e comprovante de residencia atualizado dos ultimos 3 meses.",
@@ -209,6 +211,8 @@ function buildSystemPrompt(settings: BusinessSettings) {
     "💰 A vista: R$ 380,00",
     "💳 A prazo: R$ 448,40",
     "- Troque categoria, veiculo, nome do plano, quantidade de aulas e valores conforme os dados cadastrados no contexto dinamico.",
+    "- Quando o cliente pedir valor total, voce pode calcular e informar o total inicial somando plano escolhido + matricula + laudo + exame cadastrados. Discrimine a soma e nao inclua exame pratico, salvo se o cliente pedir total com exame pratico.",
+    "- Se o cliente pedir desconto, abatimento, melhor valor, condicao especial ou negociacao, nao negocie automaticamente. Diga que vai chamar uma atendente para verificar a melhor condicao e acione handoff humano.",
     "- Apresente somente a categoria/plano relevante ao pedido do cliente; nao envie todos os planos de uma vez, salvo se o cliente pedir comparacao.",
     "- Nunca encerre um lead apos orcamento ou agendamento nao confirmado.",
     "- Se estiver retomando um lead sem resposta, envie follow-up contextual curto, usando o assunto real da conversa e uma pergunta objetiva.",
@@ -229,8 +233,10 @@ function validateCommercialFacts(text: string, settings: BusinessSettings): AiRe
   ].join("\n");
 
   const mentionedMoney = extractMoneyValues(text);
-  const allowedMoney = new Set(extractMoneyValues(allowedSource));
-  const blockedValues = mentionedMoney.filter((value) => !allowedMoney.has(value));
+  const allowedMoneyList = extractMoneyValues(allowedSource);
+  const allowedMoney = new Set(allowedMoneyList);
+  const allowedComputedTotals = new Set(buildAllowedComputedTotals(allowedMoneyList));
+  const blockedValues = mentionedMoney.filter((value) => !allowedMoney.has(value) && !allowedComputedTotals.has(value));
 
   if (blockedValues.length > 0) {
     return {
@@ -266,6 +272,57 @@ function extractMoneyValues(text: string) {
 
 function normalizeMatches(values: string[] | null) {
   return Array.from(new Set((values ?? []).map((value) => value.replace(/\s+/g, " ").trim().toLowerCase())));
+}
+
+function sanitizeAiOutput(text: string) {
+  return text
+    .replace(/laudo\s+psicot[eé]cnico/gi, "laudo")
+    .replace(/laudo\s+psicol[oó]gico/gi, "laudo")
+    .replace(/\bpsicot[eé]cnico\b/gi, "avaliacao psicologica")
+    .replace(/\bpsicoteste\b/gi, "avaliacao psicologica");
+}
+
+function buildAllowedComputedTotals(allowedMoney: string[]) {
+  const feeBundles = [
+    ["r$ 120,00", "r$ 180,00", "r$ 180,00"],
+    ["r$ 120,00", "r$ 180,00", "r$ 180,00", "r$ 100,00"],
+    ["r$ 120,00", "r$ 180,00", "r$ 180,00", "r$ 165,00"]
+  ];
+  const feeTotals = feeBundles
+    .map((bundle) => bundle.reduce((sum, value) => sum + moneyToCents(value), 0))
+    .filter((value) => value > 0);
+  const moneyCents = allowedMoney.map(moneyToCents).filter((value) => value > 0);
+  const computed = new Set<string>();
+
+  for (const base of moneyCents) {
+    for (const feeTotal of feeTotals) {
+      computed.add(centsToMoney(base + feeTotal));
+    }
+  }
+
+  return Array.from(computed);
+}
+
+function moneyToCents(value: string) {
+  const normalized = value
+    .replace(/r\$\s*/i, "")
+    .replace(/\./g, "")
+    .replace(",", ".")
+    .trim();
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) : 0;
+}
+
+function centsToMoney(cents: number) {
+  return (cents / 100)
+    .toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+      minimumFractionDigits: 2
+    })
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 
 function normalizeTriageResult(value: unknown): AiTriageResult {

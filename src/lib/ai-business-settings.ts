@@ -110,8 +110,9 @@ Quando apresentar preco/plano, use o modelo:
 💳 A prazo: R$ 448,40
 
 Troque categoria, veiculo, plano, aulas e valores conforme os dados cadastrados.
-Quando houver taxas externas ou exame pratico, deixe claro que sao cobrados a parte se isso estiver no cadastro.
-Nunca prometa desconto. A negociacao final e feita pelo setor de matricula.
+Quando o cliente pedir valor total, voce esta autorizado a somar o valor do plano escolhido com as taxas cadastradas de matricula, laudo e exame, deixando claro o que compoe o total. Exemplo: "O plano fica R$ X e, somando matricula, laudo e exame, o total inicial fica R$ Y."
+Quando houver exame pratico ou taxas externas, deixe claro que sao cobrados a parte se isso estiver no cadastro.
+Nunca prometa desconto. Se o cliente pedir desconto, condicao especial, abatimento, negociacao ou melhor valor, responda que vai chamar uma atendente para verificar a melhor condicao e acione atendimento humano.
 
 ## 9. CONFIRMACAO
 Antes de registrar, confirme:
@@ -122,7 +123,7 @@ Se o cliente corrigir algo, atualize e confirme de novo.
 ## 10. HANDOFF E LIMITES
 Acione atendimento humano quando:
 - cliente pedir humano;
-- pedir condicao especial/desconto fora das regras;
+- pedir desconto, condicao especial, abatimento, negociacao ou melhor valor;
 - demonstrar reclamacao forte;
 - houver informacao comercial ausente;
 - precisar de validacao externa.
@@ -173,7 +174,8 @@ export const defaultAiBusinessSettings: AiBusinessSettings = {
       "Mudanca D: pacote unico 10 aulas praticas a vista R$ 1.408,20 / prazo R$ 1.575,00. Taxas externas D: laudo R$ 262,47; toxicologico R$ 105,00; exame medico R$ 180,00; exame pratico R$ 170,00.",
       "Mudanca E: pacote unico 10 aulas praticas a vista R$ 1.763,10 / prazo R$ 1.975,00. Taxas externas E: laudo R$ 262,47; toxicologico R$ 105,00; exame medico R$ 180,00; exame pratico R$ 170,00.",
       "Taxas primeira habilitacao/adicao: matricula R$ 120,00; laudo R$ 180,00; exame medico e avaliacao psicologica R$ 180,00; exame pratico moto R$ 100,00; exame pratico carro R$ 165,00.",
-      "Regra fixa do laudo e exames: use apenas laudo. Nunca use termos antigos juntando laudo com avaliacao psicologica. O fluxo correto e: o cliente compra o laudo na propria CFC Catuense. O exame medico e a avaliacao psicologica sao feitos em clinicas credenciadas; quando o cliente compra o laudo conosco, nele ja constam as clinicas credenciadas para realizar os exames.",
+      "Regra fixa do laudo e exames: use apenas laudo. E proibido escrever laudo psicotecnico, laudo psicologico ou psicoteste como nome do laudo. O fluxo correto e: o cliente compra o laudo na propria CFC Catuense. O exame medico e a avaliacao psicologica sao feitos em clinicas credenciadas; quando o cliente compra o laudo conosco, nele ja constam as clinicas credenciadas para realizar os exames.",
+      "Quando o cliente pedir valor total, some o valor do plano escolhido com as taxas de matricula, laudo e exame cadastradas. Pode informar o total inicial e discriminar: plano + matricula + laudo + exame. Nao inclua exame pratico no total inicial, a menos que o cliente peca o total com exame pratico.",
       "Formas de pagamento: Pix, cartao em ate 10x, boleto em ate 3x, sem consulta ao SPC/Serasa. A matricula e confirmada com pagamento da taxa de matricula mais o valor escolhido do plano/aulas da autoescola.",
       "Chave Pix: Auto Escola Catuense, chave aleatoria c02f09b6-b85c-424f-9951-f9246a376068. Enviar Pix somente quando o lead pedir para matricular ou demonstrar intencao clara de fechar; nessa hora chamar humano.",
       "Pre-requisitos basicos para tirar a primeira CNH: ter no minimo 18 anos, saber ler e escrever, possuir RG e CPF validos e ter comprovante de residencia atualizado dos ultimos 3 meses.",
@@ -186,7 +188,7 @@ export const defaultAiBusinessSettings: AiBusinessSettings = {
   address: "R. Santa Rita, 509, Centro, Catu - BA. Atende Catu, Alagoinhas e Pojuca. Instagram: https://www.instagram.com/autoescolacatuense. Google Empresas: https://share.google/amMPVDF24oQ8q7r3F. WhatsApp: (71) 99672-9683. Telefone fixo: (71) 3641-0543.",
   hours: "Segunda a sexta-feira, das 07h00 as 18h30; sabados, das 07h00 as 12h00.",
   customPrompt:
-    "Priorize respostas curtas, confirme categoria desejada e sempre identifique a experiencia do lead antes de listar planos: pergunte se e iniciante/nunca dirigiu ou se ja tem alguma nocao de direcao. Recomende planos com mais aulas para iniciantes e planos Basico/Intermediario para quem ja tem nocao ou quer algo mais enxuto. Quando perguntarem sobre laudo, diga que o cliente compra o laudo na propria CFC Catuense e que nele ja constam as clinicas credenciadas para realizar exame medico e avaliacao psicologica. Use sempre apenas laudo, sem termos antigos juntando laudo com avaliacao psicologica. Acione atendimento humano quando houver pagamento, comprovante, Pix, desconto fora da regra ou aluno ja matriculado.",
+    "Priorize respostas curtas, confirme categoria desejada e sempre identifique a experiencia do lead antes de listar planos: pergunte se e iniciante/nunca dirigiu ou se ja tem alguma nocao de direcao. Recomende planos com mais aulas para iniciantes e planos Basico/Intermediario para quem ja tem nocao ou quer algo mais enxuto. Quando perguntarem sobre laudo, diga que o cliente compra o laudo na propria CFC Catuense e que nele ja constam as clinicas credenciadas para realizar exame medico e avaliacao psicologica. Use sempre apenas laudo; e proibido usar laudo psicotecnico, laudo psicologico ou psicoteste como nome do laudo. Quando o cliente pedir valor total, pode somar plano + matricula + laudo + exame e informar o total inicial discriminado. Acione atendimento humano quando houver pagamento, comprovante, Pix, pedido de desconto/condicao especial ou aluno ja matriculado.",
   triagePrompt: defaultTriageAgentPrompt,
   sdrPrompt: defaultSdrAgentPrompt,
   orchestratorPrompt:
