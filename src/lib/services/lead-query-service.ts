@@ -23,6 +23,7 @@ type LeadRow = {
   interest: string | null;
   temperature: string;
   sentiment: string;
+  commercial_status: string;
   pipeline_stage: string;
   last_message_preview: string | null;
   last_interaction_at: Date | string | null;
@@ -157,7 +158,7 @@ function buildWhere(params: LeadQueryParams) {
       clauses.push(sql`lower(l.origin) = 'whatsapp'`);
       break;
     case "meta":
-      clauses.push(sql`lower(l.origin) in ('meta ads', 'facebook')`);
+      clauses.push(sql`lower(l.origin) in ('meta ads', 'facebook ads', 'instagram ads', 'facebook', 'instagram')`);
       break;
   }
 
@@ -178,6 +179,7 @@ export async function queryLeads(params: LeadQueryParams = {}) {
       l.interest,
       l.temperature,
       l.sentiment,
+      l.commercial_status,
       l.pipeline_stage,
       l.last_message_preview,
       l.last_interaction_at,
@@ -219,6 +221,7 @@ export async function queryLeads(params: LeadQueryParams = {}) {
       status,
       temperature: lead.temperature,
       sentiment: lead.sentiment,
+      commercialStatus: lead.commercial_status,
       lastMessage: lead.last_message_preview ?? "Mensagem registrada pelo WhatsApp.",
       lastInteraction: dateLabel(lead.last_interaction_at ?? lead.updated_at),
       responsible: lead.responsible ?? "Equipe comercial",

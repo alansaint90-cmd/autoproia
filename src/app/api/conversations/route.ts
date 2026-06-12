@@ -23,6 +23,7 @@ type ConversationRow = {
   origin: string;
   temperature: string;
   sentiment: string;
+  commercial_status: string;
   pipeline_stage: string;
   last_message_preview: string | null;
   last_interaction_at: Date | string | null;
@@ -100,6 +101,7 @@ export async function GET(request: NextRequest) {
         l.origin,
         l.temperature,
         l.sentiment,
+        l.commercial_status,
         l.pipeline_stage,
         l.last_message_preview,
         l.last_interaction_at,
@@ -175,6 +177,7 @@ export async function GET(request: NextRequest) {
           phone: row.phone,
           origin: row.origin,
           temperature: row.temperature,
+          commercialStatus: row.commercial_status,
           lastInteraction: formatTime(row.last_interaction_at ?? row.last_message_at),
           responsible: row.responsible_name ?? "Equipe comercial",
           avatar: row.avatar_url ?? "",

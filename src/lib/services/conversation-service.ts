@@ -6,7 +6,10 @@ import { env } from "@/lib/env";
 import { generateAiReply, triageInitialConversation, type AiTriageResult } from "@/lib/services/ai-agent";
 import { logAiDecision } from "@/lib/services/ai-decision-log-service";
 import { transcribeInboundAudio, type AudioTranscriptionResult } from "@/lib/services/audio-transcription-service";
+import { classifyCommercialSignal, type CommercialSignal } from "@/lib/services/commercial-status-service";
+import { createCrmNotification } from "@/lib/services/crm-notification-service";
 import { fetchWhatsAppProfilePicture, sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
+import { analyzeAndSavePaymentReceipt, isPotentialPixReceipt } from "@/lib/services/payment-receipt-service";
 import {
   pauseLeadFollowUp,
   resetLeadFollowUpOnCustomerReply,
@@ -199,6 +202,33 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
     });
   }
 
+  if (!inbound.fromMe) {
+    const receiptCandidate = isPotentialPixReceipt(inbound);
+    const commercialSignal = classifyCommercialSignal(inbound, receiptCandidate);
+    let paymentReceipt: Awaited<ReturnType<typeof analyzeAndSavePaymentReceipt>> | null = null;
+
+    if (receiptCandidate) {
+      paymentReceipt = await analyzeAndSavePaymentReceipt({
+        leadId: lead.id,
+        conversationId: conversation.id,
+        messageId: message.id,
+        inbound
+      });
+    }
+
+    conversation = await applyCommercialSignal({
+      leadId: lead.id,
+      leadName: lead.name ?? inbound.leadName,
+      leadPhone: lead.phone,
+      conversation,
+      messageId: message.id,
+      signal: commercialSignal,
+      lastMessage: inbound.text,
+      marketing: inbound.marketing,
+      paymentReceipt
+    });
+  }
+
   await publishRealtimeEvent({
     type: "message.created",
     conversationId: conversation.id,
@@ -262,6 +292,172 @@ async function ensureSystemUser() {
       modified_by: SYSTEM_USER_ID
     })
     .onConflictDoNothing();
+}
+
+async function applyCommercialSignal(input: {
+  leadId: string;
+  leadName?: string | null;
+  leadPhone: string;
+  conversation: typeof conversations.$inferSelect;
+  messageId: string;
+  signal: CommercialSignal;
+  lastMessage: string;
+  marketing?: NormalizedInboundMessage["marketing"];
+  paymentReceipt?: Awaited<ReturnType<typeof analyzeAndSavePaymentReceipt>> | null;
+}) {
+  const now = new Date();
+  const shouldMoveToHuman =
+    input.signal.status === "aguardando_validacao_pagamento"
+    || input.signal.status === "atendimento_humano_necessario";
+
+  await db
+    .update(leads)
+    .set({
+      commercial_status: input.signal.status,
+      pipeline_stage: input.signal.pipelineStage ?? undefined,
+      temperature: input.signal.temperature ?? undefined,
+      last_message_preview: input.lastMessage.slice(0, 280),
+      last_interaction_at: now,
+      enrollment_closed_at: input.signal.status === "venda" ? now : undefined,
+      updated_at: now,
+      modified_by: SYSTEM_USER_ID
+    })
+    .where(and(eq(leads.id, input.leadId), eq(leads.is_deleted, false)));
+
+  let conversation = input.conversation;
+
+  if (shouldMoveToHuman) {
+    const [updated] = await db
+      .update(conversations)
+      .set({
+        status: "human",
+        ai_paused_reason: input.signal.reason,
+        context_summary: [
+          input.conversation.context_summary,
+          `Status comercial: ${input.signal.status}. ${input.signal.reason}`
+        ].filter(Boolean).join(" "),
+        updated_at: now,
+        modified_by: SYSTEM_USER_ID
+      })
+      .where(and(eq(conversations.id, input.conversation.id), eq(conversations.is_deleted, false)))
+      .returning();
+
+    if (updated) conversation = updated;
+    await clearConversationBuffer(input.conversation.id);
+    await pauseLeadFollowUp(input.leadId);
+  }
+
+  if (input.signal.shouldNotify) {
+    await createCrmNotification({
+      leadId: input.leadId,
+      conversationId: input.conversation.id,
+      messageId: input.messageId,
+      type: input.signal.notificationType ?? "human_required",
+      title: getCommercialNotificationTitle(input.signal.status),
+      body: [
+        input.leadName || "Lead sem nome",
+        input.leadPhone,
+        input.marketing?.origin ? `Origem: ${input.marketing.origin}` : null,
+        `Status: ${input.signal.status}`,
+        `Ultima mensagem: ${input.lastMessage.slice(0, 180)}`
+      ].filter(Boolean).join(" | "),
+      payload: {
+        origin: input.marketing?.origin,
+        marketing: input.marketing,
+        reason: input.signal.reason,
+        lastMessage: input.lastMessage,
+        conversationUrl: `/conversas?conversationId=${input.conversation.id}`,
+        paymentReceipt: input.paymentReceipt
+          ? {
+            id: input.paymentReceipt.receipt.id,
+            fileUrl: input.paymentReceipt.receipt.file_url,
+            amountText: input.paymentReceipt.receipt.amount_text,
+            paidAtText: input.paymentReceipt.receipt.paid_at_text,
+            payerName: input.paymentReceipt.receipt.payer_name,
+            receiverName: input.paymentReceipt.receipt.receiver_name,
+            transactionId: input.paymentReceipt.receipt.transaction_id,
+            detected: input.paymentReceipt.receipt.detected
+          }
+          : undefined
+      }
+    });
+  }
+
+  if (input.signal.status === "aguardando_validacao_pagamento") {
+    await sendPaymentReceiptAck({
+      leadId: input.leadId,
+      conversationId: input.conversation.id,
+      phone: input.leadPhone,
+      sourceMessageId: input.messageId
+    });
+  }
+
+  await logAiDecision({
+    conversationId: input.conversation.id,
+    leadId: input.leadId,
+    messageId: input.messageId,
+    action: input.signal.status === "atendimento_humano_necessario" ? "human_handoff_triggered" : "ai_qualified_lead",
+    reason: input.signal.reason,
+    mode: conversation.status,
+    safetyStatus: "ok",
+    metadata: {
+      commercialStatus: input.signal.status,
+      pipelineStage: input.signal.pipelineStage,
+      notificationType: input.signal.notificationType,
+      paymentReceiptId: input.paymentReceipt?.receipt.id
+    }
+  });
+
+  return conversation;
+}
+
+async function sendPaymentReceiptAck(input: {
+  leadId: string;
+  conversationId: string;
+  phone: string;
+  sourceMessageId: string;
+}) {
+  const text = "Recebi seu comprovante e encaminhei para conferencia. Ja vamos validar para dar continuidade.";
+
+  try {
+    await sendWhatsAppText({ phone: input.phone, text });
+    const [aiMessage] = await db
+      .insert(messages)
+      .values({
+        conversation_id: input.conversationId,
+        role: "ai",
+        content: text,
+        metadata: { source: "payment_receipt_ack", sourceMessageId: input.sourceMessageId },
+        modified_by: SYSTEM_USER_ID
+      })
+      .returning();
+
+    await appendRecentConversationContext({
+      conversationId: input.conversationId,
+      messageId: aiMessage.id,
+      role: aiMessage.role,
+      content: aiMessage.content,
+      createdAt: new Date().toISOString()
+    });
+
+    await publishRealtimeEvent({
+      type: "message.created",
+      conversationId: input.conversationId,
+      payload: { message: aiMessage }
+    });
+  } catch (error) {
+    console.warn("[conversation-service] failed to send payment receipt acknowledgement", error);
+  }
+}
+
+function getCommercialNotificationTitle(status: string) {
+  const titles: Record<string, string> = {
+    aguardando_validacao_pagamento: "Comprovante PIX recebido",
+    aguardando_comprovante: "Lead com intencao de compra",
+    atendimento_humano_necessario: "Atendimento humano necessario"
+  };
+
+  return titles[status] ?? "Atualizacao comercial do lead";
 }
 
 export async function processBufferedConversation(conversationId: string) {
@@ -602,6 +798,7 @@ type LeadSignal = {
   temperature: "urgente" | "quente" | "morno" | "frio";
   sentiment: "positivo" | "neutro" | "duvida" | "negativo";
   pipelineStage: "novo" | "ia" | "atendimento" | "followup" | "matricula_pendente" | "fechado" | "perdido";
+  commercialStatus?: string;
   interest?: string;
   enrollmentClosedAt?: Date;
 };
@@ -630,6 +827,7 @@ async function upsertLead(input: NormalizedInboundMessage, signal: LeadSignal) {
         interest: signal.interest ?? existing.interest,
         temperature: signal.temperature,
         sentiment: signal.sentiment,
+        commercial_status: signal.commercialStatus ?? existing.commercial_status ?? "em_atendimento",
         pipeline_stage: signal.pipelineStage,
         last_message_preview: input.text.slice(0, 280),
         last_interaction_at: now,
@@ -653,6 +851,7 @@ async function upsertLead(input: NormalizedInboundMessage, signal: LeadSignal) {
       interest: signal.interest,
       temperature: signal.temperature,
       sentiment: signal.sentiment,
+      commercial_status: signal.commercialStatus ?? "em_atendimento",
       pipeline_stage: signal.pipelineStage,
       last_message_preview: input.text.slice(0, 280),
       last_interaction_at: now,

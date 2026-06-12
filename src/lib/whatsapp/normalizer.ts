@@ -13,10 +13,13 @@ export type NormalizedInboundMessage = {
     platform?: string;
     origin: string;
     campaign?: string;
+    adSet?: string;
     adId?: string;
     adTitle?: string;
+    creative?: string;
     sourceUrl?: string;
     referralText?: string;
+    utm?: Record<string, string>;
   };
   media?: {
     type: "audio" | "image" | "video" | "document";
@@ -169,9 +172,12 @@ function extractMarketingAttribution(input: EvolutionWebhookInput, text: string)
   const platform = getMarketingPlatform(records, text);
   const adTitle = getFirstString(records, ["title", "headline", "body", "sourceName", "mediaTitle"]);
   const campaign = getFirstString(records, ["campaign", "campaignName", "utm_campaign", "utmCampaign"]);
+  const adSet = getFirstString(records, ["adSet", "adset", "adsetName", "ad_set", "adSetName", "utm_adset"]);
   const adId = getFirstString(records, ["adId", "ad_id", "sourceId", "ctwaClid", "clid"]);
   const sourceUrl = getFirstString(records, ["sourceUrl", "url", "thumbnailUrl", "mediaUrl"]);
   const referralText = getFirstString(records, ["referralBody", "body", "description", "text"]);
+  const creative = getFirstString(records, ["creative", "creativeName", "creative_id", "asset", "mediaTitle"]);
+  const utm = extractUtm(records, text);
   const isAdLead = Boolean(context || textSignals.isAdLead || campaign || adId);
 
   return {
@@ -179,10 +185,13 @@ function extractMarketingAttribution(input: EvolutionWebhookInput, text: string)
     platform,
     origin: isAdLead ? normalizeMarketingOrigin(platform, text) : "WhatsApp",
     campaign,
+    adSet,
     adId,
     adTitle,
+    creative,
     sourceUrl,
-    referralText
+    referralText,
+    utm
   };
 }
 
@@ -279,6 +288,38 @@ function getFirstString(records: Record<string, unknown>[], keys: string[]) {
   }
 
   return undefined;
+}
+
+function extractUtm(records: Record<string, unknown>[], text: string) {
+  const utm: Record<string, string> = {};
+  const directKeys = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"];
+
+  for (const key of directKeys) {
+    const value = getFirstString(records, [key, key.replace("utm_", "utm")]);
+    if (value) utm[key] = value;
+  }
+
+  const urls = [
+    text,
+    ...records.flatMap((record) => Object.values(record).filter((value): value is string => typeof value === "string"))
+  ];
+
+  for (const value of urls) {
+    const matches = value.match(/https?:\/\/[^\s]+/g) ?? [];
+    for (const rawUrl of matches) {
+      try {
+        const url = new URL(rawUrl);
+        for (const key of directKeys) {
+          const param = url.searchParams.get(key);
+          if (param && !utm[key]) utm[key] = param;
+        }
+      } catch {
+        // Ignore malformed URLs coming from WhatsApp previews.
+      }
+    }
+  }
+
+  return Object.keys(utm).length > 0 ? utm : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

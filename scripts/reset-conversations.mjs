@@ -34,11 +34,15 @@ async function countRows(sql) {
       (select count(*) from messages) as total_messages,
       (select count(*) from handoff_events) as total_handoff_events,
       (select count(*) from ai_decision_logs) as total_ai_decision_logs,
+      (select count(*) from crm_notifications) as total_crm_notifications,
+      (select count(*) from payment_receipts) as total_payment_receipts,
       (select count(*) from leads where is_deleted = false) as leads,
       (select count(*) from conversations where is_deleted = false) as conversations,
       (select count(*) from messages where is_deleted = false) as messages,
       (select count(*) from handoff_events where is_deleted = false) as handoff_events,
-      (select count(*) from ai_decision_logs where is_deleted = false) as ai_decision_logs
+      (select count(*) from ai_decision_logs where is_deleted = false) as ai_decision_logs,
+      (select count(*) from crm_notifications where is_deleted = false) as crm_notifications,
+      (select count(*) from payment_receipts where is_deleted = false) as payment_receipts
   `;
 
   return Object.fromEntries(
@@ -50,6 +54,8 @@ async function deleteOperationalData(sql) {
   return sql.begin(async (tx) => {
     const before = await countRows(tx);
 
+    const deletedNotifications = await tx`delete from crm_notifications returning id`;
+    const deletedReceipts = await tx`delete from payment_receipts returning id`;
     const deletedAiLogs = await tx`delete from ai_decision_logs returning id`;
     const deletedHandoffEvents = await tx`delete from handoff_events returning id`;
     const deletedMessages = await tx`delete from messages returning id`;
@@ -60,6 +66,8 @@ async function deleteOperationalData(sql) {
       before,
       deleted: {
         aiDecisionLogs: deletedAiLogs.length,
+        crmNotifications: deletedNotifications.length,
+        paymentReceipts: deletedReceipts.length,
         handoffEvents: deletedHandoffEvents.length,
         messages: deletedMessages.length,
         conversations: deletedConversations.length,

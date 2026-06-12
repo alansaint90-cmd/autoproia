@@ -4,6 +4,7 @@ import { db } from "@/lib/db/client";
 import { conversations, leads, messages } from "@/lib/db/schema";
 import { generateAiFollowUp } from "@/lib/services/ai-agent";
 import { logAiDecision } from "@/lib/services/ai-decision-log-service";
+import { createCrmNotification } from "@/lib/services/crm-notification-service";
 import { sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
 import { appendRecentConversationContext, getRecentConversationContext } from "@/lib/services/message-buffer";
 import { publishRealtimeEvent } from "@/lib/services/realtime";
@@ -189,6 +190,7 @@ async function sendFollowUpForConversation(target: DueFollowUpRow) {
   const nextFollowUpAt = followUpNumber >= 5 ? null : getNextFollowUpAt(followUpNumber);
   const nextTemperature = followUpNumber >= 4 ? "frio" : followUpNumber >= 2 ? "morno" : "quente";
   const nextStage = followUpNumber >= 5 ? "perdido" : "followup";
+  const commercialStatus = followUpNumber >= 5 ? "nao_venda" : followUpNumber >= 2 ? "pendente" : "em_atendimento";
 
   await logAiDecision({
     conversationId: target.conversation_id,
@@ -212,6 +214,7 @@ async function sendFollowUpForConversation(target: DueFollowUpRow) {
       next_follow_up_at = ${toDbTimestamp(nextFollowUpAt)},
       follow_up_paused_at = ${toDbTimestamp(followUpNumber >= 5 ? new Date() : null)},
       temperature = ${nextTemperature},
+      commercial_status = ${commercialStatus},
       pipeline_stage = ${nextStage},
       last_message_preview = ${cleanReply.slice(0, 280)},
       last_interaction_at = now(),
@@ -243,6 +246,25 @@ async function sendFollowUpForConversation(target: DueFollowUpRow) {
     conversationId: target.conversation_id,
     payload: { message, leadId: target.lead_id, followUpNumber }
   });
+
+  if (followUpNumber === 2 || followUpNumber === 5) {
+    await createCrmNotification({
+      leadId: target.lead_id,
+      conversationId: target.conversation_id,
+      messageId: message.id,
+      type: "pending_lead",
+      title: followUpNumber >= 5 ? "Lead movido para perdido" : "Lead pendente sem resposta",
+      body: followUpNumber >= 5
+        ? "Lead recebeu 5 follow-ups automaticos sem resposta e foi marcado como nao venda."
+        : "Lead sem resposta apos follow-up. Recomenda-se acao humana para recuperar a matricula.",
+      payload: {
+        followUpNumber,
+        hoursWithoutResponse,
+        nextFollowUpAt: nextFollowUpAt?.toISOString() ?? null,
+        commercialStatus
+      }
+    });
+  }
 
   return {
     leadId: target.lead_id,

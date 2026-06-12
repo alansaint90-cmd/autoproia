@@ -131,6 +131,7 @@ export async function POST(request: NextRequest) {
         interest: nonEmptyString(body.interest),
         temperature: nonEmptyString(body.temperature) ?? "quente",
         sentiment: nonEmptyString(body.sentiment) ?? "positivo",
+        commercial_status: nonEmptyString(body.commercialStatus) ?? "em_atendimento",
         pipeline_stage: normalizeStage(body.status),
         last_message_preview: nonEmptyString(body.lastMessage) ?? "Novo lead cadastrado manualmente.",
         last_interaction_at: new Date(),
@@ -180,7 +181,12 @@ export async function PATCH(request: NextRequest) {
     if (body.interest !== undefined) update.interest = nonEmptyString(body.interest);
     if (body.temperature !== undefined) update.temperature = nonEmptyString(body.temperature) ?? "morno";
     if (body.sentiment !== undefined) update.sentiment = nonEmptyString(body.sentiment) ?? "neutro";
-    if (body.status !== undefined) update.pipeline_stage = normalizeStage(body.status);
+    if (body.commercialStatus !== undefined) update.commercial_status = nonEmptyString(body.commercialStatus) ?? "em_atendimento";
+    if (body.status !== undefined) {
+      update.pipeline_stage = normalizeStage(body.status);
+      if (update.pipeline_stage === "fechado") update.commercial_status = "venda";
+      if (update.pipeline_stage === "perdido") update.commercial_status = "nao_venda";
+    }
     if (body.lastMessage !== undefined) update.last_message_preview = nonEmptyString(body.lastMessage);
     if (body.status !== undefined || body.lastMessage !== undefined) update.last_interaction_at = new Date();
 

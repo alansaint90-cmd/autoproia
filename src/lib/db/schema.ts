@@ -50,6 +50,7 @@ export const leads = pgTable(
     interest: text("interest"),
     temperature: text("temperature").notNull().default("morno"),
     sentiment: text("sentiment").notNull().default("neutro"),
+    commercial_status: text("commercial_status").notNull().default("pendente"),
     pipeline_stage: text("pipeline_stage").notNull().default("novo"),
     last_message_preview: text("last_message_preview"),
     last_interaction_at: timestamp("last_interaction_at", { withTimezone: true }),
@@ -143,6 +144,59 @@ export const aiDecisionLogs = pgTable(
     leadIdx: index("ai_decision_logs_lead_idx").on(table.lead_id),
     actionIdx: index("ai_decision_logs_action_idx").on(table.action),
     createdAtIdx: index("ai_decision_logs_created_at_idx").on(table.created_at)
+  })
+);
+
+export const paymentReceipts = pgTable(
+  "payment_receipts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    lead_id: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "restrict" }),
+    conversation_id: uuid("conversation_id").notNull().references(() => conversations.id, { onDelete: "restrict" }),
+    message_id: uuid("message_id").references(() => messages.id, { onDelete: "set null" }),
+    status: text("status").notNull().default("aguardando_validacao"),
+    detected: boolean("detected").notNull().default(false),
+    file_url: text("file_url"),
+    file_name: text("file_name"),
+    mime_type: text("mime_type"),
+    amount_text: text("amount_text"),
+    paid_at_text: text("paid_at_text"),
+    payer_name: text("payer_name"),
+    receiver_name: text("receiver_name"),
+    bank_name: text("bank_name"),
+    transaction_id: text("transaction_id"),
+    raw_text: text("raw_text"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    ...baseAuditColumns,
+    modified_by: uuid("modified_by").notNull().references(() => users.id, { onDelete: "restrict" })
+  },
+  (table) => ({
+    leadIdx: index("payment_receipts_lead_idx").on(table.lead_id),
+    conversationIdx: index("payment_receipts_conversation_idx").on(table.conversation_id),
+    statusIdx: index("payment_receipts_status_idx").on(table.status)
+  })
+);
+
+export const crmNotifications = pgTable(
+  "crm_notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    lead_id: uuid("lead_id").references(() => leads.id, { onDelete: "set null" }),
+    conversation_id: uuid("conversation_id").references(() => conversations.id, { onDelete: "set null" }),
+    message_id: uuid("message_id").references(() => messages.id, { onDelete: "set null" }),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    status: text("status").notNull().default("unread"),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+    read_at: timestamp("read_at", { withTimezone: true }),
+    ...baseAuditColumns,
+    modified_by: uuid("modified_by").notNull().references(() => users.id, { onDelete: "restrict" })
+  },
+  (table) => ({
+    leadIdx: index("crm_notifications_lead_idx").on(table.lead_id),
+    statusIdx: index("crm_notifications_status_idx").on(table.status),
+    createdAtIdx: index("crm_notifications_created_at_idx").on(table.created_at)
   })
 );
 

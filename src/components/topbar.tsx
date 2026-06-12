@@ -6,14 +6,16 @@ import { Bell, Bot, LogOut, Search, UserRound, X } from "lucide-react";
 
 const COMPANY_PROFILE_STORAGE_KEY = "auto-pro-ia:company-profile";
 
-const notifications: Array<{
+type TopbarNotification = {
   id: string;
   title: string;
   description: string;
   time: string;
   icon: typeof Bot;
   tone: string;
-}> = [];
+};
+
+const fallbackNotifications: TopbarNotification[] = [];
 
 const emptyLead = {
   name: "",
@@ -53,6 +55,17 @@ function initialsFromName(name: string) {
     .toUpperCase();
 }
 
+function formatNotificationTime(value?: string) {
+  if (!value) return "agora";
+  const diffMs = Date.now() - new Date(value).getTime();
+  const minutes = Math.max(0, Math.floor(diffMs / 60000));
+  if (minutes < 1) return "agora";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} h`;
+  return `${Math.floor(hours / 24)} d`;
+}
+
 type TopbarProps = {
   title: string;
   subtitle?: string;
@@ -70,6 +83,39 @@ export function Topbar({ title, subtitle, searchValue, onSearchChange, onNewLead
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile>(defaultCompanyProfile);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [leadDraft, setLeadDraft] = useState(emptyLead);
+  const [notifications, setNotifications] = useState<TopbarNotification[]>(fallbackNotifications);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadNotifications() {
+      try {
+        const response = await fetch("/api/notifications", { cache: "no-store" });
+        if (!response.ok) return;
+        const payload = await response.json() as {
+          notifications?: Array<{ id: string; title: string; description: string; createdAt?: string }>;
+        };
+        if (cancelled) return;
+        setNotifications((payload.notifications ?? []).map((notification) => ({
+          id: notification.id,
+          title: notification.title,
+          description: notification.description,
+          time: formatNotificationTime(notification.createdAt),
+          icon: Bot,
+          tone: "text-primary"
+        })));
+      } catch {
+        if (!cancelled) setNotifications(fallbackNotifications);
+      }
+    }
+
+    loadNotifications();
+    const interval = window.setInterval(loadNotifications, 10000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     function loadCompanyProfile() {
