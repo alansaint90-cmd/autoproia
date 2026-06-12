@@ -72,6 +72,10 @@ function toNumber(value: string | number | bigint | null | undefined) {
   return Number(value ?? 0);
 }
 
+function toDbDate(value: Date) {
+  return value.toISOString();
+}
+
 function dateLabel(value: Date | string | null) {
   if (!value) return "Sem interacao";
   const date = new Date(value);
@@ -129,8 +133,8 @@ function buildWhere(params: LeadQueryParams) {
   }
 
   if (params.start && params.end) {
-    clauses.push(sql`coalesce(l.last_interaction_at, l.updated_at, l.created_at) >= ${params.start}`);
-    clauses.push(sql`coalesce(l.last_interaction_at, l.updated_at, l.created_at) < ${params.end}`);
+    clauses.push(sql`coalesce(l.last_interaction_at, l.updated_at, l.created_at) >= ${toDbDate(params.start)}`);
+    clauses.push(sql`coalesce(l.last_interaction_at, l.updated_at, l.created_at) < ${toDbDate(params.end)}`);
   }
 
   switch (params.quick) {

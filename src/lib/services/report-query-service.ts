@@ -56,6 +56,10 @@ function toNumber(value: string | number | bigint | null | undefined) {
   return Number(value ?? 0);
 }
 
+function toDbDate(value: Date) {
+  return value.toISOString();
+}
+
 function startOfToday() {
   const date = new Date();
   date.setHours(0, 0, 0, 0);
@@ -82,7 +86,7 @@ export function getDashboardPeriod(period: string | null): ReportPeriod {
 
 function dateClause(column: ReturnType<typeof sql>, start?: Date | null, end?: Date | null) {
   if (!start || !end) return sql``;
-  return sql` and ${column} >= ${start} and ${column} < ${end}`;
+  return sql` and ${column} >= ${toDbDate(start)} and ${column} < ${toDbDate(end)}`;
 }
 
 function baseLeadFilters(filters: ReportFilters) {
@@ -97,8 +101,8 @@ function baseLeadFilters(filters: ReportFilters) {
   }
 
   if (filters.start && filters.end) {
-    clauses.push(sql`coalesce(l.last_interaction_at, l.updated_at, l.created_at) >= ${filters.start}`);
-    clauses.push(sql`coalesce(l.last_interaction_at, l.updated_at, l.created_at) < ${filters.end}`);
+    clauses.push(sql`coalesce(l.last_interaction_at, l.updated_at, l.created_at) >= ${toDbDate(filters.start)}`);
+    clauses.push(sql`coalesce(l.last_interaction_at, l.updated_at, l.created_at) < ${toDbDate(filters.end)}`);
   }
 
   return sql.join(clauses, sql` and `);
@@ -234,15 +238,15 @@ async function queryMonthly(filters: ReportFilters) {
       select extract(month from l.created_at)::int as month, count(*) as leads
       from leads l
       left join users u on u.id = l.responsible_id
-      where l.created_at >= ${start} and l.created_at < ${end} and ${originSellerFilter}
+      where l.created_at >= ${toDbDate(start)} and l.created_at < ${toDbDate(end)} and ${originSellerFilter}
       group by 1
     ),
     enrollment_counts as (
       select extract(month from coalesce(l.enrollment_closed_at, l.updated_at))::int as month, count(*) as enrollments
       from leads l
       left join users u on u.id = l.responsible_id
-      where coalesce(l.enrollment_closed_at, l.updated_at) >= ${start}
-        and coalesce(l.enrollment_closed_at, l.updated_at) < ${end}
+      where coalesce(l.enrollment_closed_at, l.updated_at) >= ${toDbDate(start)}
+        and coalesce(l.enrollment_closed_at, l.updated_at) < ${toDbDate(end)}
         and l.pipeline_stage in ('fechado', 'matricula_realizada')
         and ${originSellerFilter}
       group by 1
