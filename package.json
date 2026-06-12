@@ -15,6 +15,7 @@
     "db:seed:users": "node scripts/seed-users.mjs",
     "db:seed:dashboard": "node scripts/seed-dashboard-dates.mjs",
     "db:cleanup:fake-leads": "node scripts/cleanup-fake-leads.mjs",
+    "db:reset:conversations": "node scripts/reset-conversations.mjs",
     "db:backup": "node scripts/backup-postgres.mjs"
   },
   "dependencies": {

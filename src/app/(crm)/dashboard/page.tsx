@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  AlertTriangle,
   BadgeDollarSign,
   Bot,
   ChevronDown,
@@ -44,6 +45,11 @@ type DashboardRuntimeMetrics = {
   aiPerformance: Array<{ metric: string; value: number; detail: string }>;
   monthlyConversion: Array<{ month: string; leads: number; enrollments: number }>;
   commercialPulse: Array<{ label: string; time: string; kind: "enrollment" | "ai" | "hot" | "conversation" | "growth" }>;
+};
+
+type DashboardMetricsResponse = DashboardRuntimeMetrics & {
+  ok?: boolean;
+  error?: string;
 };
 
 function buildDashboardCards(stats: typeof dashboardStats) {
@@ -219,6 +225,7 @@ export default function DashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("Hoje");
   const [periodFilterOpen, setPeriodFilterOpen] = useState(false);
   const [runtimeMetrics, setRuntimeMetrics] = useState<DashboardRuntimeMetrics | null>(null);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
   const periodFilterCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const displaySellers = useMemo(() => runtimeMetrics?.sellerClosing ?? [], [runtimeMetrics?.sellerClosing]);
   const rankedSellers = displaySellers.slice().sort((a, b) => b.closed - a.closed);
@@ -252,9 +259,16 @@ export default function DashboardPage() {
     async function loadMetrics() {
       try {
         const response = await fetch(`/api/dashboard/metrics?period=${encodeURIComponent(selectedPeriod)}`, { cache: "no-store" });
-        if (!response.ok) return;
-        const data = await response.json() as DashboardRuntimeMetrics & { ok?: boolean };
-        if (active && data.ok !== false) {
+        const data = await response.json().catch(() => null) as DashboardMetricsResponse | null;
+
+        if (!response.ok || !data || data.ok === false) {
+          if (active) {
+            setMetricsError(data?.error ?? `Nao foi possivel carregar metricas reais. Status ${response.status}.`);
+          }
+          return;
+        }
+
+        if (active) {
           setRuntimeMetrics({
             stats: data.stats,
             period: data.period,
@@ -266,9 +280,13 @@ export default function DashboardPage() {
             monthlyConversion: data.monthlyConversion ?? monthlyConversion,
             commercialPulse: data.commercialPulse ?? []
           });
+          setMetricsError(null);
         }
       } catch (error) {
         console.warn("[dashboard] falha ao carregar metricas reais", error);
+        if (active) {
+          setMetricsError(error instanceof Error ? error.message : "Falha ao consultar metricas reais.");
+        }
       }
     }
 
@@ -341,6 +359,22 @@ export default function DashboardPage() {
         }
       />
       <main className="flex-1 space-y-6 overflow-y-auto bg-background p-6">
+        {metricsError ? (
+          <section className="rounded-2xl border border-red-400/25 bg-red-500/[0.08] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.24)]">
+            <div className="flex items-start gap-3">
+              <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-red-300/25 bg-red-400/10 text-red-200">
+                <AlertTriangle className="size-5" />
+              </div>
+              <div>
+                <p className="text-sm font-black text-red-100">Metricas reais nao atualizaram</p>
+                <p className="mt-1 text-xs leading-5 text-red-100/78">
+                  {metricsError} Verifique o banco, permissao do usuario e os logs de <span className="font-mono">/api/dashboard/metrics</span>.
+                </p>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {cards.map((card) => (
             <article

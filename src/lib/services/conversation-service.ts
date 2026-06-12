@@ -47,6 +47,7 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
   const conversationState = await upsertConversation(lead.id, inbound.externalChatId);
   let conversation = conversationState.conversation;
   let triage: AiTriageResult | null = null;
+  const shouldStartAiFlow = isAiEligibleInbound(inbound);
 
   if (!inbound.fromMe && !conversationState.created && conversation.status !== "ai") {
     leadSignal = { ...leadSignal, pipelineStage: "atendimento" };
@@ -62,7 +63,7 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
       .where(and(eq(leads.id, lead.id), eq(leads.is_deleted, false), notInArray(leads.pipeline_stage, ["fechado", "perdido", "matricula_pendente"])));
   }
 
-  if (!inbound.fromMe && conversationState.created) {
+  if (!inbound.fromMe && conversationState.created && shouldStartAiFlow) {
     triage = await triageInitialConversation({
       leadName: inbound.leadName,
       messages: [{ role: "lead", content: inbound.text }]
@@ -90,10 +91,29 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
         pipelineStage: triage.pipelineStage
       }
     });
+  } else if (!inbound.fromMe && conversationState.created && !shouldStartAiFlow) {
+    const manualQueue = await applyInitialManualQueue(conversation.id, lead.id, inbound);
+    conversation = manualQueue.conversation;
+    leadSignal = { ...leadSignal, pipelineStage: "atendimento" };
+    await logAiDecision({
+      conversationId: conversation.id,
+      leadId: lead.id,
+      action: "ai_mode_skipped",
+      reason: "Lead novo sem origem de anuncio. Conversa registrada com IA pausada para triagem humana.",
+      mode: "human",
+      safetyStatus: "ok",
+      metadata: {
+        sourcePolicy: "ads_only",
+        marketing: inbound.marketing
+      }
+    });
   }
 
   if (!inbound.fromMe) {
     await resetLeadFollowUpOnCustomerReply(lead.id);
+    if (conversationState.created && !shouldStartAiFlow) {
+      await pauseLeadFollowUp(lead.id);
+    }
   }
 
   const [message] = await db
@@ -105,6 +125,11 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
       content: inbound.text,
       metadata: {
         source: "evolution",
+        marketing: inbound.marketing,
+        autoStartPolicy: {
+          mode: "ads_only",
+          eligibleForAi: shouldStartAiFlow
+        },
         leadSignal: serializeLeadSignalForMetadata(leadSignal),
         triage,
         messageType: inbound.messageType,
@@ -585,6 +610,8 @@ async function upsertLead(input: NormalizedInboundMessage, signal: LeadSignal) {
   const now = new Date();
   const name = input.leadName?.trim() || undefined;
   const avatarUrl = input.avatarUrl ?? await fetchWhatsAppProfilePicture(input.phone);
+  const origin = input.marketing?.origin ?? "WhatsApp";
+  const tags = input.marketing?.isAdLead ? ["anuncio", input.marketing.platform ?? "meta"].filter(Boolean) : undefined;
 
   const [existing] = await db
     .select()
@@ -598,6 +625,8 @@ async function upsertLead(input: NormalizedInboundMessage, signal: LeadSignal) {
       .set({
         name: existing.name ?? name,
         avatar_url: avatarUrl ?? existing.avatar_url,
+        origin: input.marketing?.isAdLead ? origin : existing.origin,
+        tags: tags ?? existing.tags,
         interest: signal.interest ?? existing.interest,
         temperature: signal.temperature,
         sentiment: signal.sentiment,
@@ -620,7 +649,7 @@ async function upsertLead(input: NormalizedInboundMessage, signal: LeadSignal) {
       name,
       phone: input.phone,
       avatar_url: avatarUrl,
-      origin: "whatsapp",
+      origin,
       interest: signal.interest,
       temperature: signal.temperature,
       sentiment: signal.sentiment,
@@ -628,6 +657,7 @@ async function upsertLead(input: NormalizedInboundMessage, signal: LeadSignal) {
       last_message_preview: input.text.slice(0, 280),
       last_interaction_at: now,
       enrollment_closed_at: signal.enrollmentClosedAt,
+      tags: tags ?? [],
       modified_by: SYSTEM_USER_ID
     })
     .returning();
@@ -670,6 +700,11 @@ function buildContextSummary(text: string, signal: LeadSignal, triage?: AiTriage
     signal.interest ? `Interesse: ${signal.interest}.` : "",
     `Ultima mensagem: ${text.slice(0, 180)}`
   ].filter(Boolean).join(" ");
+}
+
+function isAiEligibleInbound(input: NormalizedInboundMessage) {
+  if (input.fromMe) return false;
+  return Boolean(input.marketing?.isAdLead);
 }
 
 function serializeLeadSignalForMetadata(signal: LeadSignal) {
@@ -733,6 +768,63 @@ async function applyInitialTriage(conversationId: string, leadId: string, triage
     leadId,
     action: triage.action,
     type: triage.type
+  });
+
+  return { conversation };
+}
+
+async function applyInitialManualQueue(conversationId: string, leadId: string, input: NormalizedInboundMessage) {
+  const now = new Date();
+
+  const [conversation] = await db
+    .update(conversations)
+    .set({
+      status: "human",
+      assigned_to: null,
+      ai_paused_reason: "Lead novo sem origem de anuncio. IA pausada pela politica inicial ads_only.",
+      context_summary: [
+        "Entrada registrada sem sinal de anuncio.",
+        "Politica atual: somente leads de anuncios entram no fluxo automatico da IA.",
+        `Origem detectada: ${input.marketing?.origin ?? "WhatsApp"}.`
+      ].join(" "),
+      last_message_at: now,
+      updated_at: now,
+      modified_by: SYSTEM_USER_ID
+    })
+    .where(and(eq(conversations.id, conversationId), eq(conversations.is_deleted, false)))
+    .returning();
+
+  await db
+    .update(leads)
+    .set({
+      pipeline_stage: "atendimento",
+      last_interaction_at: now,
+      updated_at: now,
+      modified_by: SYSTEM_USER_ID
+    })
+    .where(and(eq(leads.id, leadId), eq(leads.is_deleted, false)));
+
+  await pauseLeadFollowUp(leadId);
+  await clearConversationBuffer(conversationId);
+
+  if (!conversation) {
+    const [current] = await db
+      .select()
+      .from(conversations)
+      .where(and(eq(conversations.id, conversationId), eq(conversations.is_deleted, false)))
+      .limit(1);
+
+    if (!current) {
+      throw new Error("Conversa nao encontrada apos pausa inicial.");
+    }
+
+    return { conversation: current };
+  }
+
+  console.info("[conversation-service] non-ad lead routed to human queue", {
+    conversationId,
+    leadId,
+    origin: input.marketing?.origin
   });
 
   return { conversation };

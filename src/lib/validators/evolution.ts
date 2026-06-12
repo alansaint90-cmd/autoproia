@@ -16,8 +16,8 @@ export const evolutionWebhookSchema = z.object({
     message: z.record(z.string(), z.unknown()).optional(),
     messageType: z.string().optional(),
     messageTimestamp: z.number().optional()
-  })
-});
+  }).passthrough()
+}).passthrough();
 
 export const handoffSchema = z.object({
   reason: z.string().max(300).optional()

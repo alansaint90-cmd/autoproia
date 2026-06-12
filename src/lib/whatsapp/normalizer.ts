@@ -8,6 +8,16 @@ export type NormalizedInboundMessage = {
   avatarUrl?: string;
   text: string;
   messageType?: string;
+  marketing?: {
+    isAdLead: boolean;
+    platform?: string;
+    origin: string;
+    campaign?: string;
+    adId?: string;
+    adTitle?: string;
+    sourceUrl?: string;
+    referralText?: string;
+  };
   media?: {
     type: "audio" | "image" | "video" | "document";
     fileName?: string;
@@ -22,6 +32,7 @@ export type NormalizedInboundMessage = {
 export function normalizeEvolutionMessage(input: EvolutionWebhookInput): NormalizedInboundMessage | null {
   const extracted = extractMessage(input.data.message);
   const text = extracted.text;
+  const marketing = extractMarketingAttribution(input, text);
 
   if (!text.trim()) {
     return null;
@@ -35,6 +46,7 @@ export function normalizeEvolutionMessage(input: EvolutionWebhookInput): Normali
     avatarUrl: input.data.profilePictureUrl ?? input.data.profilePicUrl ?? input.data.picture,
     text,
     messageType: input.data.messageType,
+    marketing,
     media: extracted.media,
     fromMe: input.data.key.fromMe
   };
@@ -148,6 +160,125 @@ function getMediaBase64(message: Record<string, unknown>) {
   return getString(message.base64)
     ?? getString(message.mediaBase64)
     ?? getString(message.fileBase64);
+}
+
+function extractMarketingAttribution(input: EvolutionWebhookInput, text: string): NormalizedInboundMessage["marketing"] {
+  const records = collectRecords(input as unknown as Record<string, unknown>);
+  const context = records.find((record) => isLikelyAdRecord(record));
+  const textSignals = detectAdTextSignals(text);
+  const platform = getMarketingPlatform(records, text);
+  const adTitle = getFirstString(records, ["title", "headline", "body", "sourceName", "mediaTitle"]);
+  const campaign = getFirstString(records, ["campaign", "campaignName", "utm_campaign", "utmCampaign"]);
+  const adId = getFirstString(records, ["adId", "ad_id", "sourceId", "ctwaClid", "clid"]);
+  const sourceUrl = getFirstString(records, ["sourceUrl", "url", "thumbnailUrl", "mediaUrl"]);
+  const referralText = getFirstString(records, ["referralBody", "body", "description", "text"]);
+  const isAdLead = Boolean(context || textSignals.isAdLead || campaign || adId);
+
+  return {
+    isAdLead,
+    platform,
+    origin: isAdLead ? normalizeMarketingOrigin(platform, text) : "WhatsApp",
+    campaign,
+    adId,
+    adTitle,
+    sourceUrl,
+    referralText
+  };
+}
+
+function collectRecords(value: unknown, records: Record<string, unknown>[] = [], depth = 0): Record<string, unknown>[] {
+  if (depth > 8 || value === null || typeof value !== "object") return records;
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectRecords(item, records, depth + 1);
+    }
+    return records;
+  }
+
+  const record = value as Record<string, unknown>;
+  records.push(record);
+
+  for (const child of Object.values(record)) {
+    collectRecords(child, records, depth + 1);
+  }
+
+  return records;
+}
+
+function isLikelyAdRecord(record: Record<string, unknown>) {
+  const keys = Object.keys(record).map((key) => key.toLowerCase());
+  const keyText = keys.join(" ");
+  const valuesText = Object.values(record)
+    .filter((value) => typeof value === "string")
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    keyText.includes("externaladreply")
+    || keyText.includes("adid")
+    || keyText.includes("ad_id")
+    || keyText.includes("ctwa")
+    || keyText.includes("referral")
+    || keyText.includes("campaign")
+    || valuesText.includes("instagram.com/p/")
+    || valuesText.includes("facebook.com")
+    || valuesText.includes("fb.me")
+    || valuesText.includes("anuncio")
+    || valuesText.includes("anúncio")
+  );
+}
+
+function detectAdTextSignals(text: string) {
+  const normalized = text
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+
+  return {
+    isAdLead:
+      normalized.includes("tenho interesse e queria mais informacoes")
+      || normalized.includes("converse conosco")
+      || normalized.includes("processo rapido")
+      || normalized.includes("condicoes que cabem no seu bolso")
+      || normalized.includes("instagram.com/p/")
+      || normalized.includes("facebook.com")
+      || normalized.includes("fb.me")
+  };
+}
+
+function getMarketingPlatform(records: Record<string, unknown>[], text: string) {
+  const platform = getFirstString(records, ["platform", "sourceType", "source", "mediaType"]);
+  const combined = `${platform ?? ""} ${text}`.toLowerCase();
+
+  if (combined.includes("instagram")) return "Instagram";
+  if (combined.includes("facebook") || combined.includes("fb.me")) return "Facebook";
+  if (combined.includes("meta") || combined.includes("ctwa")) return "Meta";
+  if (combined.includes("google")) return "Google";
+  return platform;
+}
+
+function normalizeMarketingOrigin(platform: string | undefined, text: string) {
+  const normalized = text.toLowerCase();
+  if (platform === "Instagram" || normalized.includes("instagram.com")) return "Instagram Ads";
+  if (platform === "Facebook" || normalized.includes("facebook.com") || normalized.includes("fb.me")) return "Facebook Ads";
+  if (platform === "Google") return "Google Ads";
+  return "Meta Ads";
+}
+
+function getFirstString(records: Record<string, unknown>[], keys: string[]) {
+  const wanted = new Set(keys.map((key) => key.toLowerCase()));
+
+  for (const record of records) {
+    for (const [key, value] of Object.entries(record)) {
+      if (wanted.has(key.toLowerCase())) {
+        const stringValue = getString(value);
+        if (stringValue) return stringValue;
+      }
+    }
+  }
+
+  return undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

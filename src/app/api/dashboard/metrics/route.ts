@@ -22,28 +22,40 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const period = getDashboardPeriod(request.nextUrl.searchParams.get("period"));
-  const metrics = await queryCommercialMetrics({
-    start: period.start,
-    end: period.end,
-    limit: 500
-  });
+  try {
+    const period = getDashboardPeriod(request.nextUrl.searchParams.get("period"));
+    const metrics = await queryCommercialMetrics({
+      start: period.start,
+      end: period.end,
+      limit: 500
+    });
 
-  return NextResponse.json({
-    ok: true,
-    period: {
-      label: period.label,
-      start: period.start?.toISOString() ?? null,
-      end: period.end?.toISOString() ?? null
-    },
-    updatedAt: new Date().toISOString(),
-    stats: metrics.stats,
-    thermometer: metrics.thermometer,
-    leadsByOrigin: metrics.leadsByOrigin,
-    sellerClosing: metrics.sellerClosing,
-    funnelData: metrics.funnelData,
-    aiPerformance: metrics.aiPerformance,
-    monthlyConversion: metrics.monthlyConversion,
-    commercialPulse: metrics.commercialPulse
-  });
+    return NextResponse.json({
+      ok: true,
+      period: {
+        label: period.label,
+        start: period.start?.toISOString() ?? null,
+        end: period.end?.toISOString() ?? null
+      },
+      updatedAt: new Date().toISOString(),
+      stats: metrics.stats,
+      thermometer: metrics.thermometer,
+      leadsByOrigin: metrics.leadsByOrigin,
+      sellerClosing: metrics.sellerClosing,
+      funnelData: metrics.funnelData,
+      aiPerformance: metrics.aiPerformance,
+      monthlyConversion: metrics.monthlyConversion,
+      commercialPulse: metrics.commercialPulse
+    });
+  } catch (error) {
+    console.error("[dashboard-metrics] failed to load real metrics", error);
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : "Nao foi possivel carregar metricas reais."
+      },
+      { status: 500 }
+    );
+  }
 }
