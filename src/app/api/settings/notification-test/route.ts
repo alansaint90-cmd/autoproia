@@ -5,6 +5,7 @@ import { sendWhatsAppText } from "@/lib/services/evolution-api";
 import { assertPermission } from "@/lib/services/permission-service";
 
 const fallbackRecipients = ["5571988480222", "5571996729683"];
+const fallbackSupportRecipient = "5571988345088";
 
 type NotificationRecipient = {
   label: string;
@@ -95,7 +96,7 @@ function getRecipients(): NotificationRecipient[] {
     .filter((phone) => phone.length >= 12);
 
   const internalPhones = Array.from(new Set(configured.length > 0 ? configured : fallbackRecipients));
-  const supportPhone = env.SUPPORT_WHATSAPP_NUMBER?.replace(/\D/g, "");
+  const supportPhone = (env.SUPPORT_WHATSAPP_NUMBER ?? fallbackSupportRecipient).replace(/\D/g, "");
   const recipients: NotificationRecipient[] = internalPhones.map((phone, index) => ({
     label: index === 0 ? "Notificacao interna 1" : `Notificacao interna ${index + 1}`,
     phone,
