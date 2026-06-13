@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { processBufferedConversation, registerInboundMessage } from "@/lib/services/conversation-service";
 import { getMessageBufferWindowMs } from "@/lib/services/message-buffer";
+import { logSystemEvent } from "@/lib/services/system-event-log-service";
 import { evolutionWebhookSchema } from "@/lib/validators/evolution";
 import { normalizeEvolutionMessage } from "@/lib/whatsapp/normalizer";
 
@@ -20,12 +21,25 @@ export async function POST(request: NextRequest) {
     const secret = getWebhookSecret(request);
     if (secret !== env.EVOLUTION_WEBHOOK_SECRET) {
       console.warn("[evolution-webhook] unauthorized webhook request");
+      void logSystemEvent({
+        source: "evolution-webhook",
+        event: "unauthorized_request",
+        severity: "warning",
+        message: "Webhook recusado por segredo invalido.",
+        metadata: { hasAuthorization: Boolean(request.headers.get("authorization")) }
+      });
       return NextResponse.json({ error: "Webhook nao autorizado." }, { status: 401 });
     }
   }
 
   const body = await request.json().catch(() => null);
   if (!body) {
+    void logSystemEvent({
+      source: "evolution-webhook",
+      event: "invalid_json",
+      severity: "warning",
+      message: "Webhook recebeu JSON invalido ou vazio."
+    });
     return NextResponse.json({ error: "JSON invalido." }, { status: 400 });
   }
   console.info("[evolution-webhook] payload received", {
@@ -40,6 +54,13 @@ export async function POST(request: NextRequest) {
       event: body?.event,
       instance: body?.instance
     });
+    void logSystemEvent({
+      source: "evolution-webhook",
+      event: "ignored_event",
+      severity: "info",
+      message: `Evento ignorado: ${body?.event ?? "sem evento"}.`,
+      metadata: { event: body?.event, instance: body?.instance }
+    });
     return NextResponse.json({ ignored: true, event: body?.event ?? null });
   }
 
@@ -47,12 +68,29 @@ export async function POST(request: NextRequest) {
 
   if (!parsed.success) {
     console.warn("[evolution-webhook] invalid payload", parsed.error.flatten());
+    void logSystemEvent({
+      source: "evolution-webhook",
+      event: "invalid_payload",
+      severity: "warning",
+      message: "Payload da Evolution nao corresponde ao formato esperado.",
+      metadata: parsed.error.flatten()
+    });
     return NextResponse.json({ error: "Payload invalido.", issues: parsed.error.flatten() }, { status: 400 });
   }
 
   const inbound = normalizeEvolutionMessage(parsed.data);
   if (!inbound) {
     console.info("[evolution-webhook] ignored unsupported or empty message");
+    void logSystemEvent({
+      source: "evolution-webhook",
+      event: "unsupported_message",
+      severity: "info",
+      message: "Mensagem vazia, de tipo ainda nao suportado ou enviada pelo proprio sistema foi ignorada.",
+      metadata: {
+        messageType: parsed.data.data.messageType,
+        fromMe: parsed.data.data.key?.fromMe
+      }
+    });
     return NextResponse.json({ ignored: true });
   }
 
@@ -64,6 +102,14 @@ export async function POST(request: NextRequest) {
       setTimeout(() => {
         processBufferedConversation(result.conversation.id).catch((error) => {
           console.error("[evolution-webhook] buffer processing failed", error);
+          void logSystemEvent({
+            source: "message-buffer",
+            event: "buffer_processing_failed",
+            severity: "error",
+            message: error instanceof Error ? error.message : "Falha ao processar buffer da IA.",
+            leadId: result.lead.id,
+            conversationId: result.conversation.id
+          });
         });
       }, bufferWindowMs);
     }
@@ -72,10 +118,38 @@ export async function POST(request: NextRequest) {
       conversationId: result.conversation.id,
       leadId: result.lead.id
     });
+    void logSystemEvent({
+      source: "evolution-webhook",
+      event: result.duplicated ? "duplicate_message_ignored" : "message_registered",
+      severity: result.duplicated ? "warning" : "success",
+      message: result.duplicated
+        ? "Mensagem duplicada da Evolution ignorada para evitar registro repetido."
+        : "Mensagem recebida, lead/conversa atualizados e buffer preparado.",
+      leadId: result.lead.id,
+      conversationId: result.conversation.id,
+      metadata: {
+        messageType: inbound.messageType,
+        fromMe: inbound.fromMe,
+        bufferMs: getMessageBufferWindowMs(),
+        conversationStatus: result.conversation.status
+      }
+    });
 
     return NextResponse.json({ ok: true, conversationId: result.conversation.id });
   } catch (error) {
     console.error("[evolution-webhook] failed to register inbound message", error);
+    void logSystemEvent({
+      source: "evolution-webhook",
+      event: "register_inbound_failed",
+      severity: "error",
+      message: error instanceof Error ? error.message : "Falha ao registrar mensagem recebida.",
+      metadata: {
+        event: body?.event,
+        instance: body?.instance,
+        messageType: body?.data?.messageType,
+        fromMe: body?.data?.key?.fromMe
+      }
+    });
     return NextResponse.json(
       { error: "Falha ao registrar mensagem recebida." },
       { status: 500 }

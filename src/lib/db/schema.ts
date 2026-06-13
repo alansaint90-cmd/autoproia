@@ -200,6 +200,27 @@ export const crmNotifications = pgTable(
   })
 );
 
+export const systemEventLogs = pgTable(
+  "system_event_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    source: text("source").notNull(),
+    event: text("event").notNull(),
+    severity: text("severity").notNull().default("info"),
+    message: text("message").notNull(),
+    lead_id: uuid("lead_id").references(() => leads.id, { onDelete: "set null" }),
+    conversation_id: uuid("conversation_id").references(() => conversations.id, { onDelete: "set null" }),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    ...baseAuditColumns,
+    modified_by: uuid("modified_by").notNull().references(() => users.id, { onDelete: "restrict" })
+  },
+  (table) => ({
+    sourceIdx: index("system_event_logs_source_idx").on(table.source),
+    severityIdx: index("system_event_logs_severity_idx").on(table.severity),
+    createdAtIdx: index("system_event_logs_created_at_idx").on(table.created_at)
+  })
+);
+
 export const appSettings = pgTable("app_settings", {
   key: text("key").primaryKey(),
   value: jsonb("value").$type<Record<string, unknown>>().notNull().default({}),
