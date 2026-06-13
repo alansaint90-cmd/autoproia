@@ -9,6 +9,7 @@ import { sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution
 import { moveLeadStage } from "@/lib/services/funnel-stage-service";
 import { appendRecentConversationContext, getRecentConversationContext } from "@/lib/services/message-buffer";
 import { publishRealtimeEvent } from "@/lib/services/realtime";
+import { logSystemEvent } from "@/lib/services/system-event-log-service";
 
 type DueFollowUpRow = {
   conversation_id: string;
@@ -117,8 +118,14 @@ export async function processDueFollowUps(limit = 25) {
     where l.is_deleted = false
       and c.status in ('ai', 'human')
       and l.follow_up_paused_at is null
-      and l.next_follow_up_at is not null
-      and l.next_follow_up_at <= now()
+      and (
+        (l.next_follow_up_at is not null and l.next_follow_up_at <= now())
+        or (
+          l.next_follow_up_at is null
+          and coalesce(l.follow_up_count, 0) = 0
+          and coalesce(l.last_interaction_at, c.last_message_at) <= now() - interval '2 hours'
+        )
+      )
       and l.follow_up_count < 5
       and l.pipeline_stage not in ('fechado', 'perdido', 'matricula_pendente')
     order by l.next_follow_up_at asc
@@ -129,6 +136,21 @@ export async function processDueFollowUps(limit = 25) {
   for (const dueLead of dueLeads) {
     results.push(await sendFollowUpForConversation(dueLead));
   }
+
+  await logSystemEvent({
+    source: "follow-up-job",
+    event: "follow_up_job_processed",
+    severity: results.length > 0 ? "success" : "info",
+    message: results.length > 0
+      ? `${results.length} follow-up(s) automatico(s) processado(s).`
+      : "Job de follow-up executado sem leads vencidos.",
+    metadata: {
+      dueCount: dueLeads.length,
+      processed: results.length,
+      limit: safeLimit,
+      leadIds: results.map((result) => result.leadId)
+    }
+  });
 
   return {
     processed: results.length,

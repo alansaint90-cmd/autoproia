@@ -31,15 +31,13 @@ async function canProcessFollowUps(request: Request) {
   return true;
 }
 
-export async function POST(request: NextRequest) {
+async function runFollowUps(request: NextRequest, limit: number) {
   try {
     const authorized = await canProcessFollowUps(request);
     if (!authorized) {
       return NextResponse.json({ error: "Acesso nao autorizado." }, { status: 401 });
     }
 
-    const body = await request.json().catch(() => ({})) as { limit?: unknown };
-    const limit = typeof body.limit === "number" ? body.limit : Number(body.limit ?? 25);
     const result = await processDueFollowUps(Number.isFinite(limit) ? limit : 25);
 
     return NextResponse.json({ ok: true, ...result });
@@ -49,4 +47,15 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function GET(request: NextRequest) {
+  const limit = Number(request.nextUrl.searchParams.get("limit") ?? 25);
+  return runFollowUps(request, limit);
+}
+
+export async function POST(request: NextRequest) {
+  const body = await request.json().catch(() => ({})) as { limit?: unknown };
+  const limit = typeof body.limit === "number" ? body.limit : Number(body.limit ?? 25);
+  return runFollowUps(request, limit);
 }

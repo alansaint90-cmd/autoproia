@@ -364,6 +364,10 @@ function getLeadSentiment(conversation: Conversation): LeadSentiment {
   return normalizeSentiment(leadWithSentiment.sentiment);
 }
 
+function isPersistedMessageId(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function createConversationFromKanbanLead(lead: KanbanStoredLead): Conversation {
   const preview = lead.lastMessage?.trim() || lead.notes?.trim() || "Lead criado no funil Kanban.";
 
@@ -436,6 +440,9 @@ export default function ConversasPage() {
   const [isFollowUpActionRunning, setIsFollowUpActionRunning] = useState(false);
   const [showLeadProfile, setShowLeadProfile] = useState(false);
   const [deleteReplyId, setDeleteReplyId] = useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingMessageText, setEditingMessageText] = useState("");
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [replyFeedback, setReplyFeedback] = useState("");
   const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
   const draftTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -843,6 +850,101 @@ export default function ConversasPage() {
       window.alert(error instanceof Error ? error.message : "Nao foi possivel enviar a mensagem.");
     } finally {
       setIsSendingDraft(false);
+    }
+  }
+
+  function startEditMessage(message: Conversation["messages"][number]) {
+    if (message.from === "lead") return;
+    setEditingMessageId(message.id);
+    setEditingMessageText(message.text);
+  }
+
+  function cancelEditMessage() {
+    setEditingMessageId(null);
+    setEditingMessageText("");
+  }
+
+  async function saveEditedMessage() {
+    if (!active || !editingMessageId) return;
+
+    const content = editingMessageText.trim();
+    if (!content) {
+      window.alert("A mensagem nao pode ficar vazia.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/conversations/messages/${editingMessageId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content })
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string; message?: { content?: string } };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Nao foi possivel editar a mensagem.");
+      }
+
+      setAvailableConversations((items) =>
+        items.map((conversation) => {
+          if (conversation.lead.id !== active.lead.id) return conversation;
+
+          const messages = conversation.messages.map((message) =>
+            message.id === editingMessageId
+              ? { ...message, text: payload.message?.content ?? content }
+              : message
+          );
+
+          return {
+            ...conversation,
+            preview: conversation.messages.at(-1)?.id === editingMessageId ? content : conversation.preview,
+            messages
+          };
+        })
+      );
+      cancelEditMessage();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel editar a mensagem.");
+    }
+  }
+
+  async function deleteSentMessage(messageId: string) {
+    if (!active || deletingMessageId) return;
+
+    const confirmed = window.confirm("Tem certeza que deseja apagar esta mensagem do chat?");
+    if (!confirmed) return;
+
+    setDeletingMessageId(messageId);
+
+    try {
+      const response = await fetch(`/api/conversations/messages/${messageId}`, {
+        method: "DELETE"
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Nao foi possivel apagar a mensagem.");
+      }
+
+      setAvailableConversations((items) =>
+        items.map((conversation) => {
+          if (conversation.lead.id !== active.lead.id) return conversation;
+
+          const messages = conversation.messages.filter((message) => message.id !== messageId);
+          const lastMessage = messages.at(-1);
+
+          return {
+            ...conversation,
+            preview: lastMessage?.text ?? conversation.preview,
+            messages
+          };
+        })
+      );
+      if (editingMessageId === messageId) cancelEditMessage();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Nao foi possivel apagar a mensagem.");
+    } finally {
+      setDeletingMessageId(null);
     }
   }
 
@@ -1693,17 +1795,42 @@ export default function ConversasPage() {
             <div className="flex w-full flex-col space-y-4">
             {active.messages.map((message) => {
               const isCompany = message.from !== "lead";
+              const isEditingMessage = editingMessageId === message.id;
+              const canManageMessage = isCompany && isPersistedMessageId(message.id);
 
               return (
                 <div key={message.id} className={cn("flex", isCompany ? "justify-end" : "justify-start")}>
                   <div
                     className={cn(
-                      "min-w-[300px] max-w-[78%] rounded-2xl border px-4 py-3 text-sm shadow-[0_14px_34px_rgba(0,0,0,0.16)] backdrop-blur transition hover:-translate-y-0.5 md:min-w-[460px]",
+                      "group/message relative min-w-[300px] max-w-[78%] rounded-2xl border px-4 py-3 text-sm shadow-[0_14px_34px_rgba(0,0,0,0.16)] backdrop-blur transition hover:-translate-y-0.5 md:min-w-[460px]",
                       isCompany
                         ? "border-primary/30 bg-primary/[0.14]"
                         : "border-white/10 bg-card/86"
                     )}
                   >
+                    {canManageMessage && !isEditingMessage ? (
+                      <div className="absolute right-3 top-2 flex translate-y-1 gap-1 opacity-0 transition group-hover/message:translate-y-0 group-hover/message:opacity-100">
+                        <button
+                          type="button"
+                          onClick={() => startEditMessage(message)}
+                          className="grid size-7 place-items-center rounded-lg border border-white/10 bg-background/80 text-muted-foreground shadow-lg transition hover:border-primary/40 hover:text-primary"
+                          title="Editar mensagem"
+                          aria-label="Editar mensagem"
+                        >
+                          <Pencil className="size-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void deleteSentMessage(message.id)}
+                          disabled={deletingMessageId === message.id}
+                          className="grid size-7 place-items-center rounded-lg border border-white/10 bg-background/80 text-muted-foreground shadow-lg transition hover:border-red-400/40 hover:text-red-200 disabled:cursor-wait disabled:opacity-60"
+                          title="Apagar mensagem"
+                          aria-label="Apagar mensagem"
+                        >
+                          {deletingMessageId === message.id ? <Clock3 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+                        </button>
+                      </div>
+                    ) : null}
                     {message.from === "ia" ? (
                       <div className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
                         <Bot className="size-3" />
@@ -1715,7 +1842,34 @@ export default function ConversasPage() {
                         Atendente
                       </div>
                     ) : null}
-                    <p className="leading-6">{message.text}</p>
+                    {isEditingMessage ? (
+                      <div className="space-y-2">
+                        <textarea
+                          value={editingMessageText}
+                          onChange={(event) => setEditingMessageText(event.target.value)}
+                          className="kanban-input min-h-24 resize-y text-sm leading-6"
+                          autoFocus
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={cancelEditMessage}
+                            className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-bold text-muted-foreground transition hover:border-white/20 hover:text-foreground"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void saveEditedMessage()}
+                            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-extrabold text-primary-foreground transition hover:-translate-y-0.5"
+                          >
+                            Salvar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="leading-6">{message.text}</p>
+                    )}
                     <div className="mt-1 text-right text-[10px] text-muted-foreground">{message.time}</div>
                   </div>
                 </div>
