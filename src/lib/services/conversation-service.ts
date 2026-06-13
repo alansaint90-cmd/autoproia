@@ -9,6 +9,7 @@ import { transcribeInboundAudio, type AudioTranscriptionResult } from "@/lib/ser
 import { classifyCommercialSignal, type CommercialSignal } from "@/lib/services/commercial-status-service";
 import { createCrmNotification } from "@/lib/services/crm-notification-service";
 import { fetchWhatsAppProfilePicture, sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
+import { moveLeadStage, moveLeadStageIfOpen, type FunnelStage } from "@/lib/services/funnel-stage-service";
 import { analyzeAndSavePaymentReceipt, isPotentialPixReceipt } from "@/lib/services/payment-receipt-service";
 import {
   pauseLeadFollowUp,
@@ -54,16 +55,17 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
 
   if (!inbound.fromMe && !conversationState.created && conversation.status !== "ai") {
     leadSignal = { ...leadSignal, pipelineStage: "atendimento" };
-    await db
-      .update(leads)
-      .set({
-        pipeline_stage: "atendimento",
+    await moveLeadStageIfOpen({
+      leadId: lead.id,
+      toStage: "atendimento",
+      conversationId: conversation.id,
+      reason: "Lead respondeu enquanto a conversa nao estava em modo automatico.",
+      actor: conversation.status === "human" || conversation.status === "paused" ? "Operador" : "Sistema",
+      updates: {
         last_message_preview: inbound.text.slice(0, 280),
-        last_interaction_at: new Date(),
-        updated_at: new Date(),
-        modified_by: SYSTEM_USER_ID
-      })
-      .where(and(eq(leads.id, lead.id), eq(leads.is_deleted, false), notInArray(leads.pipeline_stage, ["fechado", "perdido", "matricula_pendente"])));
+        last_interaction_at: new Date()
+      }
+    });
   }
 
   if (!inbound.fromMe && conversationState.created && shouldStartAiFlow) {
@@ -97,7 +99,7 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
   } else if (!inbound.fromMe && conversationState.created && !shouldStartAiFlow) {
     const manualQueue = await applyInitialManualQueue(conversation.id, lead.id, inbound);
     conversation = manualQueue.conversation;
-    leadSignal = { ...leadSignal, pipelineStage: "atendimento" };
+    leadSignal = { ...leadSignal, pipelineStage: "novo" };
     await logAiDecision({
       conversationId: conversation.id,
       leadId: lead.id,
@@ -114,6 +116,20 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
 
   if (!inbound.fromMe) {
     await resetLeadFollowUpOnCustomerReply(lead.id);
+    await moveLeadStage({
+      leadId: lead.id,
+      toStage: conversation.status === "ai" ? "ia" : "atendimento",
+      conversationId: conversation.id,
+      reason: conversation.status === "ai"
+        ? "Lead respondeu durante follow-up; retorno para atendimento automatico da IA."
+        : "Lead respondeu durante follow-up; retorno para atendimento humano.",
+      actor: "Sistema",
+      allowedFrom: ["followup"],
+      updates: {
+        last_message_preview: inbound.text.slice(0, 280),
+        last_interaction_at: new Date()
+      }
+    });
     if (conversationState.created && !shouldStartAiFlow) {
       await pauseLeadFollowUp(lead.id);
     }
@@ -310,19 +326,35 @@ async function applyCommercialSignal(input: {
     input.signal.status === "aguardando_validacao_pagamento"
     || input.signal.status === "atendimento_humano_necessario";
 
-  await db
-    .update(leads)
-    .set({
-      commercial_status: input.signal.status,
-      pipeline_stage: input.signal.pipelineStage ?? undefined,
-      temperature: input.signal.temperature ?? undefined,
-      last_message_preview: input.lastMessage.slice(0, 280),
-      last_interaction_at: now,
-      enrollment_closed_at: input.signal.status === "venda" ? now : undefined,
-      updated_at: now,
-      modified_by: SYSTEM_USER_ID
-    })
-    .where(and(eq(leads.id, input.leadId), eq(leads.is_deleted, false)));
+  if (input.signal.pipelineStage) {
+    await moveLeadStage({
+      leadId: input.leadId,
+      toStage: input.signal.pipelineStage,
+      conversationId: input.conversation.id,
+      messageId: input.messageId,
+      reason: input.signal.reason,
+      actor: "IA",
+      updates: {
+        commercial_status: input.signal.status,
+        temperature: input.signal.temperature,
+        last_message_preview: input.lastMessage.slice(0, 280),
+        last_interaction_at: now,
+        enrollment_closed_at: input.signal.status === "venda" ? now : undefined
+      }
+    });
+  } else {
+    await db
+      .update(leads)
+      .set({
+        commercial_status: input.signal.status,
+        temperature: input.signal.temperature ?? undefined,
+        last_message_preview: input.lastMessage.slice(0, 280),
+        last_interaction_at: now,
+        updated_at: now,
+        modified_by: SYSTEM_USER_ID
+      })
+      .where(and(eq(leads.id, input.leadId), eq(leads.is_deleted, false)));
+  }
 
   let conversation = input.conversation;
 
@@ -704,21 +736,17 @@ async function changeConversationStatus(
       }
     }
 
-    await db
-      .update(leads)
-      .set({
-        pipeline_stage: toStatus === "human" ? "atendimento" : "ia",
-        last_interaction_at: new Date(),
-        updated_at: new Date(),
-        modified_by: userId
-      })
-      .where(
-        and(
-          eq(leads.id, current.lead_id),
-          eq(leads.is_deleted, false),
-          notInArray(leads.pipeline_stage, ["fechado", "perdido", "matricula_pendente"])
-        )
-      );
+    await moveLeadStageIfOpen({
+      leadId: current.lead_id,
+      toStage: toStatus === "human" ? "atendimento" : "ia",
+      conversationId,
+      reason: reason ?? (toStatus === "human" ? "IA pausada ou conversa assumida por operador." : "Conversa devolvida para atendimento automatico da IA."),
+      actor: "Operador",
+      modifiedBy: userId,
+      updates: {
+        last_interaction_at: new Date()
+      }
+    });
   }
 
   try {
@@ -797,7 +825,7 @@ async function findDuplicatedEvolutionMessage(externalMessageId?: string) {
 type LeadSignal = {
   temperature: "urgente" | "quente" | "morno" | "frio";
   sentiment: "positivo" | "neutro" | "duvida" | "negativo";
-  pipelineStage: "novo" | "ia" | "atendimento" | "followup" | "matricula_pendente" | "fechado" | "perdido";
+  pipelineStage: FunnelStage;
   commercialStatus?: string;
   interest?: string;
   enrollmentClosedAt?: Date;
@@ -817,6 +845,10 @@ async function upsertLead(input: NormalizedInboundMessage, signal: LeadSignal) {
     .limit(1);
 
   if (existing) {
+    const existingStage = normalizeLeadPipelineStage(existing.pipeline_stage);
+    const nextPipelineStage = shouldPreserveExistingStage(existingStage, signal.pipelineStage)
+      ? existingStage
+      : signal.pipelineStage;
     const [updated] = await db
       .update(leads)
       .set({
@@ -828,7 +860,7 @@ async function upsertLead(input: NormalizedInboundMessage, signal: LeadSignal) {
         temperature: signal.temperature,
         sentiment: signal.sentiment,
         commercial_status: signal.commercialStatus ?? existing.commercial_status ?? "em_atendimento",
-        pipeline_stage: signal.pipelineStage,
+        pipeline_stage: nextPipelineStage,
         last_message_preview: input.text.slice(0, 280),
         last_interaction_at: now,
         enrollment_closed_at: signal.enrollmentClosedAt ?? existing.enrollment_closed_at,
@@ -871,8 +903,8 @@ function classifyLeadSignal(text: string): LeadSignal {
     .toLowerCase();
 
   const hasAny = (terms: string[]) => terms.some((term) => normalized.includes(term));
-  const isClosed = hasAny(["matricula fechada", "matricula realizada", "paguei", "pagamento feito", "contrato assinado"]);
-  const wantsEnroll = hasAny(["quero matricular", "fechar matricula", "posso matricular", "vou fechar", "enviar contrato"]);
+  const isClosed = hasAny(["matricula fechada", "matricula realizada", "matricula concluida", "contrato assinado"]);
+  const wantsEnroll = hasAny(["quero matricular", "fechar matricula", "posso matricular", "vou fechar", "enviar contrato", "paguei", "pagamento feito", "comprovante"]);
   const urgent = hasAny(["urgente", "hoje", "agora", "preciso comecar", "preciso tirar", "quanto antes"]);
   const hot = wantsEnroll || hasAny(["valor", "preco", "parcel", "desconto", "pix", "cartao", "proposta"]);
   const cold = hasAny(["vou pensar", "depois", "sem interesse", "nao quero", "muito caro"]);
@@ -888,6 +920,21 @@ function classifyLeadSignal(text: string): LeadSignal {
     interest,
     enrollmentClosedAt: isClosed ? new Date() : undefined
   };
+}
+
+function normalizeLeadPipelineStage(value: string | null | undefined): FunnelStage {
+  if (value === "matricula_realizada") return "fechado";
+  if (value === "novo" || value === "ia" || value === "atendimento" || value === "followup" || value === "matricula_pendente" || value === "fechado" || value === "perdido") {
+    return value;
+  }
+  return "novo";
+}
+
+function shouldPreserveExistingStage(existingStage: FunnelStage, incomingStage: FunnelStage) {
+  if (existingStage === "fechado" || existingStage === "perdido") return true;
+  if (existingStage === "matricula_pendente" && incomingStage !== "fechado") return true;
+  if (existingStage === "followup") return true;
+  return false;
 }
 
 function buildContextSummary(text: string, signal: LeadSignal, triage?: AiTriageResult | null) {
@@ -931,17 +978,20 @@ async function applyInitialTriage(conversationId: string, leadId: string, triage
     .where(and(eq(conversations.id, conversationId), eq(conversations.is_deleted, false)))
     .returning();
 
-  await db
-    .update(leads)
-    .set({
+  await moveLeadStage({
+    leadId,
+    toStage: triage.pipelineStage,
+    conversationId,
+    reason: triage.action === "pause_ai"
+      ? `Triagem pausou a IA: ${triage.reason}`
+      : `Lead vindo de campanha/gatilho automatico entrou em IA Atendendo: ${triage.reason}`,
+    actor: "IA",
+    updates: {
       temperature: triage.temperature,
       sentiment: triage.sentiment,
-      pipeline_stage: triage.pipelineStage,
-      last_interaction_at: now,
-      updated_at: now,
-      modified_by: SYSTEM_USER_ID
-    })
-    .where(and(eq(leads.id, leadId), eq(leads.is_deleted, false)));
+      last_interaction_at: now
+    }
+  });
 
   if (triage.action === "pause_ai") {
     await pauseLeadFollowUp(leadId);
@@ -993,15 +1043,16 @@ async function applyInitialManualQueue(conversationId: string, leadId: string, i
     .where(and(eq(conversations.id, conversationId), eq(conversations.is_deleted, false)))
     .returning();
 
-  await db
-    .update(leads)
-    .set({
-      pipeline_stage: "atendimento",
-      last_interaction_at: now,
-      updated_at: now,
-      modified_by: SYSTEM_USER_ID
-    })
-    .where(and(eq(leads.id, leadId), eq(leads.is_deleted, false)));
+  await moveLeadStage({
+    leadId,
+    toStage: "novo",
+    conversationId,
+    reason: "Lead novo sem origem de anuncio entrou fora do fluxo automatico da IA.",
+    actor: "Sistema",
+    updates: {
+      last_interaction_at: now
+    }
+  });
 
   await pauseLeadFollowUp(leadId);
   await clearConversationBuffer(conversationId);

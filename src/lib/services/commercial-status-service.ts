@@ -51,12 +51,24 @@ export function classifyCommercialSignal(input: NormalizedInboundMessage, hasPay
     "quero fechar",
     "vou fechar",
     "posso fazer a matricula",
+    "fazer a matricula",
+    "iniciar o processo",
+    "comecar o processo",
     "como pago",
+    "forma de pagamento",
+    "formas de pagamento",
+    "parcelamento",
+    "parcelar",
     "chave pix",
     "manda o pix",
+    "manda a chave",
     "fazer inscricao",
     "fazer a inscricao",
-    "garantir minha vaga"
+    "garantir minha vaga",
+    "vou presencial",
+    "vou ai",
+    "vou na auto escola",
+    "vou na cfc"
   ]);
   const sensitive = hasAny(["reclamacao", "problema", "cancelar", "reembolso", "documento pendente", "bloqueado"]);
 

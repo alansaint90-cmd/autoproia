@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ElementType } from "react";
 import {
   Bot,
@@ -16,7 +16,7 @@ import {
 import { Topbar } from "@/components/topbar";
 import { cn } from "@/lib/utils";
 
-const auditFilters = ["Todas", "Capturado", "Aprovado", "Rejeitado", "Publicado", "Config", "Novo Usuario", "Usuario Editado"];
+const auditFilters = ["Todas", "Funil", "Triagem", "Qualificado", "Follow-up", "Handoff", "Publicado", "Rejeitado", "Config", "Novo Usuario", "Usuario Editado"];
 
 const auditRows = [
   { action: "Capturado", user: "Sistema", entity: "Lead WhatsApp - CNH B - Lucas Ferreira", date: "04/06/26, 00:42", status: "captured" },
@@ -41,13 +41,52 @@ const statusStyle: Record<string, { icon: ElementType; className: string }> = {
   user: { icon: UserPen, className: "border-slate-300/20 bg-slate-300/10 text-slate-100" }
 };
 
+type AuditRow = {
+  id?: string;
+  action: string;
+  user: string;
+  entity: string;
+  date: string;
+  status: string;
+};
+
 export default function AnalisePage() {
   const [activeFilter, setActiveFilter] = useState("Todas");
   const [query, setQuery] = useState("");
+  const [rows, setRows] = useState<AuditRow[]>(auditRows);
+  const [apiStatus, setApiStatus] = useState<"loading" | "live" | "fallback">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAudit() {
+      try {
+        const response = await fetch("/api/audit?limit=300", { cache: "no-store" });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload.rows) throw new Error(payload.error || "Falha ao carregar auditoria.");
+        if (!cancelled) {
+          setRows(payload.rows);
+          setApiStatus("live");
+        }
+      } catch {
+        if (!cancelled) {
+          setRows(auditRows);
+          setApiStatus("fallback");
+        }
+      }
+    }
+
+    void loadAudit();
+    const interval = window.setInterval(loadAudit, 10000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   const filteredRows = useMemo(() => {
     const term = query.trim().toLowerCase();
-    return auditRows.filter((row) => {
+    return rows.filter((row) => {
       const matchesFilter = activeFilter === "Todas" || row.action === activeFilter;
       const matchesQuery =
         !term ||
@@ -58,7 +97,7 @@ export default function AnalisePage() {
 
       return matchesFilter && matchesQuery;
     });
-  }, [activeFilter, query]);
+  }, [activeFilter, query, rows]);
 
   return (
     <>
@@ -70,7 +109,7 @@ export default function AnalisePage() {
             <div>
               <p className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-200">
                 <span className="size-1.5 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.8)]" />
-                Online
+                {apiStatus === "live" ? "Online" : apiStatus === "loading" ? "Carregando" : "Fallback"}
               </p>
               <h1 className="mt-3 text-2xl font-black tracking-normal">Analise operacional</h1>
               <p className="mt-1 text-sm text-muted-foreground">Auditoria viva de capturas, configuracoes e atividades comerciais.</p>
@@ -116,7 +155,7 @@ export default function AnalisePage() {
 
           <div className="mt-6 flex items-center justify-between text-sm">
             <p className="font-mono text-muted-foreground">{filteredRows.length} registro(s)</p>
-            <p className="text-xs font-bold text-muted-foreground">Atualizado agora</p>
+            <p className="text-xs font-bold text-muted-foreground">{apiStatus === "live" ? "Dados reais do banco" : "Aguardando API de auditoria"}</p>
           </div>
 
           <div className="mt-4 overflow-hidden rounded-[24px] border border-white/[0.08] bg-[#080d16]/72">
@@ -129,15 +168,15 @@ export default function AnalisePage() {
             </div>
             <div className="max-h-[620px] overflow-y-auto [scrollbar-color:rgba(250,204,21,0.35)_transparent] [scrollbar-width:thin]">
               {filteredRows.map((row) => {
-                const StatusIcon = statusStyle[row.status].icon;
+                const StatusIcon = (statusStyle[row.status] ?? statusStyle.captured).icon;
 
                 return (
                   <button
-                    key={`${row.entity}-${row.date}`}
+                    key={row.id ?? `${row.entity}-${row.date}`}
                     type="button"
                     className="group grid w-full grid-cols-[170px_150px_1fr_160px_40px] items-center border-b border-white/[0.05] px-4 py-4 text-left transition last:border-b-0 hover:bg-white/[0.035]"
                   >
-                    <span className={cn("inline-flex w-fit items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-black", statusStyle[row.status].className)}>
+                    <span className={cn("inline-flex w-fit items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-black", (statusStyle[row.status] ?? statusStyle.captured).className)}>
                       <StatusIcon size={13} />
                       {row.action}
                     </span>

@@ -6,6 +6,7 @@ import { generateAiFollowUp } from "@/lib/services/ai-agent";
 import { logAiDecision } from "@/lib/services/ai-decision-log-service";
 import { createCrmNotification } from "@/lib/services/crm-notification-service";
 import { sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
+import { moveLeadStage } from "@/lib/services/funnel-stage-service";
 import { appendRecentConversationContext, getRecentConversationContext } from "@/lib/services/message-buffer";
 import { publishRealtimeEvent } from "@/lib/services/realtime";
 
@@ -14,6 +15,7 @@ type DueFollowUpRow = {
   lead_id: string;
   lead_name: string | null;
   phone: string;
+  conversation_status: "ai" | "human" | "paused" | "closed";
   context_summary: string | null;
   follow_up_count: number;
   last_interaction_at: Date | string | null;
@@ -102,6 +104,7 @@ export async function processDueFollowUps(limit = 25) {
   const dueLeads = await db.execute<DueFollowUpRow>(sql`
     select
       c.id as conversation_id,
+      c.status as conversation_status,
       l.id as lead_id,
       l.name as lead_name,
       l.phone,
@@ -112,7 +115,7 @@ export async function processDueFollowUps(limit = 25) {
     from leads l
     inner join conversations c on c.lead_id = l.id and c.is_deleted = false
     where l.is_deleted = false
-      and c.status = 'ai'
+      and c.status in ('ai', 'human')
       and l.follow_up_paused_at is null
       and l.next_follow_up_at is not null
       and l.next_follow_up_at <= now()
@@ -137,6 +140,7 @@ export async function sendFollowUpNow(leadId: string) {
   const [target] = await db.execute<DueFollowUpRow>(sql`
     select
       c.id as conversation_id,
+      c.status as conversation_status,
       l.id as lead_id,
       l.name as lead_name,
       l.phone,
@@ -206,23 +210,26 @@ async function sendFollowUpForConversation(target: DueFollowUpRow) {
     }
   });
 
-  await db.execute(sql`
-    update leads
-    set
-      follow_up_count = ${followUpNumber},
-      last_follow_up_at = now(),
-      next_follow_up_at = ${toDbTimestamp(nextFollowUpAt)},
-      follow_up_paused_at = ${toDbTimestamp(followUpNumber >= 5 ? new Date() : null)},
-      temperature = ${nextTemperature},
-      commercial_status = ${commercialStatus},
-      pipeline_stage = ${nextStage},
-      last_message_preview = ${cleanReply.slice(0, 280)},
-      last_interaction_at = now(),
-      updated_at = now(),
-      modified_by = ${SYSTEM_USER_ID}
-    where id = ${target.lead_id}
-      and is_deleted = false
-  `);
+  await moveLeadStage({
+    leadId: target.lead_id,
+    toStage: nextStage,
+    conversationId: target.conversation_id,
+    messageId: message.id,
+    reason: followUpNumber >= 5
+      ? "Sequencia de follow-up encerrada sem resposta."
+      : `Lead movido para Follow-up - sem resposta apos prazo configurado (${hoursWithoutResponse} horas).`,
+    actor: "Sistema",
+    updates: {
+      follow_up_count: followUpNumber,
+      last_follow_up_at: new Date(),
+      next_follow_up_at: nextFollowUpAt,
+      follow_up_paused_at: followUpNumber >= 5 ? new Date() : null,
+      temperature: nextTemperature,
+      commercial_status: commercialStatus,
+      last_message_preview: cleanReply.slice(0, 280),
+      last_interaction_at: new Date()
+    }
+  });
 
   await db
     .update(conversations)

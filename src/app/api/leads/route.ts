@@ -4,6 +4,7 @@ import { db } from "@/lib/db/client";
 import { leads } from "@/lib/db/schema";
 import { assertPermission } from "@/lib/services/permission-service";
 import { queryLeadAnalytics, queryLeads } from "@/lib/services/lead-query-service";
+import { moveLeadStage, type FunnelStage } from "@/lib/services/funnel-stage-service";
 import { eq } from "drizzle-orm";
 
 export const runtime = "nodejs";
@@ -29,9 +30,9 @@ const uiToDbStage: Record<string, string> = {
   fechado: "fechado"
 };
 
-function normalizeStage(value: unknown) {
+function normalizeStage(value: unknown): FunnelStage {
   if (typeof value !== "string") return "novo";
-  return uiToDbStage[value] ?? "novo";
+  return (uiToDbStage[value] ?? "novo") as FunnelStage;
 }
 
 function nonEmptyString(value: unknown) {
@@ -182,15 +183,33 @@ export async function PATCH(request: NextRequest) {
     if (body.temperature !== undefined) update.temperature = nonEmptyString(body.temperature) ?? "morno";
     if (body.sentiment !== undefined) update.sentiment = nonEmptyString(body.sentiment) ?? "neutro";
     if (body.commercialStatus !== undefined) update.commercial_status = nonEmptyString(body.commercialStatus) ?? "em_atendimento";
-    if (body.status !== undefined) {
-      update.pipeline_stage = normalizeStage(body.status);
-      if (update.pipeline_stage === "fechado") update.commercial_status = "venda";
-      if (update.pipeline_stage === "perdido") update.commercial_status = "nao_venda";
-    }
+    const nextStage = body.status !== undefined ? normalizeStage(body.status) : null;
     if (body.lastMessage !== undefined) update.last_message_preview = nonEmptyString(body.lastMessage);
     if (body.status !== undefined || body.lastMessage !== undefined) update.last_interaction_at = new Date();
 
-    await db.update(leads).set(update).where(eq(leads.id, leadId));
+    if (nextStage) {
+      await moveLeadStage({
+        leadId,
+        toStage: nextStage,
+        reason: nextStage === "fechado"
+          ? "Conversao confirmada manualmente pelo operador."
+          : nextStage === "perdido"
+            ? "Lead classificado manualmente como desperdicado/perdido."
+            : "Etapa alterada manualmente pelo operador.",
+        actor: "Operador",
+        modifiedBy: session.userId,
+        updates: {
+          ...update,
+          commercial_status: nextStage === "fechado"
+            ? "venda"
+            : nextStage === "perdido"
+              ? "nao_venda"
+              : update.commercial_status
+        }
+      });
+    } else {
+      await db.update(leads).set(update).where(eq(leads.id, leadId));
+    }
 
     return NextResponse.json({ ok: true });
   } catch (error) {

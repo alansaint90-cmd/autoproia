@@ -11,7 +11,8 @@ type AiDecisionAction =
   | "ai_qualified_lead"
   | "human_handoff_triggered"
   | "ai_mode_restored"
-  | "follow_up_sent";
+  | "follow_up_sent"
+  | "funnel_stage_changed";
 
 type LogAiDecisionInput = {
   conversationId?: string | null;

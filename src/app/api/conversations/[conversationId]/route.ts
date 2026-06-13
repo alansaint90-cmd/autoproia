@@ -3,9 +3,11 @@ import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
-import { conversations, leads } from "@/lib/db/schema";
+import { conversations } from "@/lib/db/schema";
 import { clearConversationBuffer } from "@/lib/services/message-buffer";
 import { assertPermission } from "@/lib/services/permission-service";
+import { pauseLeadFollowUp } from "@/lib/services/follow-up-service";
+import { moveLeadStageIfOpen } from "@/lib/services/funnel-stage-service";
 
 export const runtime = "nodejs";
 
@@ -80,14 +82,15 @@ export async function PATCH(
     .returning();
 
   if (body.action === "block") {
-    await db
-      .update(leads)
-      .set({
-        pipeline_stage: "atendimento",
-        updated_at: now,
-        modified_by: session.userId
-      })
-      .where(eq(leads.id, current.lead_id));
+    await pauseLeadFollowUp(current.lead_id, session.userId);
+    await moveLeadStageIfOpen({
+      leadId: current.lead_id,
+      toStage: "atendimento",
+      conversationId: params.conversationId,
+      reason: "Conversa bloqueada pelo atendente; IA pausada.",
+      actor: "Operador",
+      modifiedBy: session.userId
+    });
   }
 
   return NextResponse.json({ ok: true, action: body.action, conversation: updated });
