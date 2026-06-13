@@ -6,6 +6,12 @@ import { assertPermission } from "@/lib/services/permission-service";
 
 const fallbackRecipients = ["5571988480222", "5571996729683"];
 
+type NotificationRecipient = {
+  label: string;
+  phone: string;
+  type: "internal" | "support";
+};
+
 function errorStatus(error: unknown) {
   const message = error instanceof Error ? error.message : "";
 
@@ -15,14 +21,35 @@ function errorStatus(error: unknown) {
   return 500;
 }
 
-export async function POST() {
+export async function GET() {
   try {
     const session = await getSession();
     await assertPermission(session.role, "manageAi");
 
-    const recipients = getRecipients();
+    return NextResponse.json({ recipients: getRecipients() });
+  } catch (error) {
+    console.error("[notification-test] failed to list recipients", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Nao foi possivel listar os numeros de teste." },
+      { status: errorStatus(error) }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const session = await getSession();
+    await assertPermission(session.role, "manageAi");
+
+    const body = (await request.json().catch(() => ({}))) as { phone?: string };
+    const allRecipients = getRecipients();
+    const requestedPhone = body.phone?.replace(/\D/g, "");
+    const recipients = requestedPhone
+      ? allRecipients.filter((recipient) => recipient.phone === requestedPhone)
+      : allRecipients;
+
     if (recipients.length === 0) {
-      return NextResponse.json({ error: "Nenhum numero de notificacao configurado." }, { status: 400 });
+      return NextResponse.json({ error: "Nenhum numero de notificacao encontrado para o teste." }, { status: 400 });
     }
 
     const text = [
@@ -33,18 +60,18 @@ export async function POST() {
     ].join("\n");
 
     const results = await Promise.allSettled(
-      recipients.map(async (phone) => {
-        await sendWhatsAppText({ phone, text });
-        return phone;
+      recipients.map(async (recipient) => {
+        await sendWhatsAppText({ phone: recipient.phone, text });
+        return recipient.phone;
       })
     );
 
     const sent = results
-      .map((result, index) => ({ result, phone: recipients[index] }))
+      .map((result, index) => ({ result, phone: recipients[index]?.phone ?? "" }))
       .filter((item): item is { result: PromiseFulfilledResult<string>; phone: string } => item.result.status === "fulfilled")
       .map((item) => item.phone);
     const failed = results
-      .map((result, index) => ({ result, phone: recipients[index] }))
+      .map((result, index) => ({ result, phone: recipients[index]?.phone ?? "" }))
       .filter((item): item is { result: PromiseRejectedResult; phone: string } => item.result.status === "rejected")
       .map((item) => ({
         phone: item.phone,
@@ -61,11 +88,27 @@ export async function POST() {
   }
 }
 
-function getRecipients() {
+function getRecipients(): NotificationRecipient[] {
   const configured = (env.NOTIFICATION_WHATSAPP_NUMBERS ?? "")
     .split(",")
     .map((phone) => phone.replace(/\D/g, ""))
     .filter((phone) => phone.length >= 12);
 
-  return Array.from(new Set(configured.length > 0 ? configured : fallbackRecipients));
+  const internalPhones = Array.from(new Set(configured.length > 0 ? configured : fallbackRecipients));
+  const supportPhone = env.SUPPORT_WHATSAPP_NUMBER?.replace(/\D/g, "");
+  const recipients: NotificationRecipient[] = internalPhones.map((phone, index) => ({
+    label: index === 0 ? "Notificacao interna 1" : `Notificacao interna ${index + 1}`,
+    phone,
+    type: "internal"
+  }));
+
+  if (supportPhone && supportPhone.length >= 12 && !recipients.some((recipient) => recipient.phone === supportPhone)) {
+    recipients.push({
+      label: "Suporte de erro",
+      phone: supportPhone,
+      type: "support"
+    });
+  }
+
+  return recipients;
 }

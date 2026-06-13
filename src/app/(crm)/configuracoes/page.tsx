@@ -1167,6 +1167,12 @@ type AiTestMessage = {
   content: string;
 };
 
+type NotificationTestRecipient = {
+  label: string;
+  phone: string;
+  type: "internal" | "support";
+};
+
 function PromptEditor({
   label,
   description,
@@ -1201,6 +1207,203 @@ function PromptEditor({
   );
 }
 
+function AiCommercialRuntimePanel({
+  aiControl,
+  controlLoading,
+  controlMessage,
+  onToggleWhatsappAiPause,
+  aiTestMessages,
+  aiTestLoading,
+  aiTestInput,
+  aiTestError,
+  onAiTestInputChange,
+  onSendAiTestMessage,
+  notificationTesting,
+  notificationRecipientsLoading,
+  notificationPickerOpen,
+  notificationRecipients,
+  notificationTestMessage,
+  onToggleNotificationPicker,
+  onSendNotificationTest
+}: {
+  aiControl: AiControlSettings;
+  controlLoading: boolean;
+  controlMessage: string;
+  onToggleWhatsappAiPause: () => void;
+  aiTestMessages: AiTestMessage[];
+  aiTestLoading: boolean;
+  aiTestInput: string;
+  aiTestError: string;
+  onAiTestInputChange: (value: string) => void;
+  onSendAiTestMessage: () => void;
+  notificationTesting: boolean;
+  notificationRecipientsLoading: boolean;
+  notificationPickerOpen: boolean;
+  notificationRecipients: NotificationTestRecipient[];
+  notificationTestMessage: string;
+  onToggleNotificationPicker: () => void;
+  onSendNotificationTest: (phone: string) => void;
+}) {
+  return (
+    <div className="grid gap-4 xl:grid-cols-[0.9fr_1.15fr_0.85fr]">
+      <div className="rounded-[20px] border border-sky-400/20 bg-[linear-gradient(145deg,rgba(11,95,165,0.18),rgba(255,255,255,0.035))] p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-200">Controle WhatsApp</p>
+            <h3 className="mt-1 text-base font-extrabold">
+              IA {aiControl.whatsappPaused ? "pausada" : "ativa"}
+            </h3>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              Pausa geral para impedir novas respostas automaticas no WhatsApp.
+            </p>
+          </div>
+          <span className={cn(
+            "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase",
+            aiControl.whatsappPaused
+              ? "border-primary/35 bg-primary/10 text-primary"
+              : "border-sky-300/30 bg-sky-400/10 text-sky-100"
+          )}>
+            <span className={cn("size-2 rounded-full", aiControl.whatsappPaused ? "bg-primary" : "bg-sky-300")} />
+            {aiControl.whatsappPaused ? "Pausada" : "Ativa"}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onToggleWhatsappAiPause}
+          disabled={controlLoading}
+          className={cn(
+            "mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-extrabold transition disabled:cursor-wait disabled:opacity-70",
+            aiControl.whatsappPaused
+              ? "ap-button-primary"
+              : "border border-primary/25 bg-primary/10 text-primary hover:bg-primary/15"
+          )}
+        >
+          {controlLoading ? <Loader2 className="size-4 animate-spin" /> : aiControl.whatsappPaused ? <PlayCircle size={16} /> : <PauseCircle size={16} />}
+          {aiControl.whatsappPaused ? "Retomar IA no WhatsApp" : "Pausar IA no WhatsApp"}
+        </button>
+        {controlMessage ? <p className="mt-3 text-xs font-semibold text-muted-foreground">{controlMessage}</p> : null}
+      </div>
+
+      <div className="rounded-[20px] border border-white/[0.08] bg-white/[0.035] p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Teste interno</p>
+            <h3 className="mt-1 text-base font-extrabold">Chat de teste da IA</h3>
+          </div>
+          <MessageCircle className="size-5 text-primary" />
+        </div>
+        <div className="mt-4 h-48 space-y-3 overflow-y-auto rounded-[16px] border border-border bg-background/55 p-3">
+          {aiTestMessages.length === 0 ? (
+            <p className="text-xs leading-5 text-muted-foreground">
+              Simule uma pergunta do lead para validar o prompt antes de testar no WhatsApp real.
+            </p>
+          ) : (
+            aiTestMessages.map((message, index) => (
+              <div
+                key={`${message.role}-${index}`}
+                className={cn(
+                  "max-w-[88%] rounded-[16px] px-3 py-2 text-xs leading-5",
+                  message.role === "ai"
+                    ? "ml-auto border border-sky-300/20 bg-sky-400/10 text-sky-50"
+                    : "border border-border bg-card text-foreground"
+                )}
+              >
+                {message.content}
+              </div>
+            ))
+          )}
+          {aiTestLoading ? (
+            <div className="ml-auto flex w-fit items-center gap-2 rounded-[16px] border border-sky-300/20 bg-sky-400/10 px-3 py-2 text-xs font-semibold text-sky-50">
+              <Loader2 className="size-3 animate-spin" />
+              IA pensando
+            </div>
+          ) : null}
+        </div>
+        <div className="mt-3 flex gap-2">
+          <input
+            value={aiTestInput}
+            onChange={(event) => onAiTestInputChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                onSendAiTestMessage();
+              }
+            }}
+            className="kanban-input h-10"
+            placeholder="Digite uma mensagem de teste..."
+          />
+          <button
+            type="button"
+            onClick={onSendAiTestMessage}
+            disabled={aiTestLoading || !aiTestInput.trim()}
+            className="grid size-10 shrink-0 place-items-center rounded-[14px] bg-primary text-primary-foreground shadow-glow transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Enviar teste para IA"
+          >
+            <Send size={16} />
+          </button>
+        </div>
+        {aiTestError ? <p className="mt-2 text-xs font-semibold text-danger">{aiTestError}</p> : null}
+      </div>
+
+      <div className="rounded-[20px] border border-primary/18 bg-[linear-gradient(145deg,rgba(250,197,21,0.10),rgba(255,255,255,0.035))] p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Notificacoes</p>
+            <h3 className="mt-1 text-base font-extrabold">Teste WhatsApp interno</h3>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              Escolha um numero cadastrado para testar individualmente.
+            </p>
+          </div>
+          <BellRing className="size-5 text-primary" />
+        </div>
+        <button
+          type="button"
+          onClick={onToggleNotificationPicker}
+          disabled={notificationRecipientsLoading}
+          className="ap-button-primary mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-extrabold disabled:cursor-wait disabled:opacity-70"
+        >
+          {notificationRecipientsLoading ? <Loader2 className="size-4 animate-spin" /> : <BellRing size={16} />}
+          {notificationPickerOpen ? "Ocultar numeros de teste" : "Escolher numero para teste"}
+        </button>
+        {notificationPickerOpen ? (
+          <div className="mt-3 grid gap-2">
+            {notificationRecipients.length === 0 ? (
+              <p className="rounded-[14px] border border-border bg-background/55 px-3 py-2 text-xs text-muted-foreground">
+                Nenhum numero cadastrado para teste.
+              </p>
+            ) : notificationRecipients.map((recipient) => (
+              <button
+                key={`${recipient.type}-${recipient.phone}`}
+                type="button"
+                onClick={() => onSendNotificationTest(recipient.phone)}
+                disabled={notificationTesting}
+                className="flex items-center justify-between gap-3 rounded-[14px] border border-border bg-background/55 px-3 py-2 text-left text-xs transition hover:border-primary/35 hover:bg-primary/10 disabled:cursor-wait disabled:opacity-70"
+              >
+                <span>
+                  <span className="block font-extrabold text-foreground">{recipient.label}</span>
+                  <span className="block font-mono text-muted-foreground">{recipient.phone}</span>
+                </span>
+                <span className={cn(
+                  "rounded-full border px-2 py-0.5 text-[10px] font-black uppercase",
+                  recipient.type === "support"
+                    ? "border-sky-300/25 bg-sky-300/10 text-sky-100"
+                    : "border-primary/25 bg-primary/10 text-primary"
+                )}>
+                  {recipient.type === "support" ? "Erro" : "Interno"}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {notificationTesting ? <p className="mt-3 text-xs font-semibold text-muted-foreground">Enviando teste...</p> : null}
+        {notificationTestMessage ? (
+          <p className="mt-3 text-xs font-semibold text-muted-foreground">{notificationTestMessage}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function IaComercialPanel() {
   const [settings, setSettings] = useState<AiBusinessSettings>(defaultAiBusinessSettings);
   const [aiControl, setAiControl] = useState<AiControlSettings>({ whatsappPaused: false, pausedReason: "" });
@@ -1215,6 +1418,9 @@ function IaComercialPanel() {
   const [aiTestError, setAiTestError] = useState("");
   const [notificationTesting, setNotificationTesting] = useState(false);
   const [notificationTestMessage, setNotificationTestMessage] = useState("");
+  const [notificationRecipients, setNotificationRecipients] = useState<NotificationTestRecipient[]>([]);
+  const [notificationPickerOpen, setNotificationPickerOpen] = useState(false);
+  const [notificationRecipientsLoading, setNotificationRecipientsLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -1364,12 +1570,54 @@ function IaComercialPanel() {
     }
   }
 
-  async function sendNotificationTest() {
+  async function loadNotificationRecipients() {
+    setNotificationRecipientsLoading(true);
+    setNotificationTestMessage("");
+
+    try {
+      const response = await fetch("/api/settings/notification-test", { cache: "no-store" });
+      const data = (await response.json().catch(() => null)) as {
+        recipients?: NotificationTestRecipient[];
+        error?: string;
+      } | null;
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "Nao foi possivel carregar os numeros de teste.");
+      }
+
+      setNotificationRecipients(data?.recipients ?? []);
+      setNotificationPickerOpen(true);
+    } catch (recipientsError) {
+      setNotificationTestMessage(recipientsError instanceof Error ? recipientsError.message : "Nao foi possivel carregar os numeros de teste.");
+    } finally {
+      setNotificationRecipientsLoading(false);
+    }
+  }
+
+  async function toggleNotificationPicker() {
+    if (notificationPickerOpen) {
+      setNotificationPickerOpen(false);
+      return;
+    }
+
+    if (notificationRecipients.length > 0) {
+      setNotificationPickerOpen(true);
+      return;
+    }
+
+    await loadNotificationRecipients();
+  }
+
+  async function sendNotificationTest(phone: string) {
     setNotificationTesting(true);
     setNotificationTestMessage("");
 
     try {
-      const response = await fetch("/api/settings/notification-test", { method: "POST" });
+      const response = await fetch("/api/settings/notification-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone })
+      });
       const data = (await response.json().catch(() => null)) as {
         sent?: string[];
         failed?: Array<{ phone: string; error: string }>;
@@ -1382,10 +1630,11 @@ function IaComercialPanel() {
 
       const sentCount = data?.sent?.length ?? 0;
       const failedCount = data?.failed?.length ?? 0;
+      const recipient = notificationRecipients.find((item) => item.phone === phone);
       setNotificationTestMessage(
         failedCount > 0
           ? `Teste enviado para ${sentCount} numero(s), com ${failedCount} falha(s).`
-          : `Teste enviado para ${sentCount} numero(s) cadastrado(s).`
+          : `Teste enviado para ${recipient?.label ?? phone}.`
       );
     } catch (notificationError) {
       setNotificationTestMessage(notificationError instanceof Error ? notificationError.message : "Nao foi possivel testar as notificacoes.");
@@ -1410,132 +1659,6 @@ function IaComercialPanel() {
           <Bot size={14} />
           Usado no WhatsApp
         </span>
-      </div>
-
-      <div className="mt-6 grid gap-4 xl:grid-cols-[0.9fr_1.15fr_0.85fr]">
-        <div className="rounded-[20px] border border-sky-400/20 bg-[linear-gradient(145deg,rgba(11,95,165,0.18),rgba(255,255,255,0.035))] p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-200">Controle WhatsApp</p>
-              <h3 className="mt-1 text-base font-extrabold">
-                IA {aiControl.whatsappPaused ? "pausada" : "ativa"}
-              </h3>
-              <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                Pausa geral para impedir novas respostas automaticas no WhatsApp.
-              </p>
-            </div>
-            <span className={cn(
-              "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase",
-              aiControl.whatsappPaused
-                ? "border-primary/35 bg-primary/10 text-primary"
-                : "border-sky-300/30 bg-sky-400/10 text-sky-100"
-            )}>
-              <span className={cn("size-2 rounded-full", aiControl.whatsappPaused ? "bg-primary" : "bg-sky-300")} />
-              {aiControl.whatsappPaused ? "Pausada" : "Ativa"}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => void toggleWhatsappAiPause()}
-            disabled={controlLoading}
-            className={cn(
-              "mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-extrabold transition disabled:cursor-wait disabled:opacity-70",
-              aiControl.whatsappPaused
-                ? "ap-button-primary"
-                : "border border-primary/25 bg-primary/10 text-primary hover:bg-primary/15"
-            )}
-          >
-            {controlLoading ? <Loader2 className="size-4 animate-spin" /> : aiControl.whatsappPaused ? <PlayCircle size={16} /> : <PauseCircle size={16} />}
-            {aiControl.whatsappPaused ? "Retomar IA no WhatsApp" : "Pausar IA no WhatsApp"}
-          </button>
-          {controlMessage ? <p className="mt-3 text-xs font-semibold text-muted-foreground">{controlMessage}</p> : null}
-        </div>
-
-        <div className="rounded-[20px] border border-white/[0.08] bg-white/[0.035] p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Teste interno</p>
-              <h3 className="mt-1 text-base font-extrabold">Chat de teste da IA</h3>
-            </div>
-            <MessageCircle className="size-5 text-primary" />
-          </div>
-          <div className="mt-4 h-48 space-y-3 overflow-y-auto rounded-[16px] border border-border bg-background/55 p-3">
-            {aiTestMessages.length === 0 ? (
-              <p className="text-xs leading-5 text-muted-foreground">
-                Simule uma pergunta do lead para validar o prompt antes de testar no WhatsApp real.
-              </p>
-            ) : (
-              aiTestMessages.map((message, index) => (
-                <div
-                  key={`${message.role}-${index}`}
-                  className={cn(
-                    "max-w-[88%] rounded-[16px] px-3 py-2 text-xs leading-5",
-                    message.role === "ai"
-                      ? "ml-auto border border-sky-300/20 bg-sky-400/10 text-sky-50"
-                      : "border border-border bg-card text-foreground"
-                  )}
-                >
-                  {message.content}
-                </div>
-              ))
-            )}
-            {aiTestLoading ? (
-              <div className="ml-auto flex w-fit items-center gap-2 rounded-[16px] border border-sky-300/20 bg-sky-400/10 px-3 py-2 text-xs font-semibold text-sky-50">
-                <Loader2 className="size-3 animate-spin" />
-                IA pensando
-              </div>
-            ) : null}
-          </div>
-          <div className="mt-3 flex gap-2">
-            <input
-              value={aiTestInput}
-              onChange={(event) => setAiTestInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  void sendAiTestMessage();
-                }
-              }}
-              className="kanban-input h-10"
-              placeholder="Digite uma mensagem de teste..."
-            />
-            <button
-              type="button"
-              onClick={() => void sendAiTestMessage()}
-              disabled={aiTestLoading || !aiTestInput.trim()}
-              className="grid size-10 shrink-0 place-items-center rounded-[14px] bg-primary text-primary-foreground shadow-glow transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label="Enviar teste para IA"
-            >
-              <Send size={16} />
-            </button>
-          </div>
-          {aiTestError ? <p className="mt-2 text-xs font-semibold text-danger">{aiTestError}</p> : null}
-        </div>
-
-        <div className="rounded-[20px] border border-primary/18 bg-[linear-gradient(145deg,rgba(250,197,21,0.10),rgba(255,255,255,0.035))] p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Notificacoes</p>
-              <h3 className="mt-1 text-base font-extrabold">Teste WhatsApp interno</h3>
-              <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                Envia uma mensagem de teste para os numeros cadastrados em notificacoes.
-              </p>
-            </div>
-            <BellRing className="size-5 text-primary" />
-          </div>
-          <button
-            type="button"
-            onClick={() => void sendNotificationTest()}
-            disabled={notificationTesting}
-            className="ap-button-primary mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-extrabold disabled:cursor-wait disabled:opacity-70"
-          >
-            {notificationTesting ? <Loader2 className="size-4 animate-spin" /> : <BellRing size={16} />}
-            Testar notificacao no WhatsApp
-          </button>
-          {notificationTestMessage ? (
-            <p className="mt-3 text-xs font-semibold text-muted-foreground">{notificationTestMessage}</p>
-          ) : null}
-        </div>
       </div>
 
       <form
@@ -1743,6 +1866,41 @@ function IaComercialPanel() {
             />
           </div>
         </div>
+      </div>
+
+      <div className="rounded-[22px] border border-border bg-card/72 p-6 shadow-panel">
+        <div className="mb-5 flex flex-col justify-between gap-3 md:flex-row md:items-start">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Operacao e testes</p>
+            <h2 className="mt-1 text-lg font-extrabold tracking-normal">Controle da IA e validacoes internas</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+              Use esta area para pausar a IA no WhatsApp, testar o prompt e validar notificacoes sem sair do CRM.
+            </p>
+          </div>
+          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-300/25 bg-sky-300/10 px-3 py-1.5 text-xs font-black text-sky-100">
+            <Bot size={14} />
+            Ambiente de teste
+          </span>
+        </div>
+        <AiCommercialRuntimePanel
+          aiControl={aiControl}
+          controlLoading={controlLoading}
+          controlMessage={controlMessage}
+          onToggleWhatsappAiPause={() => void toggleWhatsappAiPause()}
+          aiTestMessages={aiTestMessages}
+          aiTestLoading={aiTestLoading}
+          aiTestInput={aiTestInput}
+          aiTestError={aiTestError}
+          onAiTestInputChange={setAiTestInput}
+          onSendAiTestMessage={() => void sendAiTestMessage()}
+          notificationTesting={notificationTesting}
+          notificationRecipientsLoading={notificationRecipientsLoading}
+          notificationPickerOpen={notificationPickerOpen}
+          notificationRecipients={notificationRecipients}
+          notificationTestMessage={notificationTestMessage}
+          onToggleNotificationPicker={() => void toggleNotificationPicker()}
+          onSendNotificationTest={(phone) => void sendNotificationTest(phone)}
+        />
       </div>
 
       {expandedPrompt ? (
