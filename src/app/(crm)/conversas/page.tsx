@@ -439,6 +439,8 @@ export default function ConversasPage() {
   const [replyFeedback, setReplyFeedback] = useState("");
   const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
   const draftTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const activeIdRef = useRef("");
+  const initialUrlSelectionAppliedRef = useRef(false);
   const filteredConversations = useMemo(() => {
     const normalized = conversationQuery.trim().toLowerCase();
     const visibleByView = availableConversations.filter((conversation, index) => {
@@ -483,6 +485,10 @@ export default function ConversasPage() {
   const archivedCount = archivedConversationIds.length;
   const mutedCount = mutedConversationIds.filter((id) => !archivedConversationIds.includes(id)).length;
   const activeConversationId = active ? (active as Conversation & { id?: string }).id : undefined;
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
 
   useEffect(() => {
     if (!conversationQuery.trim() || filteredConversations.length === 0) {
@@ -592,13 +598,33 @@ export default function ConversasPage() {
         setMutedConversationIds(mergedConversations.filter((conversation) => conversation.muted).map((conversation) => conversation.lead.id));
         setPinnedConversationIds(mergedConversations.filter((conversation) => conversation.pinned).map((conversation) => conversation.lead.id));
 
-        const leadId = new URLSearchParams(window.location.search).get("lead");
-        if (leadId && mergedConversations.some((conversation) => conversation.lead.id === leadId)) {
-          setActiveId(leadId);
+        if (!initialUrlSelectionAppliedRef.current) {
+          initialUrlSelectionAppliedRef.current = true;
+          const params = new URLSearchParams(window.location.search);
+          const leadId = params.get("lead");
+          const conversationId = params.get("conversationId");
+          const queryMatch = mergedConversations.find((conversation) =>
+            (leadId && conversation.lead.id === leadId)
+            || (conversationId && (conversation as Conversation & { id?: string }).id === conversationId)
+          );
+
+          if (queryMatch) {
+            setActiveId(queryMatch.lead.id);
+            return;
+          }
+        }
+
+        const currentActiveId = activeIdRef.current;
+        const activeStillExists = mergedConversations.some((conversation) => conversation.lead.id === currentActiveId);
+
+        if (activeStillExists) {
+          setActiveId(currentActiveId);
           return;
         }
 
-        setActiveId(mergedConversations[0]?.lead.id ?? "");
+        if (!currentActiveId) {
+          setActiveId(mergedConversations[0]?.lead.id ?? "");
+        }
       } catch (error) {
         console.warn("[conversas] falha ao carregar conversas reais", error);
         if (mounted) {
