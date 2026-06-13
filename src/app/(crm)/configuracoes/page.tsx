@@ -181,6 +181,12 @@ type IntegrationEnvironmentStatus = {
   };
 };
 
+type IntegrationEnvironmentValues = {
+  openai?: Partial<Pick<IntegrationSettings["openai"], "apiKey" | "model">>;
+  evolution?: Partial<Pick<IntegrationSettings["evolution"], "baseUrl" | "apiKey" | "instanceName" | "webhookSecret">>;
+  minio?: Partial<Pick<IntegrationSettings["minio"], "endpoint" | "accessKey" | "secretKey" | "bucket" | "region">>;
+};
+
 export default function ConfiguracoesPage() {
   const [activeTab, setActiveTab] = useState<TabId>("empresa");
 
@@ -729,6 +735,8 @@ function PermissoesPanel() {
 function IntegracoesPanel() {
   const [settings, setSettings] = useState<IntegrationSettings>(defaultIntegrationSettings);
   const [environmentStatus, setEnvironmentStatus] = useState<IntegrationEnvironmentStatus | null>(null);
+  const [environmentValues, setEnvironmentValues] = useState<IntegrationEnvironmentValues | null>(null);
+  const [canRevealSecrets, setCanRevealSecrets] = useState(false);
   const [saved, setSaved] = useState(false);
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "error">("loading");
@@ -744,6 +752,8 @@ function IntegracoesPanel() {
         const data = await response.json().catch(() => ({})) as {
           settings?: IntegrationSettings;
           environment?: IntegrationEnvironmentStatus;
+          environmentValues?: IntegrationEnvironmentValues | null;
+          canRevealSecrets?: boolean;
           error?: string;
         };
 
@@ -754,6 +764,8 @@ function IntegracoesPanel() {
         if (active && data.settings) {
           setSettings(data.settings);
           setEnvironmentStatus(data.environment ?? null);
+          setEnvironmentValues(data.environmentValues ?? null);
+          setCanRevealSecrets(Boolean(data.canRevealSecrets));
           setStatus("idle");
         }
       } catch (error) {
@@ -786,6 +798,46 @@ function IntegracoesPanel() {
       }
     }));
     setSaved(false);
+  }
+
+  function revealEnvironmentSecrets() {
+    if (!canRevealSecrets) {
+      setShowSecrets(false);
+      setMessage("Somente o superadmin pode visualizar chaves sensiveis.");
+      setStatus("error");
+      return;
+    }
+
+    setShowSecrets((value) => {
+      const nextValue = !value;
+      if (nextValue && environmentValues) {
+        setSettings((current) => ({
+          openai: {
+            ...current.openai,
+            apiKey: current.openai.apiKey || environmentValues.openai?.apiKey || "",
+            model: current.openai.model || environmentValues.openai?.model || current.openai.model
+          },
+          evolution: {
+            ...current.evolution,
+            baseUrl: current.evolution.baseUrl || environmentValues.evolution?.baseUrl || "",
+            apiKey: current.evolution.apiKey || environmentValues.evolution?.apiKey || "",
+            instanceName: current.evolution.instanceName || environmentValues.evolution?.instanceName || "",
+            webhookSecret: current.evolution.webhookSecret || environmentValues.evolution?.webhookSecret || ""
+          },
+          minio: {
+            ...current.minio,
+            endpoint: current.minio.endpoint || environmentValues.minio?.endpoint || "",
+            accessKey: current.minio.accessKey || environmentValues.minio?.accessKey || "",
+            secretKey: current.minio.secretKey || environmentValues.minio?.secretKey || "",
+            bucket: current.minio.bucket || environmentValues.minio?.bucket || current.minio.bucket,
+            region: current.minio.region || environmentValues.minio?.region || current.minio.region
+          }
+        }));
+      }
+      setStatus("idle");
+      setMessage("");
+      return nextValue;
+    });
   }
 
   function testIntegration(service: keyof IntegrationSettings) {
@@ -844,8 +896,10 @@ function IntegracoesPanel() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setShowSecrets((value) => !value)}
-              className="inline-flex h-10 items-center gap-2 rounded-[14px] border border-white/10 px-4 text-sm font-bold text-muted-foreground transition hover:bg-white/[0.06] hover:text-foreground"
+              onClick={revealEnvironmentSecrets}
+              disabled={status === "loading"}
+              title={canRevealSecrets ? "Mostrar chaves sensiveis" : "Disponivel somente para superadmin"}
+              className="inline-flex h-10 items-center gap-2 rounded-[14px] border border-white/10 px-4 text-sm font-bold text-muted-foreground transition hover:bg-white/[0.06] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
             >
               {showSecrets ? <EyeOff size={16} /> : <Eye size={16} />}
               {showSecrets ? "Ocultar chaves" : "Mostrar chaves"}
