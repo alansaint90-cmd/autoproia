@@ -4,6 +4,7 @@ import { conversations, handoffEvents, leads, messages, users } from "@/lib/db/s
 import { SYSTEM_USER_ID } from "@/lib/constants";
 import { env } from "@/lib/env";
 import { generateAiReply, triageInitialConversation, type AiTriageResult } from "@/lib/services/ai-agent";
+import { isWhatsAppAiPaused } from "@/lib/services/ai-control-service";
 import { logAiDecision } from "@/lib/services/ai-decision-log-service";
 import { transcribeInboundAudio, type AudioTranscriptionResult } from "@/lib/services/audio-transcription-service";
 import { classifyCommercialSignal, type CommercialSignal } from "@/lib/services/commercial-status-service";
@@ -52,6 +53,7 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
   let conversation = conversationState.conversation;
   let triage: AiTriageResult | null = null;
   const shouldStartAiFlow = isAiEligibleInbound(inbound);
+  const whatsappAiPaused = !inbound.fromMe ? await isWhatsAppAiPaused() : false;
 
   if (!inbound.fromMe && !conversationState.created && conversation.status !== "ai") {
     leadSignal = { ...leadSignal, pipelineStage: "atendimento" };
@@ -68,7 +70,7 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
     });
   }
 
-  if (!inbound.fromMe && conversationState.created && shouldStartAiFlow) {
+  if (!inbound.fromMe && conversationState.created && shouldStartAiFlow && !whatsappAiPaused) {
     triage = await triageInitialConversation({
       leadName: inbound.leadName,
       messages: [{ role: "lead", content: inbound.text }]
@@ -96,19 +98,32 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
         pipelineStage: triage.pipelineStage
       }
     });
-  } else if (!inbound.fromMe && conversationState.created && !shouldStartAiFlow) {
-    const manualQueue = await applyInitialManualQueue(conversation.id, lead.id, inbound);
+  } else if (!inbound.fromMe && conversationState.created && (!shouldStartAiFlow || whatsappAiPaused)) {
+    const manualQueue = await applyInitialManualQueue(
+      conversation.id,
+      lead.id,
+      inbound,
+      whatsappAiPaused
+        ? {
+          reason: "IA geral do WhatsApp pausada no painel IA Comercial.",
+          context: "Politica atual: IA geral do WhatsApp pausada pelo painel IA Comercial.",
+          logReason: "Lead novo registrado com IA pausada porque a IA geral do WhatsApp esta pausada no painel IA Comercial."
+        }
+        : undefined
+    );
     conversation = manualQueue.conversation;
     leadSignal = { ...leadSignal, pipelineStage: "novo" };
     await logAiDecision({
       conversationId: conversation.id,
       leadId: lead.id,
       action: "ai_mode_skipped",
-      reason: "Lead novo sem origem de anuncio. Conversa registrada com IA pausada para triagem humana.",
+      reason: whatsappAiPaused
+        ? "IA geral do WhatsApp pausada no painel IA Comercial. Conversa registrada com IA pausada."
+        : "Lead novo sem origem de anuncio. Conversa registrada com IA pausada para triagem humana.",
       mode: "human",
       safetyStatus: "ok",
       metadata: {
-        sourcePolicy: "ads_only",
+        sourcePolicy: whatsappAiPaused ? "global_ai_paused" : "ads_only",
         marketing: inbound.marketing
       }
     });
@@ -251,7 +266,7 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
     payload: { message }
   });
 
-  if (!inbound.fromMe && conversation.status === "ai") {
+  if (!inbound.fromMe && conversation.status === "ai" && !whatsappAiPaused) {
     await pushToConversationBuffer({
       conversationId: conversation.id,
       messageId: message.id,
@@ -259,6 +274,18 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
       receivedAt: new Date().toISOString()
     });
     await scheduleBufferProcessing(conversation.id);
+  } else if (!inbound.fromMe && conversation.status === "ai" && whatsappAiPaused) {
+    await clearConversationBuffer(conversation.id);
+    await logAiDecision({
+      conversationId: conversation.id,
+      leadId: lead.id,
+      messageId: message.id,
+      action: "ai_reply_skipped_global_pause",
+      reason: "Mensagem nao entrou no buffer porque a IA geral do WhatsApp esta pausada.",
+      mode: "paused",
+      safetyStatus: "skipped",
+      metadata: { sourcePolicy: "global_ai_paused" }
+    });
   }
 
   return { lead, conversation, message, duplicated: false };
@@ -494,6 +521,20 @@ function getCommercialNotificationTitle(status: string) {
 
 export async function processBufferedConversation(conversationId: string) {
   console.info("[conversation-service] processing buffer started", { conversationId });
+
+  if (await isWhatsAppAiPaused()) {
+    await clearConversationBuffer(conversationId);
+    await logAiDecision({
+      conversationId,
+      action: "ai_reply_skipped_global_pause",
+      reason: "A IA nao respondeu porque a IA geral do WhatsApp esta pausada no painel IA Comercial.",
+      mode: "paused",
+      safetyStatus: "skipped",
+      metadata: { sourcePolicy: "global_ai_paused" }
+    });
+    console.info("[conversation-service] processing skipped by global whatsapp ai pause", { conversationId });
+    return { skipped: true };
+  }
 
   if (!(await shouldProcessBuffer(conversationId))) {
     console.info("[conversation-service] processing skipped without pending buffer", { conversationId });
@@ -1022,18 +1063,28 @@ async function applyInitialTriage(conversationId: string, leadId: string, triage
   return { conversation };
 }
 
-async function applyInitialManualQueue(conversationId: string, leadId: string, input: NormalizedInboundMessage) {
+async function applyInitialManualQueue(
+  conversationId: string,
+  leadId: string,
+  input: NormalizedInboundMessage,
+  options?: {
+    reason: string;
+    context: string;
+    logReason: string;
+  }
+) {
   const now = new Date();
+  const pausedReason = options?.reason ?? "Lead novo sem origem de anuncio. IA pausada pela politica inicial ads_only.";
 
   const [conversation] = await db
     .update(conversations)
     .set({
       status: "human",
       assigned_to: null,
-      ai_paused_reason: "Lead novo sem origem de anuncio. IA pausada pela politica inicial ads_only.",
+      ai_paused_reason: pausedReason,
       context_summary: [
         "Entrada registrada sem sinal de anuncio.",
-        "Politica atual: somente leads de anuncios entram no fluxo automatico da IA.",
+        options?.context ?? "Politica atual: somente leads de anuncios entram no fluxo automatico da IA.",
         `Origem detectada: ${input.marketing?.origin ?? "WhatsApp"}.`
       ].join(" "),
       last_message_at: now,
@@ -1047,7 +1098,7 @@ async function applyInitialManualQueue(conversationId: string, leadId: string, i
     leadId,
     toStage: "novo",
     conversationId,
-    reason: "Lead novo sem origem de anuncio entrou fora do fluxo automatico da IA.",
+    reason: options?.logReason ?? "Lead novo sem origem de anuncio entrou fora do fluxo automatico da IA.",
     actor: "Sistema",
     updates: {
       last_interaction_at: now

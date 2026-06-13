@@ -2,6 +2,7 @@
 
 import {
   AlertCircle,
+  BellRing,
   Bot,
   BriefcaseBusiness,
   Building2,
@@ -12,10 +13,15 @@ import {
   HardDrive,
   ImagePlus,
   KeyRound,
+  Loader2,
   Maximize2,
+  MessageCircle,
   Moon,
+  PauseCircle,
   Plus,
+  PlayCircle,
   Plug,
+  Send,
   Server,
   Settings,
   ShieldCheck,
@@ -1096,6 +1102,17 @@ type PromptEditorProps = {
   onExpand: () => void;
 };
 
+type AiControlSettings = {
+  whatsappPaused: boolean;
+  pausedReason: string;
+  updatedAt?: string;
+};
+
+type AiTestMessage = {
+  role: "lead" | "ai";
+  content: string;
+};
+
 function PromptEditor({
   label,
   description,
@@ -1132,9 +1149,18 @@ function PromptEditor({
 
 function IaComercialPanel() {
   const [settings, setSettings] = useState<AiBusinessSettings>(defaultAiBusinessSettings);
+  const [aiControl, setAiControl] = useState<AiControlSettings>({ whatsappPaused: false, pausedReason: "" });
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [expandedPrompt, setExpandedPrompt] = useState<{ key: PromptFieldKey; title: string; mono?: boolean } | null>(null);
+  const [controlLoading, setControlLoading] = useState(false);
+  const [controlMessage, setControlMessage] = useState("");
+  const [aiTestInput, setAiTestInput] = useState("");
+  const [aiTestMessages, setAiTestMessages] = useState<AiTestMessage[]>([]);
+  const [aiTestLoading, setAiTestLoading] = useState(false);
+  const [aiTestError, setAiTestError] = useState("");
+  const [notificationTesting, setNotificationTesting] = useState(false);
+  const [notificationTestMessage, setNotificationTestMessage] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -1157,6 +1183,19 @@ function IaComercialPanel() {
       .catch(() => {
         if (active) {
           setSettings(defaultAiBusinessSettings);
+        }
+      });
+
+    fetch("/api/settings/ai-control")
+      .then((response) => response.json())
+      .then((data: { settings?: AiControlSettings }) => {
+        if (active && data.settings) {
+          setAiControl(data.settings);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setControlMessage("Nao foi possivel carregar o status geral da IA.");
         }
       });
 
@@ -1203,6 +1242,104 @@ function IaComercialPanel() {
     }
   }
 
+  async function toggleWhatsappAiPause() {
+    setControlLoading(true);
+    setControlMessage("");
+
+    const nextPaused = !aiControl.whatsappPaused;
+
+    try {
+      const response = await fetch("/api/settings/ai-control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          whatsappPaused: nextPaused,
+          pausedReason: nextPaused ? "Pausada manualmente no painel IA Comercial." : ""
+        })
+      });
+
+      const data = (await response.json().catch(() => null)) as { settings?: AiControlSettings; error?: string } | null;
+      if (!response.ok || !data?.settings) {
+        throw new Error(data?.error ?? "Nao foi possivel atualizar o status geral da IA.");
+      }
+
+      setAiControl(data.settings);
+      setControlMessage(nextPaused ? "IA pausada para novas respostas no WhatsApp." : "IA retomada para respostas automaticas no WhatsApp.");
+    } catch (toggleError) {
+      setControlMessage(toggleError instanceof Error ? toggleError.message : "Nao foi possivel atualizar o status geral da IA.");
+    } finally {
+      setControlLoading(false);
+    }
+  }
+
+  async function sendAiTestMessage() {
+    const message = aiTestInput.trim();
+    if (!message || aiTestLoading) return;
+
+    const nextMessages: AiTestMessage[] = [...aiTestMessages, { role: "lead", content: message }];
+    setAiTestMessages(nextMessages);
+    setAiTestInput("");
+    setAiTestLoading(true);
+    setAiTestError("");
+
+    try {
+      const response = await fetch("/api/settings/ai-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadName: "Lead de teste",
+          message,
+          history: aiTestMessages.map((item) => ({
+            role: item.role,
+            content: item.content
+          }))
+        })
+      });
+
+      const data = (await response.json().catch(() => null)) as { reply?: string; error?: string } | null;
+      if (!response.ok || !data?.reply) {
+        throw new Error(data?.error ?? "Nao foi possivel gerar resposta da IA.");
+      }
+
+      setAiTestMessages([...nextMessages, { role: "ai", content: data.reply }]);
+    } catch (testError) {
+      setAiTestError(testError instanceof Error ? testError.message : "Nao foi possivel testar a IA.");
+      setAiTestMessages(nextMessages);
+    } finally {
+      setAiTestLoading(false);
+    }
+  }
+
+  async function sendNotificationTest() {
+    setNotificationTesting(true);
+    setNotificationTestMessage("");
+
+    try {
+      const response = await fetch("/api/settings/notification-test", { method: "POST" });
+      const data = (await response.json().catch(() => null)) as {
+        sent?: string[];
+        failed?: Array<{ phone: string; error: string }>;
+        error?: string;
+      } | null;
+
+      if (!response.ok) {
+        throw new Error(data?.error ?? "Nao foi possivel enviar notificacao de teste.");
+      }
+
+      const sentCount = data?.sent?.length ?? 0;
+      const failedCount = data?.failed?.length ?? 0;
+      setNotificationTestMessage(
+        failedCount > 0
+          ? `Teste enviado para ${sentCount} numero(s), com ${failedCount} falha(s).`
+          : `Teste enviado para ${sentCount} numero(s) cadastrado(s).`
+      );
+    } catch (notificationError) {
+      setNotificationTestMessage(notificationError instanceof Error ? notificationError.message : "Nao foi possivel testar as notificacoes.");
+    } finally {
+      setNotificationTesting(false);
+    }
+  }
+
   return (
     <section className="space-y-5">
       <div className="rounded-[22px] border border-border bg-card/72 p-6 shadow-panel">
@@ -1219,6 +1356,132 @@ function IaComercialPanel() {
           <Bot size={14} />
           Usado no WhatsApp
         </span>
+      </div>
+
+      <div className="mt-6 grid gap-4 xl:grid-cols-[0.9fr_1.15fr_0.85fr]">
+        <div className="rounded-[20px] border border-sky-400/20 bg-[linear-gradient(145deg,rgba(11,95,165,0.18),rgba(255,255,255,0.035))] p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-200">Controle WhatsApp</p>
+              <h3 className="mt-1 text-base font-extrabold">
+                IA {aiControl.whatsappPaused ? "pausada" : "ativa"}
+              </h3>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                Pausa geral para impedir novas respostas automaticas no WhatsApp.
+              </p>
+            </div>
+            <span className={cn(
+              "inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase",
+              aiControl.whatsappPaused
+                ? "border-primary/35 bg-primary/10 text-primary"
+                : "border-sky-300/30 bg-sky-400/10 text-sky-100"
+            )}>
+              <span className={cn("size-2 rounded-full", aiControl.whatsappPaused ? "bg-primary" : "bg-sky-300")} />
+              {aiControl.whatsappPaused ? "Pausada" : "Ativa"}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => void toggleWhatsappAiPause()}
+            disabled={controlLoading}
+            className={cn(
+              "mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-extrabold transition disabled:cursor-wait disabled:opacity-70",
+              aiControl.whatsappPaused
+                ? "ap-button-primary"
+                : "border border-primary/25 bg-primary/10 text-primary hover:bg-primary/15"
+            )}
+          >
+            {controlLoading ? <Loader2 className="size-4 animate-spin" /> : aiControl.whatsappPaused ? <PlayCircle size={16} /> : <PauseCircle size={16} />}
+            {aiControl.whatsappPaused ? "Retomar IA no WhatsApp" : "Pausar IA no WhatsApp"}
+          </button>
+          {controlMessage ? <p className="mt-3 text-xs font-semibold text-muted-foreground">{controlMessage}</p> : null}
+        </div>
+
+        <div className="rounded-[20px] border border-white/[0.08] bg-white/[0.035] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Teste interno</p>
+              <h3 className="mt-1 text-base font-extrabold">Chat de teste da IA</h3>
+            </div>
+            <MessageCircle className="size-5 text-primary" />
+          </div>
+          <div className="mt-4 h-48 space-y-3 overflow-y-auto rounded-[16px] border border-border bg-background/55 p-3">
+            {aiTestMessages.length === 0 ? (
+              <p className="text-xs leading-5 text-muted-foreground">
+                Simule uma pergunta do lead para validar o prompt antes de testar no WhatsApp real.
+              </p>
+            ) : (
+              aiTestMessages.map((message, index) => (
+                <div
+                  key={`${message.role}-${index}`}
+                  className={cn(
+                    "max-w-[88%] rounded-[16px] px-3 py-2 text-xs leading-5",
+                    message.role === "ai"
+                      ? "ml-auto border border-sky-300/20 bg-sky-400/10 text-sky-50"
+                      : "border border-border bg-card text-foreground"
+                  )}
+                >
+                  {message.content}
+                </div>
+              ))
+            )}
+            {aiTestLoading ? (
+              <div className="ml-auto flex w-fit items-center gap-2 rounded-[16px] border border-sky-300/20 bg-sky-400/10 px-3 py-2 text-xs font-semibold text-sky-50">
+                <Loader2 className="size-3 animate-spin" />
+                IA pensando
+              </div>
+            ) : null}
+          </div>
+          <div className="mt-3 flex gap-2">
+            <input
+              value={aiTestInput}
+              onChange={(event) => setAiTestInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  void sendAiTestMessage();
+                }
+              }}
+              className="kanban-input h-10"
+              placeholder="Digite uma mensagem de teste..."
+            />
+            <button
+              type="button"
+              onClick={() => void sendAiTestMessage()}
+              disabled={aiTestLoading || !aiTestInput.trim()}
+              className="grid size-10 shrink-0 place-items-center rounded-[14px] bg-primary text-primary-foreground shadow-glow transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Enviar teste para IA"
+            >
+              <Send size={16} />
+            </button>
+          </div>
+          {aiTestError ? <p className="mt-2 text-xs font-semibold text-danger">{aiTestError}</p> : null}
+        </div>
+
+        <div className="rounded-[20px] border border-primary/18 bg-[linear-gradient(145deg,rgba(250,197,21,0.10),rgba(255,255,255,0.035))] p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-primary">Notificacoes</p>
+              <h3 className="mt-1 text-base font-extrabold">Teste WhatsApp interno</h3>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                Envia uma mensagem de teste para os numeros cadastrados em notificacoes.
+              </p>
+            </div>
+            <BellRing className="size-5 text-primary" />
+          </div>
+          <button
+            type="button"
+            onClick={() => void sendNotificationTest()}
+            disabled={notificationTesting}
+            className="ap-button-primary mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-extrabold disabled:cursor-wait disabled:opacity-70"
+          >
+            {notificationTesting ? <Loader2 className="size-4 animate-spin" /> : <BellRing size={16} />}
+            Testar notificacao no WhatsApp
+          </button>
+          {notificationTestMessage ? (
+            <p className="mt-3 text-xs font-semibold text-muted-foreground">{notificationTestMessage}</p>
+          ) : null}
+        </div>
       </div>
 
       <form

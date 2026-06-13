@@ -6,6 +6,7 @@ type AiDecisionAction =
   | "ai_reply_generated"
   | "ai_reply_blocked_by_safety"
   | "ai_reply_skipped_manual_mode"
+  | "ai_reply_skipped_global_pause"
   | "ai_mode_skipped"
   | "ai_triage_applied"
   | "ai_qualified_lead"
