@@ -148,7 +148,14 @@ export async function POST(request: NextRequest) {
       id: createdMessage?.id ?? randomUUID(),
       from: "human" as const,
       text: messageContent,
-      time: createdMessage?.created_at ? formatMessageTime(createdMessage.created_at) : "agora"
+      time: createdMessage?.created_at ? formatMessageTime(createdMessage.created_at) : "agora",
+      media: attachment
+        ? {
+          type: attachment.type,
+          dataUrl: attachment.dataUrl,
+          fileName: attachment.name
+        }
+        : undefined
     };
 
     await appendRecentConversationContext({

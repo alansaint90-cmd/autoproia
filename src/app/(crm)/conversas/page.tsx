@@ -12,6 +12,7 @@ import {
   Clock3,
   Gauge,
   ImageIcon,
+  FileText,
   LockKeyhole,
   MessageCircle,
   MessageSquareText,
@@ -226,6 +227,106 @@ function AttachmentIcon({ type, className }: { type: QuickReplyAttachment["type"
   if (type === "audio") return <Music2 className={className} />;
   if (type === "image") return <ImageIcon className={className} />;
   return <Video className={className} />;
+}
+
+function messageMediaSource(message: Conversation["messages"][number]) {
+  return message.media?.dataUrl || message.media?.sourceUrl || "";
+}
+
+function messageTextForDisplay(message: Conversation["messages"][number]) {
+  const text = message.text.trim();
+  if (!message.media) return text;
+
+  if (message.media.type === "image" && /^\[imagem recebida\]$/i.test(text)) return "";
+  if (message.media.type === "video" && /^\[video recebido\]$/i.test(text)) return "";
+  if (message.media.type === "document" && /^\[documento recebido/i.test(text)) return "";
+  if (message.media.type === "audio") {
+    return message.media.transcription || text.replace(/^audio transcrito do cliente:\s*/i, "");
+  }
+
+  return text;
+}
+
+function ChatMediaAttachment({ message }: { message: Conversation["messages"][number] }) {
+  const media = message.media;
+  if (!media) return null;
+
+  const source = messageMediaSource(message);
+  const fileName = media.fileName || (
+    media.type === "audio" ? "audio recebido" :
+    media.type === "image" ? "imagem recebida" :
+    media.type === "video" ? "video recebido" :
+    "documento recebido"
+  );
+
+  if (media.type === "image") {
+    return (
+      <a
+        href={source || undefined}
+        target="_blank"
+        rel="noreferrer"
+        className="mb-3 block overflow-hidden rounded-xl border border-white/10 bg-black/20"
+      >
+        {source ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={source} alt={fileName} className="max-h-72 w-full object-cover" />
+        ) : (
+          <div className="flex items-center gap-2 p-3 text-xs text-muted-foreground">
+            <ImageIcon className="size-4 text-primary" />
+            Imagem recebida sem arquivo disponivel.
+          </div>
+        )}
+      </a>
+    );
+  }
+
+  if (media.type === "audio") {
+    return (
+      <div className="mb-3 rounded-xl border border-white/10 bg-black/20 p-3">
+        <div className="mb-2 flex items-center gap-2 text-xs font-bold text-primary">
+          <Music2 className="size-4" />
+          Audio do cliente
+        </div>
+        {source ? (
+          <audio controls preload="metadata" src={source} className="w-full" />
+        ) : (
+          <p className="text-xs text-muted-foreground">Audio recebido, mas o arquivo original nao esta disponivel.</p>
+        )}
+      </div>
+    );
+  }
+
+  if (media.type === "video") {
+    return (
+      <div className="mb-3 overflow-hidden rounded-xl border border-white/10 bg-black/20">
+        {source ? (
+          <video controls preload="metadata" src={source} className="max-h-80 w-full bg-black" />
+        ) : (
+          <div className="flex items-center gap-2 p-3 text-xs text-muted-foreground">
+            <Video className="size-4 text-primary" />
+            Video recebido sem arquivo disponivel.
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <a
+      href={source || undefined}
+      target="_blank"
+      rel="noreferrer"
+      className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 p-3 text-xs font-bold text-foreground transition hover:border-primary/40"
+    >
+      <span className="flex items-center gap-2">
+        <FileText className="size-4 text-primary" />
+        {fileName}
+      </span>
+      <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+        {source ? "Abrir" : "Indisponivel"}
+      </span>
+    </a>
+  );
 }
 
 function initialsFromName(name: string) {
@@ -1821,6 +1922,7 @@ export default function ConversasPage() {
               const isCompany = message.from !== "lead";
               const isEditingMessage = editingMessageId === message.id;
               const canManageMessage = isCompany && isPersistedMessageId(message.id);
+              const displayText = messageTextForDisplay(message);
 
               return (
                 <div key={message.id} className={cn("flex", isCompany ? "justify-end" : "justify-start")}>
@@ -1892,7 +1994,19 @@ export default function ConversasPage() {
                         </div>
                       </div>
                     ) : (
-                      <p className="leading-6">{message.text}</p>
+                      <>
+                        <ChatMediaAttachment message={message} />
+                        {displayText ? (
+                          <p className="leading-6">
+                            {message.media?.type === "audio" ? (
+                              <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                                Transcricao
+                              </span>
+                            ) : null}
+                            {displayText}
+                          </p>
+                        ) : null}
+                      </>
                     )}
                     <div className="mt-1 text-right text-[10px] text-muted-foreground">{message.time}</div>
                   </div>

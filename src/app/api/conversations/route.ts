@@ -38,6 +38,7 @@ type ConversationRow = {
     role: "lead" | "ai" | "human" | "system";
     content: string;
     created_at: string;
+    metadata?: Record<string, unknown> | null;
   }> | null;
 };
 
@@ -118,12 +119,13 @@ export async function GET(request: NextRequest) {
                 'id', ordered_messages.id,
                 'role', ordered_messages.role,
                 'content', ordered_messages.content,
-                'created_at', ordered_messages.created_at
+                'created_at', ordered_messages.created_at,
+                'metadata', ordered_messages.metadata
               )
               order by ordered_messages.created_at asc
             )
             from (
-              select m.id, m.role, m.content, m.created_at
+              select m.id, m.role, m.content, m.created_at, m.metadata
               from messages m
               where m.conversation_id = c.id
                 and m.is_deleted = false
@@ -198,7 +200,8 @@ export async function GET(request: NextRequest) {
           id: message.id,
           from: message.role === "ai" ? "ia" : message.role === "human" ? "human" : "lead",
           text: message.content,
-          time: formatTime(message.created_at)
+          time: formatTime(message.created_at),
+          media: normalizeMessageMedia(message.metadata)
         })),
         initials: initialsFromName(name)
       };
@@ -211,4 +214,38 @@ export async function GET(request: NextRequest) {
       { status: 403 }
     );
   }
+}
+
+function normalizeMessageMedia(metadata: Record<string, unknown> | null | undefined) {
+  const media = metadata && typeof metadata === "object" && typeof metadata.media === "object" && metadata.media !== null
+    ? metadata.media as Record<string, unknown>
+    : metadata && typeof metadata === "object" && typeof metadata.attachment === "object" && metadata.attachment !== null
+      ? metadata.attachment as Record<string, unknown>
+      : null;
+
+  if (!media) return undefined;
+
+  const type = typeof media.type === "string" ? media.type : "";
+  if (!["audio", "image", "video", "document"].includes(type)) return undefined;
+
+  const mimeType = typeof media.mimeType === "string" ? media.mimeType : undefined;
+  const base64 = typeof media.base64 === "string" ? media.base64 : undefined;
+  const dataUrl = base64 ? toDataUrl(base64, mimeType) : undefined;
+  const sourceUrl = typeof media.url === "string" ? media.url : undefined;
+
+  return {
+    type,
+    sourceUrl,
+    dataUrl,
+    fileName: typeof media.fileName === "string" ? media.fileName : undefined,
+    mimeType,
+    caption: typeof media.caption === "string" ? media.caption : undefined,
+    transcription: typeof media.transcription === "string" ? media.transcription : undefined,
+    transcriptionStatus: typeof media.transcriptionStatus === "string" ? media.transcriptionStatus : undefined
+  };
+}
+
+function toDataUrl(value: string, mimeType?: string) {
+  if (value.startsWith("data:")) return value;
+  return `data:${mimeType || "application/octet-stream"};base64,${value}`;
 }

@@ -70,6 +70,16 @@ export type Message = {
   from: "lead" | "ia" | "human";
   text: string;
   time: string;
+  media?: {
+    type: "audio" | "image" | "video" | "document";
+    sourceUrl?: string;
+    dataUrl?: string;
+    fileName?: string;
+    mimeType?: string;
+    caption?: string;
+    transcription?: string;
+    transcriptionStatus?: string;
+  };
 };
 
 export const conversations: Array<{
