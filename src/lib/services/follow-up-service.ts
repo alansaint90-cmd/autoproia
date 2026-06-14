@@ -5,7 +5,7 @@ import { conversations, leads, messages } from "@/lib/db/schema";
 import { generateAiFollowUp } from "@/lib/services/ai-agent";
 import { logAiDecision } from "@/lib/services/ai-decision-log-service";
 import { createCrmNotification } from "@/lib/services/crm-notification-service";
-import { sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
+import { normalizeEvolutionSendResults, sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
 import { moveLeadStage } from "@/lib/services/funnel-stage-service";
 import { appendRecentConversationContext, getRecentConversationContext } from "@/lib/services/message-buffer";
 import { publishRealtimeEvent } from "@/lib/services/realtime";
@@ -200,15 +200,20 @@ async function sendFollowUpForConversation(target: DueFollowUpRow) {
   });
   const cleanReply = sanitizeWhatsAppText(reply);
 
-  await sendWhatsAppText({ phone: target.phone, text: cleanReply });
+  const evolutionResults = normalizeEvolutionSendResults(await sendWhatsAppText({ phone: target.phone, text: cleanReply }));
 
   const [message] = await db
     .insert(messages)
     .values({
       conversation_id: target.conversation_id,
+      external_message_id: evolutionResults[0]?.messageId,
       role: "ai",
       content: cleanReply,
-      metadata: { source: "follow_up", followUpNumber },
+      metadata: {
+        source: "follow_up",
+        followUpNumber,
+        evolutionMessageKeys: evolutionResults.map((result) => result.key).filter(Boolean)
+      },
       modified_by: SYSTEM_USER_ID
     })
     .returning();

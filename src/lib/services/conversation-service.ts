@@ -9,7 +9,7 @@ import { logAiDecision } from "@/lib/services/ai-decision-log-service";
 import { transcribeInboundAudio, type AudioTranscriptionResult } from "@/lib/services/audio-transcription-service";
 import { classifyCommercialSignal, type CommercialSignal } from "@/lib/services/commercial-status-service";
 import { createCrmNotification } from "@/lib/services/crm-notification-service";
-import { fetchWhatsAppProfilePicture, sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
+import { fetchWhatsAppProfilePicture, normalizeEvolutionSendResults, sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
 import { moveLeadStage, moveLeadStageIfOpen, type FunnelStage } from "@/lib/services/funnel-stage-service";
 import { analyzeAndSavePaymentReceipt, isPotentialPixReceipt } from "@/lib/services/payment-receipt-service";
 import {
@@ -479,14 +479,19 @@ async function sendPaymentReceiptAck(input: {
   const text = "Recebi seu comprovante e encaminhei para conferencia. Ja vamos validar para dar continuidade.";
 
   try {
-    await sendWhatsAppText({ phone: input.phone, text });
+    const evolutionResults = normalizeEvolutionSendResults(await sendWhatsAppText({ phone: input.phone, text }));
     const [aiMessage] = await db
       .insert(messages)
       .values({
         conversation_id: input.conversationId,
+        external_message_id: evolutionResults[0]?.messageId,
         role: "ai",
         content: text,
-        metadata: { source: "payment_receipt_ack", sourceMessageId: input.sourceMessageId },
+        metadata: {
+          source: "payment_receipt_ack",
+          sourceMessageId: input.sourceMessageId,
+          evolutionMessageKeys: evolutionResults.map((result) => result.key).filter(Boolean)
+        },
         modified_by: SYSTEM_USER_ID
       })
       .returning();
@@ -658,16 +663,21 @@ export async function processBufferedConversation(conversationId: string) {
   }
 
   console.info("[conversation-service] sending whatsapp reply", { conversationId, phone: lead.phone });
-  await sendWhatsAppText({ phone: lead.phone, text: cleanReply });
+  const evolutionResults = normalizeEvolutionSendResults(await sendWhatsAppText({ phone: lead.phone, text: cleanReply }));
   console.info("[conversation-service] whatsapp reply sent", { conversationId });
 
   const [aiMessage] = await db
     .insert(messages)
     .values({
       conversation_id: conversationId,
+      external_message_id: evolutionResults[0]?.messageId,
       role: "ai",
       content: cleanReply,
-      metadata: { source: "openai", bufferedMessageIds: buffered.map((item) => item.messageId) },
+      metadata: {
+        source: "openai",
+        bufferedMessageIds: buffered.map((item) => item.messageId),
+        evolutionMessageKeys: evolutionResults.map((result) => result.key).filter(Boolean)
+      },
       modified_by: SYSTEM_USER_ID
     })
     .returning();

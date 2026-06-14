@@ -9,7 +9,7 @@ import { assertPermission } from "@/lib/services/permission-service";
 import { scheduleLeadFollowUp } from "@/lib/services/follow-up-service";
 import { moveLeadStageIfOpen } from "@/lib/services/funnel-stage-service";
 import { publishRealtimeEvent } from "@/lib/services/realtime";
-import { sanitizeWhatsAppText, sendWhatsAppMedia, sendWhatsAppText } from "@/lib/services/evolution-api";
+import { normalizeEvolutionSendResults, sanitizeWhatsAppText, sendWhatsAppMedia, sendWhatsAppText } from "@/lib/services/evolution-api";
 
 export const runtime = "nodejs";
 
@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Conversa nao encontrada para este lead." }, { status: 404 });
     }
 
+    const evolutionResults = [];
     if (attachment) {
       await sendWhatsAppMedia({
         phone: target.phone,
@@ -93,22 +94,24 @@ export async function POST(request: NextRequest) {
         caption: text || undefined
       });
     } else {
-      await sendWhatsAppText({ phone: target.phone, text });
+      evolutionResults.push(...normalizeEvolutionSendResults(await sendWhatsAppText({ phone: target.phone, text })));
     }
 
     const messageContent = text || `${attachment?.type === "audio" ? "Audio" : attachment?.type === "image" ? "Imagem" : "Video"}: ${attachment?.name}`;
 
     const [createdMessage] = await db.execute<CreatedMessage>(sql`
-      insert into messages (conversation_id, role, content, metadata, modified_by)
+      insert into messages (conversation_id, external_message_id, role, content, metadata, modified_by)
       values (
         ${target.conversation_id},
+        ${evolutionResults[0]?.messageId ?? null},
         'human',
         ${messageContent},
         ${JSON.stringify({
           source: "manual",
           userId: session.userId,
           sender: session.name,
-          attachment: attachment ? { name: attachment.name, type: attachment.type } : null
+          attachment: attachment ? { name: attachment.name, type: attachment.type } : null,
+          evolutionMessageKeys: evolutionResults.map((result) => result.key).filter(Boolean)
         })}::jsonb,
         ${session.userId}
       )
