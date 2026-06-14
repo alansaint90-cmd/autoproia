@@ -86,13 +86,13 @@ export async function POST(request: NextRequest) {
 
     const evolutionResults = [];
     if (attachment) {
-      await sendWhatsAppMedia({
+      evolutionResults.push(...normalizeEvolutionSendResults(await sendWhatsAppMedia({
         phone: target.phone,
         mediaType: attachment.type,
         mediaDataUrl: attachment.dataUrl,
         fileName: attachment.name,
         caption: text || undefined
-      });
+      })));
     } else {
       evolutionResults.push(...normalizeEvolutionSendResults(await sendWhatsAppText({ phone: target.phone, text })));
     }

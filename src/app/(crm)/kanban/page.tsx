@@ -74,7 +74,7 @@ const pipelineStages: Array<{
   { id: "ia", title: "IA Atendendo", group: "Comercial", dot: "bg-[#0f4c8a]", accent: "from-[#0f4c8a]/12" },
   { id: "atendimento", title: "Em Atendimento", group: "Comercial", dot: "bg-[#f9fafb]", accent: "from-white/[0.06]" },
   { id: "followup", title: "Follow up", group: "Follow-up", dot: "bg-primary", accent: "from-primary/10" },
-  { id: "perdido", title: "Leads Desperdicados", group: "Follow-up", dot: "bg-red-400", accent: "from-red-500/10" },
+  { id: "perdido", title: "Sem Retorno", group: "Follow-up", dot: "bg-red-400", accent: "from-red-500/10" },
   { id: "matricula_pendente", title: "Matricula Pendente", group: "Fechamento", dot: "bg-yellow-300", accent: "from-yellow-500/10" },
   { id: "matricula_realizada", title: "Matricula Realizada", group: "Fechamento", dot: "bg-emerald-400", accent: "from-emerald-500/10" }
 ];

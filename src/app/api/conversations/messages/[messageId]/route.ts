@@ -101,29 +101,31 @@ export async function DELETE(_request: NextRequest, context: { params: Promise<{
     }
 
     const remoteKeys = getRemoteMessageKeys(existing);
-    if (remoteKeys.length === 0) {
-      return NextResponse.json(
-        { error: "Esta mensagem nao possui ID remoto da Evolution. Ela pode ser antiga e nao pode ser apagada no WhatsApp." },
-        { status: 409 }
-      );
+    if (remoteKeys.length > 0) {
+      for (const remoteKey of remoteKeys) {
+        await deleteWhatsAppMessageForEveryone({ key: remoteKey });
+      }
     }
 
-    for (const remoteKey of remoteKeys) {
-      await deleteWhatsAppMessageForEveryone({ key: remoteKey });
-    }
+    const remoteDeleted = remoteKeys.length > 0;
+    const warning = remoteDeleted
+      ? null
+      : "Mensagem apagada apenas no painel. Ela nao possui ID remoto da Evolution, entao nao foi possivel apagar no WhatsApp.";
+    const deleteMetadata = {
+      deletedFromChat: true,
+      deletedAt: new Date().toISOString(),
+      deletedBy: session.userId,
+      remoteDeleted,
+      remoteDeletedAt: remoteDeleted ? new Date().toISOString() : null,
+      remoteDeleteSkippedReason: warning
+    };
 
     const [message] = await db.execute<MessageMutationRow>(sql`
       update messages
       set
         is_deleted = true,
         deleted_at = now(),
-        metadata = coalesce(metadata, '{}'::jsonb) || ${JSON.stringify({
-          deletedFromChat: true,
-          deletedAt: new Date().toISOString(),
-          deletedBy: session.userId,
-          remoteDeleted: true,
-          remoteDeletedAt: new Date().toISOString()
-        })}::jsonb,
+        metadata = coalesce(metadata, '{}'::jsonb) || ${JSON.stringify(deleteMetadata)}::jsonb,
         updated_at = now(),
         modified_by = ${session.userId}
       where id = ${messageId}
@@ -134,7 +136,7 @@ export async function DELETE(_request: NextRequest, context: { params: Promise<{
 
     await refreshConversationPreview(message.conversation_id, session.userId);
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, remoteDeleted, warning });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Nao foi possivel apagar a mensagem." },

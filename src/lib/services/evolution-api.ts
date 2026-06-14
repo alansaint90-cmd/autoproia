@@ -164,7 +164,8 @@ export async function sendWhatsAppMedia(input: SendMediaInput) {
   }
 
   console.info("[evolution-api] media send success", { status: response.status });
-  return response.json() as Promise<unknown>;
+  const data = await response.json().catch(() => null);
+  return normalizeSendResponse(data);
 }
 
 export async function fetchWhatsAppProfilePicture(phone: string) {
@@ -259,6 +260,18 @@ function findEvolutionMessageKey(value: unknown): EvolutionMessageKey | undefine
   if (!value || typeof value !== "object") return undefined;
 
   const candidate = value as Record<string, unknown>;
+  const explicitKey = findEvolutionMessageKey(candidate.key);
+  if (explicitKey) return explicitKey;
+
+  if (typeof candidate.messageId === "string") {
+    return {
+      id: candidate.messageId,
+      remoteJid: typeof candidate.remoteJid === "string" ? candidate.remoteJid : undefined,
+      fromMe: typeof candidate.fromMe === "boolean" ? candidate.fromMe : undefined,
+      participant: typeof candidate.participant === "string" ? candidate.participant : undefined
+    };
+  }
+
   if (typeof candidate.id === "string") {
     return {
       id: candidate.id,
@@ -267,10 +280,6 @@ function findEvolutionMessageKey(value: unknown): EvolutionMessageKey | undefine
       participant: typeof candidate.participant === "string" ? candidate.participant : undefined
     };
   }
-
-  const key = candidate.key;
-  const keyCandidate = findEvolutionMessageKey(key);
-  if (keyCandidate) return keyCandidate;
 
   for (const nested of Object.values(candidate)) {
     const found = findEvolutionMessageKey(nested);

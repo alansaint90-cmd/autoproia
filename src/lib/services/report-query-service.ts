@@ -47,7 +47,7 @@ const stageLabels: Record<string, string> = {
   matricula_pendente: "Matricula pendente",
   matricula_realizada: "Matricula realizada",
   fechado: "Matricula realizada",
-  perdido: "Perdido"
+  perdido: "Sem Retorno"
 };
 
 const funnelOrder = ["Novo", "IA atendendo", "Em atendimento", "Follow-up", "Matricula pendente", "Matricula realizada", "Perdido"];

@@ -82,7 +82,7 @@ const stages: Array<{ id: LeadStage; label: string; tone: string }> = [
   { id: "ia", label: "IA Atendendo", tone: "border-[#0f4c8a]/45 bg-[#0f4c8a]/16 text-blue-100" },
   { id: "atendimento", label: "Em Atendimento", tone: "border-white/15 bg-white/[0.06] text-slate-100" },
   { id: "followup", label: "Follow-up", tone: "border-primary/30 bg-primary/10 text-primary" },
-  { id: "perdido", label: "Perdido", tone: "border-danger/30 bg-danger/10 text-red-200" },
+  { id: "perdido", label: "Sem Retorno", tone: "border-danger/30 bg-danger/10 text-red-200" },
   { id: "matricula_pendente", label: "Matricula Pendente", tone: "border-primary/30 bg-primary/10 text-primary" },
   { id: "matricula_realizada", label: "Matricula Realizada", tone: "border-success/30 bg-success/10 text-success" }
 ];

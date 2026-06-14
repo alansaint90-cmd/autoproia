@@ -287,7 +287,7 @@ async function sendFollowUpForConversation(target: DueFollowUpRow) {
       conversationId: target.conversation_id,
       messageId: message.id,
       type: "pending_lead",
-      title: followUpNumber >= 5 ? "Lead movido para perdido" : "Lead pendente sem resposta",
+      title: followUpNumber >= 5 ? "Lead movido para Sem Retorno" : "Lead pendente sem resposta",
       body: followUpNumber >= 5
         ? "Lead recebeu 5 follow-ups automaticos sem resposta e foi marcado como nao venda."
         : "Lead sem resposta apos follow-up. Recomenda-se acao humana para recuperar a matricula.",

@@ -146,7 +146,7 @@ const stageLabels: Partial<Record<Conversation["lead"]["stage"], string>> = {
   matricula_pendente: "Matricula pendente",
   followup: "Follow up",
   fechado: "Fechado",
-  perdido: "Perdido"
+  perdido: "Sem Retorno"
 };
 
 const stageEmoji: Partial<Record<Conversation["lead"]["stage"], string>> = {
@@ -941,7 +941,7 @@ export default function ConversasPage() {
       const response = await fetch(`/api/conversations/messages/${messageId}`, {
         method: "DELETE"
       });
-      const payload = await response.json().catch(() => ({})) as { error?: string };
+      const payload = await response.json().catch(() => ({})) as { error?: string; warning?: string };
 
       if (!response.ok) {
         throw new Error(payload.error || "Nao foi possivel apagar a mensagem.");
@@ -962,6 +962,9 @@ export default function ConversasPage() {
         })
       );
       if (editingMessageId === messageId) cancelEditMessage();
+      if (payload.warning) {
+        window.alert(payload.warning);
+      }
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Nao foi possivel apagar a mensagem.");
     } finally {

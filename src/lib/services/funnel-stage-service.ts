@@ -133,7 +133,7 @@ function stageLabel(stage: FunnelStage) {
     followup: "Follow-up",
     matricula_pendente: "Fechamento / Matricula Pendente",
     fechado: "Matricula Realizada",
-    perdido: "Leads Desperdicados"
+    perdido: "Sem Retorno"
   };
   return labels[stage];
 }
