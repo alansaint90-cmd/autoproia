@@ -32,7 +32,31 @@ export type NormalizedInboundMessage = {
   fromMe: boolean;
 };
 
+export function getIgnorableChatReason(remoteJid: string) {
+  const jid = remoteJid.trim().toLowerCase();
+  const numeric = jid.replace(/\D/g, "");
+
+  if (!jid) return "jid_empty";
+  if (jid === "status@broadcast") return "status_broadcast";
+  if (jid.includes("@g.us")) return "group_message";
+  if (jid.includes("@newsletter")) return "newsletter_message";
+  if (jid.includes("@broadcast")) return "broadcast_message";
+  if (numeric.startsWith("120363")) return "group_or_channel_id";
+
+  const hasKnownIndividualSuffix = jid.includes("@s.whatsapp.net") || jid.includes("@c.us");
+  const hasUnsupportedSuffix = jid.includes("@") && !hasKnownIndividualSuffix;
+  if (hasUnsupportedSuffix) return "unsupported_chat_jid";
+
+  if (numeric.length < 12 || numeric.length > 15) return "invalid_customer_phone";
+
+  return null;
+}
+
 export function normalizeEvolutionMessage(input: EvolutionWebhookInput): NormalizedInboundMessage | null {
+  if (getIgnorableChatReason(input.data.key.remoteJid)) {
+    return null;
+  }
+
   const extracted = extractMessage(input.data.message);
   const text = extracted.text;
   const marketing = extractMarketingAttribution(input, text);

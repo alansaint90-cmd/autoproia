@@ -4,7 +4,7 @@ import { processBufferedConversation, registerInboundMessage } from "@/lib/servi
 import { getMessageBufferWindowMs } from "@/lib/services/message-buffer";
 import { logSystemEvent } from "@/lib/services/system-event-log-service";
 import { evolutionWebhookSchema } from "@/lib/validators/evolution";
-import { normalizeEvolutionMessage } from "@/lib/whatsapp/normalizer";
+import { getIgnorableChatReason, normalizeEvolutionMessage } from "@/lib/whatsapp/normalizer";
 
 export const runtime = "nodejs";
 
@@ -76,6 +76,16 @@ export async function POST(request: NextRequest) {
       metadata: parsed.error.flatten()
     });
     return NextResponse.json({ error: "Payload invalido.", issues: parsed.error.flatten() }, { status: 400 });
+  }
+
+  const ignoredChatReason = getIgnorableChatReason(parsed.data.data.key.remoteJid);
+  if (ignoredChatReason) {
+    console.info("[evolution-webhook] ignored non individual chat", {
+      reason: ignoredChatReason,
+      remoteJid: maskJid(parsed.data.data.key.remoteJid),
+      messageType: parsed.data.data.messageType
+    });
+    return NextResponse.json({ ignored: true, reason: ignoredChatReason });
   }
 
   const inbound = normalizeEvolutionMessage(parsed.data);
@@ -155,6 +165,12 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function maskJid(value: string) {
+  const [id, suffix] = value.split("@");
+  const maskedId = id.replace(/\d(?=\d{4})/g, "*");
+  return suffix ? `${maskedId}@${suffix}` : maskedId;
 }
 
 function getWebhookSecret(request: NextRequest) {
