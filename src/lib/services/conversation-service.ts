@@ -11,6 +11,8 @@ import { classifyCommercialSignal, type CommercialSignal } from "@/lib/services/
 import { createCrmNotification } from "@/lib/services/crm-notification-service";
 import { fetchWhatsAppProfilePicture, normalizeEvolutionSendResults, sanitizeWhatsAppText, sendWhatsAppText } from "@/lib/services/evolution-api";
 import { moveLeadStage, moveLeadStageIfOpen, type FunnelStage } from "@/lib/services/funnel-stage-service";
+import { describeInboundImage, type ImageDescriptionResult } from "@/lib/services/image-description-service";
+import { processAndStoreInboundMedia, type InboundMediaProcessingResult } from "@/lib/services/inbound-media-service";
 import { analyzeAndSavePaymentReceipt, isPotentialPixReceipt } from "@/lib/services/payment-receipt-service";
 import {
   pauseLeadFollowUp,
@@ -28,6 +30,7 @@ import {
   shouldProcessBuffer
 } from "@/lib/services/message-buffer";
 import { publishRealtimeEvent } from "@/lib/services/realtime";
+import { logSystemEvent } from "@/lib/services/system-event-log-service";
 import type { NormalizedInboundMessage } from "@/lib/whatsapp/normalizer";
 
 export async function registerInboundMessage(input: NormalizedInboundMessage) {
@@ -46,6 +49,7 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
   const inbound = mediaProcessing.textForAi
     ? { ...input, text: mediaProcessing.textForAi }
     : input;
+  const inboundMedia = mediaProcessing.media?.media ?? inbound.media;
 
   let leadSignal = classifyLeadSignal(inbound.text);
   const lead = await upsertLead(inbound, leadSignal);
@@ -167,12 +171,15 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
         leadSignal: serializeLeadSignalForMetadata(leadSignal),
         triage,
         messageType: inbound.messageType,
-        media: inbound.media
+        media: inboundMedia
           ? {
-            ...inbound.media,
+            ...inboundMedia,
             transcription: mediaProcessing.audioTranscription?.text || undefined,
             transcriptionStatus: mediaProcessing.audioTranscription?.status,
-            transcriptionReason: mediaProcessing.audioTranscription?.reason
+            transcriptionReason: mediaProcessing.audioTranscription?.reason,
+            description: mediaProcessing.imageDescription?.text || undefined,
+            descriptionStatus: mediaProcessing.imageDescription?.status,
+            descriptionReason: mediaProcessing.imageDescription?.reason
           }
           : undefined,
         originalContent: mediaProcessing.originalText !== inbound.text ? mediaProcessing.originalText : undefined
@@ -196,6 +203,15 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
   if (!message) {
     throw new Error("Nao foi possivel registrar a mensagem recebida.");
   }
+
+  await logInboundMediaProcessingIssues({
+    leadId: lead.id,
+    conversationId: conversation.id,
+    messageId: message.id,
+    media: inboundMedia,
+    audioTranscription: mediaProcessing.audioTranscription,
+    imageDescription: mediaProcessing.imageDescription
+  });
 
   await db
     .update(conversations)
@@ -291,37 +307,150 @@ export async function registerInboundMessage(input: NormalizedInboundMessage) {
   return { lead, conversation, message, duplicated: false };
 }
 
+async function logInboundMediaProcessingIssues(input: {
+  leadId: string;
+  conversationId: string;
+  messageId: string;
+  media?: NormalizedInboundMessage["media"] & {
+    storageStatus?: string;
+    storageError?: string;
+  };
+  audioTranscription?: AudioTranscriptionResult;
+  imageDescription?: ImageDescriptionResult;
+}) {
+  if (!input.media) return;
+
+  const events: Array<{ event: string; message: string; metadata: Record<string, unknown> }> = [];
+  if (input.media.storageStatus && input.media.storageStatus !== "stored") {
+    events.push({
+      event: "media_storage_unavailable",
+      message: "Midia recebida registrada, mas o arquivo nao foi armazenado no MinIO.",
+      metadata: {
+        mediaType: input.media.type,
+        storageStatus: input.media.storageStatus,
+        storageError: input.media.storageError
+      }
+    });
+  }
+
+  if (input.audioTranscription && input.audioTranscription.status !== "transcribed") {
+    events.push({
+      event: "audio_transcription_unavailable",
+      message: "Audio recebido registrado, mas a transcricao automatica nao ficou disponivel.",
+      metadata: {
+        transcriptionStatus: input.audioTranscription.status,
+        transcriptionReason: input.audioTranscription.reason
+      }
+    });
+  }
+
+  if (input.imageDescription && input.imageDescription.status !== "described") {
+    events.push({
+      event: "image_description_unavailable",
+      message: "Imagem recebida registrada, mas a descricao automatica nao ficou disponivel.",
+      metadata: {
+        descriptionStatus: input.imageDescription.status,
+        descriptionReason: input.imageDescription.reason
+      }
+    });
+  }
+
+  await Promise.all(events.map((event) => logSystemEvent({
+    source: "media-processing",
+    event: event.event,
+    severity: "warning",
+    message: event.message,
+    leadId: input.leadId,
+    conversationId: input.conversationId,
+    metadata: {
+      ...event.metadata,
+      messageId: input.messageId
+    }
+  })));
+}
+
 async function processInboundMedia(input: NormalizedInboundMessage): Promise<{
   originalText: string;
   textForAi?: string;
   audioTranscription?: AudioTranscriptionResult;
+  imageDescription?: ImageDescriptionResult;
+  media?: InboundMediaProcessingResult;
 }> {
-  if (input.fromMe || input.media?.type !== "audio") {
+  if (input.fromMe || !input.media) {
     return { originalText: input.text };
   }
 
-  const audioTranscription = await transcribeInboundAudio(input.media, {
+  const media: InboundMediaProcessingResult = await processAndStoreInboundMedia(input.media, {
     remoteJid: input.externalChatId,
     messageId: input.externalMessageId,
     fromMe: input.fromMe
-  });
-  if (audioTranscription.status === "transcribed") {
+  }).catch((error): InboundMediaProcessingResult => ({
+    media: {
+      ...input.media!,
+      storageStatus: "error" as const,
+      storageError: error instanceof Error ? error.message : "Falha ao processar midia recebida."
+    }
+  }));
+
+  if (input.media.type === "audio") {
+    const transcriptionInput = media.buffer
+      ? {
+        ...input.media,
+        mimeType: media.media.mimeType ?? input.media.mimeType,
+        base64: media.buffer.toString("base64")
+      }
+      : input.media;
+    const audioTranscription = await transcribeInboundAudio(transcriptionInput, {
+      remoteJid: input.externalChatId,
+      messageId: input.externalMessageId,
+      fromMe: input.fromMe
+    });
+    if (audioTranscription.status === "transcribed") {
+      return {
+        originalText: input.text,
+        textForAi: `Audio transcrito do cliente: ${audioTranscription.text}`,
+        audioTranscription,
+        media
+      };
+    }
+
     return {
       originalText: input.text,
-      textForAi: `Audio transcrito do cliente: ${audioTranscription.text}`,
-      audioTranscription
+      textForAi: [
+        "Cliente enviou um audio, mas nao foi possivel transcrever automaticamente.",
+        "Nao invente o conteudo do audio.",
+        "Peca para o cliente enviar a informacao por texto ou acione atendimento humano se for necessario."
+      ].join(" "),
+      audioTranscription,
+      media
     };
   }
 
-  return {
-    originalText: input.text,
-    textForAi: [
-      "Cliente enviou um audio, mas nao foi possivel transcrever automaticamente.",
-      "Nao invente o conteudo do audio.",
-      "Peca para o cliente enviar a informacao por texto ou acione atendimento humano se for necessario."
-    ].join(" "),
-    audioTranscription
-  };
+  if (input.media.type === "image") {
+    const imageDescription = await describeInboundImage({
+      dataUrl: media.media.dataUrl,
+      caption: input.media.caption,
+      messageId: input.externalMessageId
+    });
+    if (imageDescription.status === "described") {
+      return {
+        originalText: input.text,
+        textForAi: input.media.caption
+          ? `${input.media.caption}\nImagem recebida: ${imageDescription.text}`
+          : `Imagem recebida: ${imageDescription.text}`,
+        imageDescription,
+        media
+      };
+    }
+
+    return {
+      originalText: input.text,
+      imageDescription,
+      media
+    };
+  }
+
+  return { originalText: input.text, media };
 }
 
 async function ensureSystemUser() {

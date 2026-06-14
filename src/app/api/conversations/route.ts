@@ -208,7 +208,7 @@ export async function GET(request: NextRequest) {
           time: formatTime(message.created_at),
           senderName: metadataString(message.metadata, "sender"),
           senderRole: metadataString(message.metadata, "senderRole"),
-          media: normalizeMessageMedia(message.metadata)
+          media: normalizeMessageMedia(message.metadata, message.id)
         })),
         initials: initialsFromName(name)
       };
@@ -223,7 +223,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function normalizeMessageMedia(metadata: Record<string, unknown> | null | undefined) {
+function normalizeMessageMedia(metadata: Record<string, unknown> | null | undefined, messageId: string) {
   const media = metadata && typeof metadata === "object" && typeof metadata.media === "object" && metadata.media !== null
     ? metadata.media as Record<string, unknown>
     : metadata && typeof metadata === "object" && typeof metadata.attachment === "object" && metadata.attachment !== null
@@ -237,8 +237,12 @@ function normalizeMessageMedia(metadata: Record<string, unknown> | null | undefi
 
   const mimeType = typeof media.mimeType === "string" ? media.mimeType : undefined;
   const base64 = typeof media.base64 === "string" ? media.base64 : undefined;
-  const dataUrl = base64 ? toDataUrl(base64, mimeType) : undefined;
-  const sourceUrl = typeof media.url === "string" ? media.url : undefined;
+  const dataUrl = typeof media.dataUrl === "string" ? media.dataUrl : base64 ? toDataUrl(base64, mimeType) : undefined;
+  const hasStoredMedia = typeof media.storageKey === "string" && media.storageKey.trim().length > 0;
+  const hasInlineMedia = Boolean(dataUrl);
+  const sourceUrl = hasStoredMedia || hasInlineMedia
+    ? `/api/media/${messageId}`
+    : typeof media.url === "string" ? media.url : undefined;
 
   return {
     type,
@@ -248,7 +252,11 @@ function normalizeMessageMedia(metadata: Record<string, unknown> | null | undefi
     mimeType,
     caption: typeof media.caption === "string" ? media.caption : undefined,
     transcription: typeof media.transcription === "string" ? media.transcription : undefined,
-    transcriptionStatus: typeof media.transcriptionStatus === "string" ? media.transcriptionStatus : undefined
+    transcriptionStatus: typeof media.transcriptionStatus === "string" ? media.transcriptionStatus : undefined,
+    description: typeof media.description === "string" ? media.description : undefined,
+    descriptionStatus: typeof media.descriptionStatus === "string" ? media.descriptionStatus : undefined,
+    storageStatus: typeof media.storageStatus === "string" ? media.storageStatus : undefined,
+    durationSeconds: typeof media.durationSeconds === "number" ? media.durationSeconds : undefined
   };
 }
 

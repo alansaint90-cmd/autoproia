@@ -28,6 +28,7 @@ export type NormalizedInboundMessage = {
     mimeType?: string;
     url?: string;
     base64?: string;
+    durationSeconds?: number;
   };
   fromMe: boolean;
 };
@@ -113,7 +114,8 @@ function extractMessage(message: Record<string, unknown> | undefined): Pick<Norm
         type: "audio",
         mimeType: getString(audio.mimetype) ?? getString(audio.mimeType),
         url: getMediaUrl(audio),
-        base64: getMediaBase64(audio)
+        base64: getMediaBase64(audio),
+        durationSeconds: getNumber(audio.seconds) ?? getNumber(audio.duration)
       }
     };
   }
@@ -128,7 +130,8 @@ function extractMessage(message: Record<string, unknown> | undefined): Pick<Norm
         caption,
         mimeType: getString(video.mimetype) ?? getString(video.mimeType),
         url: getMediaUrl(video),
-        base64: getMediaBase64(video)
+        base64: getMediaBase64(video),
+        durationSeconds: getNumber(video.seconds) ?? getNumber(video.duration)
       }
     };
   }
@@ -174,6 +177,12 @@ function unwrapMessage(message: Record<string, unknown>) {
 
 function getString(value: unknown) {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function getNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) return Number(value);
+  return undefined;
 }
 
 function getMediaUrl(message: Record<string, unknown>) {

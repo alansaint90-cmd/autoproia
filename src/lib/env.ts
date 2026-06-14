@@ -30,6 +30,18 @@ const envSchema = z.object({
   EVOLUTION_WEBHOOK_SECRET: optionalString,
   NOTIFICATION_WHATSAPP_NUMBERS: optionalString,
   SUPPORT_WHATSAPP_NUMBER: optionalString,
+  MINIO_ENDPOINT: optionalString,
+  MINIO_ACCESS_KEY: optionalString,
+  MINIO_SECRET_KEY: optionalString,
+  MINIO_BUCKET: z.string().default("autoproia-media"),
+  MINIO_REGION: z.string().default("us-east-1"),
+  MINIO_USE_SSL: z.preprocess(
+    (value) => {
+      if (typeof value === "string") return value === "true" || value === "1";
+      return value;
+    },
+    z.boolean().default(true)
+  ),
   SUPABASE_URL: optionalUrl,
   SUPABASE_SERVICE_ROLE_KEY: optionalString,
   SUPABASE_REALTIME_CHANNEL: z.string().default("conversations"),
@@ -60,6 +72,12 @@ function readEnv() {
     EVOLUTION_WEBHOOK_SECRET: process.env.EVOLUTION_WEBHOOK_SECRET,
     NOTIFICATION_WHATSAPP_NUMBERS: process.env.NOTIFICATION_WHATSAPP_NUMBERS,
     SUPPORT_WHATSAPP_NUMBER: process.env.SUPPORT_WHATSAPP_NUMBER,
+    MINIO_ENDPOINT: process.env.MINIO_ENDPOINT,
+    MINIO_ACCESS_KEY: process.env.MINIO_ACCESS_KEY,
+    MINIO_SECRET_KEY: process.env.MINIO_SECRET_KEY,
+    MINIO_BUCKET: process.env.MINIO_BUCKET,
+    MINIO_REGION: process.env.MINIO_REGION,
+    MINIO_USE_SSL: process.env.MINIO_USE_SSL,
     SUPABASE_URL: process.env.SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
     SUPABASE_REALTIME_CHANNEL: process.env.SUPABASE_REALTIME_CHANNEL,

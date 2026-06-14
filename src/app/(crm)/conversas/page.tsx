@@ -268,14 +268,25 @@ function messageTextForDisplay(message: Conversation["messages"][number]) {
   const text = message.text.trim();
   if (!message.media) return text;
 
-  if (message.media.type === "image" && /^\[imagem recebida\]$/i.test(text)) return "";
-  if (message.media.type === "video" && /^\[video recebido\]$/i.test(text)) return "";
+  if (message.media.type === "image" && /^\[imagem recebida\]$/i.test(text)) {
+    return message.media.description || message.media.caption || "";
+  }
+  if (message.media.type === "video" && /^\[video recebido\]$/i.test(text)) {
+    return message.media.caption || "";
+  }
   if (message.media.type === "document" && /^\[documento recebido/i.test(text)) return "";
   if (message.media.type === "audio") {
     return message.media.transcription || text.replace(/^audio transcrito do cliente:\s*/i, "");
   }
 
   return text;
+}
+
+function formatMediaDuration(seconds?: number) {
+  if (!seconds || !Number.isFinite(seconds) || seconds <= 0) return "";
+  const minutes = Math.floor(seconds / 60);
+  const rest = Math.round(seconds % 60).toString().padStart(2, "0");
+  return `${minutes}:${rest}`;
 }
 
 function ChatMediaAttachment({ message }: { message: Conversation["messages"][number] }) {
@@ -317,6 +328,11 @@ function ChatMediaAttachment({ message }: { message: Conversation["messages"][nu
         <div className="mb-2 flex items-center gap-2 text-xs font-bold text-primary">
           <Music2 className="size-4" />
           Audio do cliente
+          {media.durationSeconds ? (
+            <span className="rounded-full bg-white/8 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              {formatMediaDuration(media.durationSeconds)}
+            </span>
+          ) : null}
         </div>
         {source ? (
           <audio controls preload="metadata" src={source} className="w-full" />

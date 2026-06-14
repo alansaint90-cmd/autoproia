@@ -81,6 +81,10 @@ export type Message = {
     caption?: string;
     transcription?: string;
     transcriptionStatus?: string;
+    description?: string;
+    descriptionStatus?: string;
+    storageStatus?: string;
+    durationSeconds?: number;
   };
 };
 
