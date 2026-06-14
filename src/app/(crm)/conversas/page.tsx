@@ -268,8 +268,13 @@ function messageTextForDisplay(message: Conversation["messages"][number]) {
   const text = message.text.trim();
   if (!message.media) return text;
 
-  if (message.media.type === "image" && /^\[imagem recebida\]$/i.test(text)) {
-    return message.media.description || message.media.caption || "";
+  if (message.media.type === "image") {
+    const caption = message.media.caption?.trim() || "";
+    const description = message.media.description?.trim() || "";
+
+    if (/^\[imagem recebida\]$/i.test(text)) return caption;
+    if (/^imagem recebida:/i.test(text)) return caption;
+    if (description && text.includes(description)) return caption;
   }
   if (message.media.type === "video" && /^\[video recebido\]$/i.test(text)) {
     return message.media.caption || "";
