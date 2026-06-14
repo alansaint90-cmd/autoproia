@@ -167,11 +167,7 @@ const closingChanceByTemperature: Record<Conversation["lead"]["temperature"], nu
   urgente: 91
 };
 
-const aiSuggestion = {
-  hint: "Pergunte o melhor horario antes de falar de desconto.",
-  message:
-    "Perfeito. Para eu te passar uma proposta mais certinha, qual horario fica melhor para voce fazer as aulas teoricas: manha, tarde ou noite?"
-};
+const defaultAiSuggestionHint = "Clique para a IA ler a conversa e criar uma sugestao contextual para revisar antes de enviar.";
 
 const operationalTimeline = [
   { title: "IA qualificou o interesse", detail: "CNH B, periodo noturno", time: "agora", icon: Bot },
@@ -544,6 +540,8 @@ export default function ConversasPage() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingMessageText, setEditingMessageText] = useState("");
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
+  const [isGeneratingSuggestion, setIsGeneratingSuggestion] = useState(false);
+  const [aiSuggestionHint, setAiSuggestionHint] = useState(defaultAiSuggestionHint);
   const [replyFeedback, setReplyFeedback] = useState("");
   const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
   const draftTextareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -1231,6 +1229,36 @@ export default function ConversasPage() {
   function applyQuickReply(reply: QuickReply) {
     setDraftMessage(reply.message);
     setDraftAttachment(reply.attachment);
+  }
+
+  async function generateContextualAiSuggestion() {
+    if (!active || isGeneratingSuggestion) return;
+
+    setIsGeneratingSuggestion(true);
+    setAiSuggestionHint("A IA esta lendo a conversa e preparando uma sugestao...");
+
+    try {
+      const response = await fetch("/api/conversations/suggestion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: active.lead.id })
+      });
+      const payload = await response.json().catch(() => ({})) as { suggestion?: string; error?: string };
+
+      if (!response.ok || !payload.suggestion) {
+        throw new Error(payload.error || "Nao foi possivel gerar sugestao da IA.");
+      }
+
+      setDraftMessage(payload.suggestion);
+      setAiSuggestionHint(payload.suggestion);
+      window.setTimeout(() => draftTextareaRef.current?.focus(), 50);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nao foi possivel gerar sugestao da IA.";
+      setAiSuggestionHint(message);
+      window.alert(message);
+    } finally {
+      setIsGeneratingSuggestion(false);
+    }
   }
 
   function uploadReplyAttachment(file?: File) {
@@ -2019,23 +2047,22 @@ export default function ConversasPage() {
 
           <div className="border-t border-white/[0.06] bg-[#080808] p-4 backdrop-blur-xl">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              {[aiSuggestion].map((suggestion) => (
-                <button
-                  key={suggestion.hint}
-                  onClick={() => setDraftMessage(suggestion.message)}
-                  className="group/ai-hint relative inline-flex shrink-0 items-center gap-2 overflow-visible rounded-full border border-[#0B5FA5]/40 bg-[#0B5FA5]/18 px-3 py-1.5 text-xs font-black text-blue-100 shadow-[0_0_18px_rgba(11,95,165,0.14)] transition hover:-translate-y-0.5 hover:border-[#0B5FA5]/70 hover:bg-[#0B5FA5]/24"
-                  title="Clique para inserir a mensagem sugerida no campo do chat."
-                >
-                  <WandSparkles className="size-3.5 text-blue-200" />
-                  Sugestao de IA
-                  <span className="pointer-events-none absolute bottom-full left-0 z-40 mb-2 w-[min(420px,calc(100vw-2rem))] translate-y-1 rounded-2xl border border-[#0B5FA5]/28 bg-[#07111f]/98 p-3 text-left text-xs font-semibold leading-5 text-blue-50 opacity-0 shadow-[0_22px_60px_rgba(0,0,0,0.45),0_0_24px_rgba(11,95,165,0.12)] backdrop-blur-xl transition-all duration-200 group-hover/ai-hint:translate-y-0 group-hover/ai-hint:opacity-100">
-                    <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.16em] text-blue-200">
-                      Sugestao atual
-                    </span>
-                    {suggestion.hint}
+              <button
+                type="button"
+                onClick={() => void generateContextualAiSuggestion()}
+                disabled={!active || isGeneratingSuggestion}
+                className="group/ai-hint relative inline-flex shrink-0 items-center gap-2 overflow-visible rounded-full border border-[#0B5FA5]/40 bg-[#0B5FA5]/18 px-3 py-1.5 text-xs font-black text-blue-100 shadow-[0_0_18px_rgba(11,95,165,0.14)] transition hover:-translate-y-0.5 hover:border-[#0B5FA5]/70 hover:bg-[#0B5FA5]/24 disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0"
+                title="Clique para a IA ler a conversa e preencher uma mensagem sugerida."
+              >
+                {isGeneratingSuggestion ? <Clock3 className="size-3.5 animate-spin text-blue-200" /> : <WandSparkles className="size-3.5 text-blue-200" />}
+                {isGeneratingSuggestion ? "Gerando..." : "Sugestao de IA"}
+                <span className="pointer-events-none absolute bottom-full left-0 z-40 mb-2 w-[min(420px,calc(100vw-2rem))] translate-y-1 rounded-2xl border border-[#0B5FA5]/28 bg-[#07111f]/98 p-3 text-left text-xs font-semibold leading-5 text-blue-50 opacity-0 shadow-[0_22px_60px_rgba(0,0,0,0.45),0_0_24px_rgba(11,95,165,0.12)] backdrop-blur-xl transition-all duration-200 group-hover/ai-hint:translate-y-0 group-hover/ai-hint:opacity-100">
+                  <span className="mb-1 block text-[10px] font-black uppercase tracking-[0.16em] text-blue-200">
+                    Sugestao contextual
                   </span>
-                </button>
-              ))}
+                  {aiSuggestionHint}
+                </span>
+              </button>
 
               <div className="flex items-center gap-2">
                 {replyFeedback ? (

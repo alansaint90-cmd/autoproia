@@ -116,6 +116,52 @@ export async function generateAiReply(input: GenerateAiReplyInput): Promise<AiRe
   };
 }
 
+export async function generateAiManualSuggestion(input: GenerateAiReplyInput): Promise<AiReplyResult> {
+  console.info("[ai-agent] manual suggestion request started", { model: env.OPENAI_MODEL, messages: input.messages.length });
+  const businessSettings = await getAiBusinessSettings();
+  const systemPrompt = buildSystemPrompt(businessSettings);
+
+  const conversationText = input.messages
+    .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
+    .join("\n");
+
+  const { text } = await generateText({
+    model: openai(env.OPENAI_MODEL),
+    system: systemPrompt,
+    prompt: [
+      input.leadName ? `Nome do lead: ${input.leadName}` : "",
+      input.contextSummary ? `Resumo anterior: ${input.contextSummary}` : "",
+      "Conversa recente:",
+      conversationText,
+      [
+        "Crie UMA sugestao de mensagem para o atendente enviar agora no WhatsApp.",
+        "A mensagem deve usar o contexto real da conversa e conduzir o lead para a matricula.",
+        "Nao envie saudacao generica se a conversa ja estiver em andamento.",
+        "Nao repita pergunta ja respondida.",
+        "Nao invente preco, desconto, prazo ou informacao que nao esteja no contexto dinamico.",
+        "Se o lead pediu desconto, condicao especial, Pix, comprovante ou pagamento, sugira chamar/encaminhar para atendente humano.",
+        "Retorne apenas o texto da mensagem, sem titulo, sem aspas e sem explicacoes.",
+        "Nao use |||SPLIT|||."
+      ].join(" ")
+    ].filter(Boolean).join("\n")
+  });
+
+  const sanitizedText = sanitizeAiOutput(text).replace(/\s*\|{3}\s*SPLIT\s*\|{3}\s*/gi, "\n\n").trim();
+  const safety = validateCommercialFacts(sanitizedText, businessSettings);
+
+  if (safety.status === "blocked") {
+    return {
+      text: "Vou confirmar esse detalhe com uma atendente para te passar a informacao correta e seguir com seguranca.",
+      safety
+    };
+  }
+
+  return {
+    text: sanitizedText,
+    safety
+  };
+}
+
 export async function generateAiFollowUp(input: GenerateFollowUpInput) {
   console.info("[ai-agent] follow-up request started", {
     model: env.OPENAI_MODEL,
