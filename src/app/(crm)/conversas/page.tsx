@@ -602,6 +602,7 @@ export default function ConversasPage() {
   const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [aiAgentName, setAiAgentName] = useState("Camila");
+  const [showQuickTools, setShowQuickTools] = useState(false);
   const draftTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -2137,6 +2138,22 @@ export default function ConversasPage() {
           </div>
 
           <div className="border-t border-white/[0.06] bg-[#080808] p-4 backdrop-blur-xl">
+            <div className="mb-2">
+              <button
+                type="button"
+                onClick={() => setShowQuickTools((value) => !value)}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs font-bold text-white/70 transition hover:border-primary/35 hover:bg-primary/10 hover:text-primary",
+                  showQuickTools && "border-primary/40 bg-primary/10 text-primary"
+                )}
+                aria-expanded={showQuickTools}
+              >
+                Respostas rapidas
+                <ChevronDown className={cn("size-3.5 transition-transform", showQuickTools && "rotate-180")} />
+              </button>
+            </div>
+            {showQuickTools ? (
+            <div className="animate-in fade-in slide-in-from-bottom-1 duration-200">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
@@ -2204,6 +2221,8 @@ export default function ConversasPage() {
                 </div>
               ))}
             </div>
+            </div>
+            ) : null}
             {draftAttachment ? (
               <div className="mb-2 flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">
                 <span className="inline-flex min-w-0 items-center gap-2">
