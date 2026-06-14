@@ -446,7 +446,10 @@ export default function ConversasPage() {
   const [replyFeedback, setReplyFeedback] = useState("");
   const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
   const draftTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const activeIdRef = useRef("");
+  const lastScrolledLeadIdRef = useRef("");
   const initialUrlSelectionAppliedRef = useRef(false);
   const filteredConversations = useMemo(() => {
     const normalized = conversationQuery.trim().toLowerCase();
@@ -492,10 +495,28 @@ export default function ConversasPage() {
   const archivedCount = archivedConversationIds.length;
   const mutedCount = mutedConversationIds.filter((id) => !archivedConversationIds.includes(id)).length;
   const activeConversationId = active ? (active as Conversation & { id?: string }).id : undefined;
+  const activeMessageSignature = active
+    ? `${active.lead.id}:${active.messages.length}:${active.messages.at(-1)?.id ?? ""}`
+    : "";
 
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
+
+  useEffect(() => {
+    if (!active) return;
+
+    const behavior: ScrollBehavior = lastScrolledLeadIdRef.current === active.lead.id ? "smooth" : "auto";
+    lastScrolledLeadIdRef.current = active.lead.id;
+
+    window.requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
+
+      if (chatScrollRef.current) {
+        chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+      }
+    });
+  }, [active, activeId, activeMessageSignature]);
 
   useEffect(() => {
     if (!conversationQuery.trim() || filteredConversations.length === 0) {
@@ -1791,7 +1812,7 @@ export default function ConversasPage() {
             </div>
           </div>
 
-          <div className="whatsapp-chat-bg flex-1 overflow-y-auto p-4 scrollbar-thin">
+          <div ref={chatScrollRef} className="whatsapp-chat-bg flex-1 overflow-y-auto p-4 scrollbar-thin">
             <div className="flex w-full flex-col space-y-4">
             {active.messages.map((message) => {
               const isCompany = message.from !== "lead";
@@ -1875,6 +1896,7 @@ export default function ConversasPage() {
                 </div>
               );
             })}
+              <div ref={messagesEndRef} aria-hidden="true" />
             </div>
           </div>
 
