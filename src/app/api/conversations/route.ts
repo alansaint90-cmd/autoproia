@@ -69,6 +69,11 @@ function initialsFromName(name: string) {
     .toUpperCase();
 }
 
+function metadataString(metadata: Record<string, unknown> | null | undefined, key: string) {
+  const value = metadata?.[key];
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
 function normalizePipelineStage(stage: string | null | undefined) {
   const value = stage ?? "novo";
   if (value === "qualificado" || value === "orcamento") return "atendimento";
@@ -201,6 +206,8 @@ export async function GET(request: NextRequest) {
           from: message.role === "ai" ? "ia" : message.role === "human" ? "human" : "lead",
           text: message.content,
           time: formatTime(message.created_at),
+          senderName: metadataString(message.metadata, "sender"),
+          senderRole: metadataString(message.metadata, "senderRole"),
           media: normalizeMessageMedia(message.metadata)
         })),
         initials: initialsFromName(name)

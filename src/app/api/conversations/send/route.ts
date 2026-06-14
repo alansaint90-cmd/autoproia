@@ -110,6 +110,7 @@ export async function POST(request: NextRequest) {
           source: "manual",
           userId: session.userId,
           sender: session.name,
+          senderRole: session.role,
           attachment: attachment ? { name: attachment.name, type: attachment.type } : null,
           evolutionMessageKeys: evolutionResults.map((result) => result.key).filter(Boolean)
         })}::jsonb,
@@ -149,6 +150,8 @@ export async function POST(request: NextRequest) {
       from: "human" as const,
       text: messageContent,
       time: createdMessage?.created_at ? formatMessageTime(createdMessage.created_at) : "agora",
+      senderName: session.name,
+      senderRole: session.role,
       media: attachment
         ? {
           type: attachment.type,

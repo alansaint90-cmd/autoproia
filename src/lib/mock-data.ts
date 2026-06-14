@@ -70,6 +70,8 @@ export type Message = {
   from: "lead" | "ia" | "human";
   text: string;
   time: string;
+  senderName?: string;
+  senderRole?: string;
   media?: {
     type: "audio" | "image" | "video" | "document";
     sourceUrl?: string;

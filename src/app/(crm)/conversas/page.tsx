@@ -70,6 +70,41 @@ type Conversation = (typeof conversations)[number] & {
   cleared?: boolean;
   status: "ai" | "human" | "paused" | "closed";
 };
+
+type CurrentUser = {
+  name: string;
+  role: string;
+};
+
+const roleLabelMap: Record<string, string> = {
+  super_admin: "Super Admin",
+  admin: "Administrador",
+  gerente: "Gerente",
+  atendente: "Atendente",
+  operador: "Operador",
+  visualizador: "Visualizador",
+  ia: "IA",
+  sdr: "Atendente",
+  closer: "Atendente",
+  bot: "IA"
+};
+
+function formatRoleLabel(role?: string) {
+  if (!role) return "";
+  return roleLabelMap[role] ?? role.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatHumanSender(message: Conversation["messages"][number], currentUser: CurrentUser | null) {
+  const name = message.senderName?.trim() || currentUser?.name?.trim() || "Atendente";
+  const role = formatRoleLabel(message.senderRole || currentUser?.role);
+  return role ? `${name} - ${role}` : name;
+}
+
+function formatAiSender(agentName: string) {
+  const name = agentName.trim() || "Camila";
+  return `${name} IA`;
+}
+
 type KanbanStoredLead = {
   id: string;
   name: string;
@@ -544,6 +579,8 @@ export default function ConversasPage() {
   const [aiSuggestionHint, setAiSuggestionHint] = useState(defaultAiSuggestionHint);
   const [replyFeedback, setReplyFeedback] = useState("");
   const [openConversationMenuId, setOpenConversationMenuId] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [aiAgentName, setAiAgentName] = useState("Camila");
   const draftTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -601,6 +638,39 @@ export default function ConversasPage() {
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadIdentity() {
+      const [meResponse, aiResponse] = await Promise.allSettled([
+        fetch("/api/auth/me", { cache: "no-store" }),
+        fetch("/api/settings/ai-agent", { cache: "no-store" })
+      ]);
+
+      if (!mounted) return;
+
+      if (meResponse.status === "fulfilled" && meResponse.value.ok) {
+        const data = await meResponse.value.json().catch(() => null) as { user?: CurrentUser } | null;
+        if (data?.user?.name && data.user.role) {
+          setCurrentUser({ name: data.user.name, role: data.user.role });
+        }
+      }
+
+      if (aiResponse.status === "fulfilled" && aiResponse.value.ok) {
+        const data = await aiResponse.value.json().catch(() => null) as { agentName?: string } | null;
+        if (data?.agentName?.trim()) {
+          setAiAgentName(data.agentName.trim());
+        }
+      }
+    }
+
+    void loadIdentity();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!active) return;
@@ -1988,12 +2058,12 @@ export default function ConversasPage() {
                     {message.from === "ia" ? (
                       <div className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
                         <Bot className="size-3" />
-                        IA Copiloto
+                        {formatAiSender(aiAgentName)}
                       </div>
                     ) : null}
                     {message.from === "human" ? (
                       <div className="mb-1.5 inline-flex rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-bold text-success">
-                        Atendente
+                        {formatHumanSender(message, currentUser)}
                       </div>
                     ) : null}
                     {isEditingMessage ? (
