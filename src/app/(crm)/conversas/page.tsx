@@ -648,7 +648,7 @@ export default function ConversasPage() {
   const isActiveMuted = active ? mutedConversationIds.includes(active.lead.id) : false;
   const hasTemporaryMessages = active ? temporaryMessageIds.includes(active.lead.id) : false;
   const hasAdvancedPrivacy = active ? privacyConversationIds.includes(active.lead.id) : false;
-  const currentAgent = "Carla Vendas";
+  const currentAgent = currentUser?.name?.trim() || "Atendente";
   const favoriteCount = availableConversations.filter((conversation, index) => favoriteConversationIds.includes(conversation.lead.id) || conversation.lead.temperature === "quente" || index === 0).length;
   const archivedCount = archivedConversationIds.length;
   const mutedCount = mutedConversationIds.filter((id) => !archivedConversationIds.includes(id)).length;
@@ -2143,12 +2143,13 @@ export default function ConversasPage() {
                 type="button"
                 onClick={() => setShowQuickTools((value) => !value)}
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs font-bold text-white/70 transition hover:border-primary/35 hover:bg-primary/10 hover:text-primary",
+                  "grid size-9 place-items-center rounded-full border border-white/10 bg-white/[0.035] text-white/70 transition hover:border-primary/35 hover:bg-primary/10 hover:text-primary",
                   showQuickTools && "border-primary/40 bg-primary/10 text-primary"
                 )}
                 aria-expanded={showQuickTools}
+                aria-label={showQuickTools ? "Recolher respostas rapidas" : "Abrir respostas rapidas"}
+                title={showQuickTools ? "Recolher respostas rapidas" : "Abrir respostas rapidas"}
               >
-                Respostas rapidas
                 <ChevronDown className={cn("size-3.5 transition-transform", showQuickTools && "rotate-180")} />
               </button>
             </div>
