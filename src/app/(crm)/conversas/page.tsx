@@ -589,6 +589,7 @@ export default function ConversasPage() {
   const [draftMessage, setDraftMessage] = useState("");
   const [draftAttachment, setDraftAttachment] = useState<QuickReplyAttachment | undefined>();
   const [isSendingDraft, setIsSendingDraft] = useState(false);
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [isChangingHandoff, setIsChangingHandoff] = useState(false);
   const [isFollowUpActionRunning, setIsFollowUpActionRunning] = useState(false);
   const [showLeadProfile, setShowLeadProfile] = useState(false);
@@ -604,6 +605,10 @@ export default function ConversasPage() {
   const [aiAgentName, setAiAgentName] = useState("Camila");
   const [showQuickTools, setShowQuickTools] = useState(false);
   const draftTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const genericFileInputRef = useRef<HTMLInputElement | null>(null);
+  const imageFileInputRef = useRef<HTMLInputElement | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const activeIdRef = useRef("");
@@ -660,6 +665,14 @@ export default function ConversasPage() {
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
+
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current?.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -1368,6 +1381,103 @@ export default function ConversasPage() {
       });
     };
     reader.readAsDataURL(file);
+  }
+
+  function uploadDraftAttachment(file?: File) {
+    if (!file) return;
+
+    const type = attachmentTypeFromMime(file.type);
+    if (!type) {
+      window.alert("Formato nao suportado. Envie audio, imagem ou video.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setDraftAttachment({
+        name: file.name,
+        type,
+        dataUrl: String(reader.result)
+      });
+      window.setTimeout(() => draftTextareaRef.current?.focus(), 50);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function handleDraftAttachmentChange(event: ChangeEvent<HTMLInputElement>) {
+    uploadDraftAttachment(event.target.files?.[0]);
+    event.target.value = "";
+  }
+
+  function insertEmoji() {
+    const emoji = "🙂";
+    const textarea = draftTextareaRef.current;
+    if (!textarea) {
+      setDraftMessage((value) => `${value}${emoji}`);
+      return;
+    }
+
+    const start = textarea.selectionStart ?? draftMessage.length;
+    const end = textarea.selectionEnd ?? draftMessage.length;
+    const nextMessage = `${draftMessage.slice(0, start)}${emoji}${draftMessage.slice(end)}`;
+    setDraftMessage(nextMessage);
+
+    window.requestAnimationFrame(() => {
+      textarea.focus();
+      const cursor = start + emoji.length;
+      textarea.setSelectionRange(cursor, cursor);
+    });
+  }
+
+  async function toggleAudioRecording() {
+    if (isRecordingAudio) {
+      mediaRecorderRef.current?.stop();
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      window.alert("Gravacao de audio nao esta disponivel neste navegador.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const mimeType = recorder.mimeType || "audio/webm";
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        stream.getTracks().forEach((track) => track.stop());
+        mediaRecorderRef.current = null;
+        setIsRecordingAudio(false);
+
+        if (!blob.size) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const extension = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "m4a" : "webm";
+          setDraftAttachment({
+            name: `audio-${new Date().toISOString().replace(/[:.]/g, "-")}.${extension}`,
+            type: "audio",
+            dataUrl: String(reader.result)
+          });
+        };
+        reader.readAsDataURL(blob);
+      };
+
+      recorder.start();
+      setIsRecordingAudio(true);
+    } catch {
+      window.alert("Nao foi possivel acessar o microfone. Verifique a permissao do navegador.");
+    }
   }
 
   function updateDraftMessage(event: ChangeEvent<HTMLTextAreaElement>) {
@@ -2242,8 +2352,28 @@ export default function ConversasPage() {
                 </button>
               </div>
             ) : null}
+            <input
+              ref={genericFileInputRef}
+              type="file"
+              accept="image/*,video/*,audio/*"
+              className="hidden"
+              onChange={handleDraftAttachmentChange}
+            />
+            <input
+              ref={imageFileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              className="hidden"
+              onChange={handleDraftAttachmentChange}
+            />
             <div className="flex min-h-14 items-end gap-4">
-              <button className="grid size-10 shrink-0 place-items-center text-white/90 transition hover:text-white">
+              <button
+                type="button"
+                onClick={() => genericFileInputRef.current?.click()}
+                className="grid size-10 shrink-0 place-items-center text-white/90 transition hover:text-white"
+                title="Anexar arquivo"
+                aria-label="Anexar imagem, video ou audio"
+              >
                 <Plus className="size-8 stroke-[1.8]" />
               </button>
               <div className="flex min-h-12 min-w-0 flex-1 items-end rounded-[24px] bg-[#242424] px-4 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
@@ -2261,21 +2391,37 @@ export default function ConversasPage() {
                   rows={1}
                   className="max-h-[72px] min-h-8 min-w-0 flex-1 resize-none overflow-y-auto bg-transparent py-1 text-sm leading-6 text-white outline-none placeholder:text-white/45 scrollbar-thin"
                 />
-                <button className="grid size-9 shrink-0 place-items-center text-white/90 transition hover:text-white">
+                <button
+                  type="button"
+                  onClick={insertEmoji}
+                  className="grid size-9 shrink-0 place-items-center text-white/90 transition hover:text-white"
+                  title="Inserir emoji"
+                  aria-label="Inserir emoji"
+                >
                   <Smile className="size-6 stroke-[1.8]" />
                 </button>
               </div>
-              <button className="grid size-10 shrink-0 place-items-center text-white/90 transition hover:text-white">
+              <button
+                type="button"
+                onClick={() => imageFileInputRef.current?.click()}
+                className="grid size-10 shrink-0 place-items-center text-white/90 transition hover:text-white"
+                title="Enviar foto ou video"
+                aria-label="Enviar foto ou video"
+              >
                 <Camera className="size-7 stroke-[1.8]" />
               </button>
               <button
                 type="button"
-                onClick={() => void sendDraftMessage()}
-                disabled={!canSendDraft || isSendingDraft}
-                className="grid size-10 shrink-0 place-items-center text-white/90 transition hover:text-white disabled:cursor-not-allowed disabled:text-white/35"
-                aria-label={canSendDraft ? "Enviar mensagem" : "Gravar audio"}
+                onClick={() => (isRecordingAudio ? void toggleAudioRecording() : canSendDraft ? void sendDraftMessage() : void toggleAudioRecording())}
+                disabled={isSendingDraft}
+                className={cn(
+                  "grid size-10 shrink-0 place-items-center text-white/90 transition hover:text-white disabled:cursor-not-allowed disabled:text-white/35",
+                  isRecordingAudio && "text-primary drop-shadow-[0_0_12px_rgba(250,204,21,0.45)]"
+                )}
+                aria-label={isRecordingAudio ? "Parar gravacao de audio" : canSendDraft ? "Enviar mensagem" : "Gravar audio"}
+                title={isRecordingAudio ? "Parar gravacao" : canSendDraft ? "Enviar mensagem" : "Gravar audio"}
               >
-                {canSendDraft ? <Send className="size-7 stroke-[1.8]" /> : <Mic className="size-8 stroke-[1.8]" />}
+                {canSendDraft && !isRecordingAudio ? <Send className="size-7 stroke-[1.8]" /> : <Mic className="size-8 stroke-[1.8]" />}
               </button>
             </div>
           </div>
